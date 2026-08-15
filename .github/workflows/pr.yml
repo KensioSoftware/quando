@@ -55,6 +55,10 @@ jobs:
       # only in the log.
       - run: pnpm lint:ci
       - run: pnpm fta
+      # quandojs.dev builds its pages out of docs/ here. A page that breaks its
+      # scaffold breaks it in that repo, at deploy time, long after the change
+      # responsible. Cheaper to find it on the pull request that wrote it.
+      - run: pnpm docs:check
 
   # One runtime, not a matrix. `engines` floors at Node 26 and .nvmrc develops
   # against 26, so "the floor" and "the version we develop against" are the

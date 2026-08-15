@@ -105,6 +105,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint:ci
       - run: pnpm fta
+      - run: pnpm docs:check
 
   # The same single runtime pr.yml proves, for the same reason: `engines` and
   # .nvmrc name the same Node, because `Temporal` is what sets the floor.

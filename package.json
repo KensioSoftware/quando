@@ -34,11 +34,12 @@
     "fmt": "oxlint --fix . && oxfmt .",
     "lint": "oxlint . && oxfmt --check .",
     "lint:ci": "oxlint --format=github . && oxfmt --check .",
+    "docs:check": "./scripts/sh/docs-check.sh",
     "fta": "./scripts/sh/fta.sh",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "pack:check": "./scripts/sh/pack-check.sh",
-    "check": "pnpm fmt && pnpm fta && pnpm build:check && pnpm pack:check && pnpm test:coverage"
+    "check": "pnpm fmt && pnpm docs:check && pnpm fta && pnpm build:check && pnpm pack:check && pnpm test:coverage"
   },
   "devDependencies": {
     "@kensio/smartass": "^1.33.0",
