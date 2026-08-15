@@ -196,9 +196,55 @@ cascade
 2
 ```
 
-It serialises to exactly the document the hand-written cascade would, so a
-schedule stored today can be read back and extended with the core tomorrow, or
-the other way round. There is no conversion step and no second format.
+It serialises to exactly the document the hand-written cascade would. There is
+no conversion step and no second format.
+
+Coming back is where this needs saying carefully, because the same trick that
+makes it work is what limits it. `JSON.stringify` omits methods — that is why a
+schedule serialises as clean data — so what `JSON.parse` hands back is the
+cascade, without `.isOpen` or anything else on it:
+
+```ts
+import { type Cascade, resolve, schedule, weekdays } from "@kensio/quando";
+
+const openingHours = schedule().open(weekdays(), "09:00-17:00");
+
+const stored = JSON.stringify(openingHours);
+const back = JSON.parse(stored) as Cascade<boolean>;
+
+console.log(JSON.stringify(back) === stored);
+
+const week = {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
+};
+for (const { start, end, value } of resolve(back, week)) {
+  console.log(
+    `${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}: ${value}`,
+  );
+}
+
+console.log("isOpen" in back);
+```
+
+```text
+true
+2026-03-09T09:00:00 → 2026-03-09T17:00:00: true
+false
+```
+
+So a stored schedule is read by `resolve` and by everything else that takes a
+cascade, and that is the whole of what it can be read by today. Two things
+follow, and neither is hidden anywhere else:
+
+- **Nothing checks it.** [`parseRule`](../serialisation/) reads rules, not
+  cascades, and there is no `parseCascade` yet — the `as` in that example is a
+  promise you are making, not one the library keeps. Validate at your own
+  boundary until there is one.
+- **There is no reviving it.** Nothing turns a cascade back into a `Schedule`,
+  so the methods are gone for good on that value. Keep the building code as the
+  source of truth if you want them, and treat the JSON as what you store and
+  resolve.
 
 ## The plain forms
 
