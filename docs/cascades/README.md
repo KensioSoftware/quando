@@ -8,6 +8,11 @@ That is what answers the questions a boolean schedule cannot. Who is on call.
 What the tariff is at three in the morning. Which hours apply on the one day
 they are different.
 
+> For the common shapes there is a plainer way to say all of this:
+> [schedules and rotas](../schedules/) puts domain words in front of everything
+> on this page. What it builds _is_ a cascade, so nothing here stops being true
+> — read this page when you need more than the words it gives you.
+
 ## Values live here, not on rules
 
 A rule stays boolean on purpose. If rules carried values then every combinator

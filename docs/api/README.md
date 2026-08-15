@@ -134,9 +134,45 @@ A rule from unknown JSON, or a `TypeError` naming what is wrong and where.
 `path` is the root name used in messages, and defaults to `"rule"`. See
 [serialisation](../serialisation/).
 
+## Schedules and rotas
+
+The domain layer over cascades: a `Schedule` is a `Cascade<boolean>` and a
+`Rota<V>` is a `Cascade<V>`, so everything below reads one. See
+[schedules and rotas](../schedules/).
+
+|                                                        |                                         |
+| ------------------------------------------------------ | --------------------------------------- |
+| `schedule(): Schedule`                                 | an empty schedule, open for nothing     |
+| `.open(scope: PlainRule, hours?: PlainRule): Schedule` | open during these times                 |
+| `.closed(scope: PlainRule): Schedule`                  | closed for the whole of these           |
+| `.on(day: PlainRule, hours: PlainRule): Schedule`      | on this day, these hours instead        |
+| `.isOpen(at): boolean`                                 | whether it is open at that moment       |
+| `.opensNext(at, within?): Interval \| undefined`       | the next stretch it is open             |
+| `.openBetween(from, to): Temporal.Duration`            | how long it is open between two moments |
+| `rota<V = never>(): Rota<V>`                           | an empty rota, nobody on                |
+| `.assign(scope: PlainRule, value: W): Rota<V \| W>`    | these times belong to this one          |
+| `.on(day: PlainRule, value: W): Rota<V \| W>`          | a swap                                  |
+| `.whoIsOn(at): V \| undefined`                         | who is on at that moment                |
+| `.shifts(from, to?): ValuedStream<V>`                  | each stretch and who has it             |
+
+`assign` and `on` take a `const` type parameter, so the value type accumulates
+as literals: two names in gives `"alice" | "bob" | undefined` out rather than
+`string`. Declare it — `rota<string>()` — when the values are not known up
+front.
+
+```ts
+type PlainRule = Rule | string;
+```
+
+A string is a `"09:00-17:00"` window where hours are expected, and a
+`"2026-03-11"` day where a scope is expected. Both are checked when written,
+unlike the rule layer, which checks when evaluated — these exist to be typed by
+hand. Anywhere a `PlainRule` is accepted, a `Rule` is accepted too.
+
 ## Cascades
 
-Ordered layers carrying values, resolved by precedence. See
+Ordered layers carrying values, resolved by precedence. What schedules and rotas
+are made of, and what to reach for when their vocabulary runs out. See
 [cascades](../cascades/).
 
 |                                                                       |                                                                              |

@@ -82,5 +82,13 @@ export type { ValuedStream } from "./valued-stream.js";
 
 export { resolve } from "./resolve.js";
 
+export type { PlainRule } from "./plain-forms.js";
+
+export type { Schedule } from "./schedule.js";
+export { schedule } from "./schedule.js";
+
+export type { Rota } from "./rota.js";
+export { rota } from "./rota.js";
+
 export type { Search } from "./query.js";
 export { activeAt, advanceBy, elapsed, next } from "./query.js";

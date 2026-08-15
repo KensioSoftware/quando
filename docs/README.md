@@ -66,8 +66,10 @@ const hours = weekdays().and(timeOfDay("09:00", "17:00"));
   against elapsed time across a clock change.
 - [Serialisation](serialisation/): the JSON form, and why an unknown field is an
   error rather than something to ignore.
-- [Cascades](cascades/): ordered layers carrying values, for the questions a
-  boolean schedule cannot answer.
+- [Schedules and rotas](schedules/): opening hours and who is on, in the words
+  usually used for them. The plainest way in for the common shapes.
+- [Cascades](cascades/): ordered layers carrying values — what schedules and
+  rotas are underneath, and what to reach for when their words run out.
 - [API](api/): everything the package exports.
 
 ## Planned
