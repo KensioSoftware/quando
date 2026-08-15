@@ -9,10 +9,16 @@ made on the site is a change that will be overwritten.
 
 ## Status
 
-Quando is in design. Nothing is published, and the only pages that exist yet are
-the ones describing the model, which is settled. Pages documenting an API are
-deliberately absent until there is an API: a documented function that does not
-exist is worse than an undocumented one that does.
+There is a package, and these pages document what is in it: the interval core,
+the rule language and its builder, the JSON boundary, and the four queries.
+Every example on them was run against the built package and its output pasted
+in.
+
+Cascades — layers carrying values — are designed and not built, and so are
+estimates, backward search over an unbounded past, and the command line. Pages
+about them are deliberately absent until there is something to call: a
+documented function that does not exist is worse than an undocumented one that
+does.
 
 ## How these pages work
 
@@ -41,26 +47,32 @@ The card looks like this:
 ````markdown
 <!-- card
 ```ts
-const hours = weekdays().and(at("09:00", "17:00"));
+const hours = weekdays().and(timeOfDay("09:00", "17:00"));
 ```
 -->
 ````
 
-## Concepts
+## The pages
 
-- [Concepts](concepts/): what a rule is, why it yields intervals rather than
-  answering yes or no, and how rules layer.
+- [Getting started](getting-started/): what you need, how to install it, and a
+  first query. Start here.
+- [Concepts](concepts/): what a rule is, and why it yields intervals rather than
+  answering yes or no. Worth reading once; everything else follows from it.
+- [Rules](rules/): every rule type there is, what each produces, and the two
+  behaviours that surprise people.
+- [Queries](queries/): `advanceBy`, `activeAt`, `elapsed` and `next`, and what
+  each does about a search that could run forever.
+- [Time zones](time-zones/): which zone a rule is read in, and wall clock
+  against elapsed time across a clock change.
+- [Serialisation](serialisation/): the JSON form, and why an unknown field is an
+  error rather than something to ignore.
+- [API](api/): everything the package exports.
 
 ## Planned
 
 Written when there is something true to say:
 
-- **Getting started** — install, first query. Needs a published package.
-- **Rules** — every built-in rule type.
 - **Cascades** — layering, precedence, overrides.
-- **Durations** — elapsed time that only counts during certain periods.
 - **Estimates** — ranges, distributions, and the questions they answer.
-- **Time zones and DST** — wall clock against exact time.
-- **Serialisation** — the JSON form, and custom rule types.
+- **Custom rule types** — the escape hatch, and the registry parsing needs.
 - **The command line** — every `quando` command.
-- **API** — everything the package exports.

@@ -7,10 +7,12 @@ That is a different question from the one a date library answers. `Temporal`
 tells you what a moment _is_ — what day it falls on, what it looks like in
 Tokyo, how far it is from another moment. Quando tells you _when something
 occurs_, given rules like "weekdays, nine to five, except bank holidays, and we
-close early on the fourteenth".
+close early on the eleventh".
 
-This page describes the model. Quando is still in design, so treat the code here
-as illustration rather than as an API you can call today.
+This page is the model rather than the API. [Rules](../rules/) and
+[queries](../queries/) are the API, and [getting started](../getting-started/)
+is the shortest way into it. Read this one when you want to know why any of that
+is shaped the way it is.
 
 ## A rule produces intervals, not answers
 
@@ -62,44 +64,76 @@ of intervals, these really are set operations:
 | `not` | complement — the times a rule does not hold |
 
 "Weekdays and nine to five" is an intersection. "Saturdays or bank holidays" is
-a union. "Not during the shutdown" is a complement.
+a union. "Not during the shutdown" is a complement. Those three, plus the rules
+that select time in the first place, are the whole language — see
+[rules](../rules/).
 
-## Layers, for exceptions
+## Overrides, and where the set operations strain
 
-Set operations are not enough, and the gap shows up the moment you have a real
-schedule.
+Set operations express a great deal, and exceptions are the shape you reach for
+most: opening hours _except_ holidays is `all(hours, not(holidays))`, common
+enough that `.except(…)` exists for it.
 
-Consider: weekdays nine to five, but on the fourteenth we close at three. That
-is not an intersection, a union, or a complement of the base rule — not unless
-you work out for yourself that the difference is the two hours between three and
-five, and write _that_. Which means you have to know the base hours in order to
-express the exception, and change the exception whenever the base changes.
+The strain shows with an override rather than an exception. Consider: weekdays
+nine to five, but on the eleventh we close at three. Said as sets, you have to
+carve the day out of the base rule and add it back with different hours:
 
-What you actually mean is: _on the fourteenth, ignore the usual hours and use
-these instead._ So rules stack in **layers**, like the rules in a stylesheet.
-Each layer says where it applies and what applies there, and the last layer to
-claim a moment wins:
+```ts
+import { dates, intervals, timeOfDay, weekdays } from "@kensio/quando";
+
+const closesEarly = dates("2026-03-11");
+
+const openingHours = weekdays()
+  .and(timeOfDay("09:00", "17:00"))
+  .except(closesEarly)
+  .or(closesEarly.and(timeOfDay("09:00", "15:00")));
+
+const week = {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-14T00:00[Europe/London]"),
+};
+
+for (const { start, end } of intervals(openingHours, week)) {
+  console.log(`${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}`);
+}
+```
 
 ```
-  1. weekdays 09:00–17:00        ← the usual hours
+2026-03-09T09:00:00 → 2026-03-09T17:00:00
+2026-03-10T09:00:00 → 2026-03-10T17:00:00
+2026-03-11T09:00:00 → 2026-03-11T15:00:00
+2026-03-12T09:00:00 → 2026-03-12T17:00:00
+2026-03-13T09:00:00 → 2026-03-13T17:00:00
+```
+
+That is the right answer, and it names the eleventh twice — once to remove it,
+once to put it back. What you meant was simpler: _on the eleventh, ignore the
+usual hours and use these instead._
+
+## Layers and values, which are designed and not built
+
+The intended answer to that is **layers**, ordered like the rules in a
+stylesheet: each says where it applies and what applies there, and the last one
+to claim a moment wins.
+
+```
+  1. weekdays 09:00–17:00         ← the usual hours
   2. bank holidays: closed        ← an exception
-  3. the 14th: 09:00–15:00        ← an override, wins inside its own day
+  3. the 11th: 09:00–15:00        ← an override, wins inside its own day
 ```
 
-Layers are ordered, and the order is part of the meaning. What a layer applies
-can itself be a rule, which is what makes the third line above possible: it
-replaces the day's hours rather than punching a hole in them.
+Once a layer can carry a value rather than merely open or closed, the same
+machinery answers questions that are not yes-or-no — who is on call this week,
+what the electricity tariff is at three in the morning, how many staff are
+rostered — with a plain schedule being the case where the value is _open_.
 
-## Layers can carry values
+**None of that is built.** There is no layer type, no cascade and no value in
+the package today; what a rule covers is all a rule says. It is described here
+because it is what the boolean core was shaped to carry, and because it explains
+why rules deliberately have no value of their own: a rule that carried one would
+make `not` meaningless, and the set algebra with it.
 
-A schedule is a special case. Once layers can carry a value, the same machinery
-answers questions that are not yes-or-no:
-
-- who is on call this week
-- what the electricity tariff is at three in the morning
-- how many staff are rostered
-
-A plain schedule is the case where the value is simply _open_ or _closed_.
+Until it lands, an override is written the way it is above.
 
 ## Rules are data
 
@@ -108,7 +142,9 @@ them over an API, keep them in a config file, or let people edit them in a form 
 and Quando has no opinion about which.
 
 Quando does not read or write storage. It parses rules from JSON, and serialises
-them back, and everything in between is your concern.
+them back, and everything in between is your concern. See
+[serialisation](../serialisation/), where the useful detail is that the builder
+produces the document rather than something that has to be converted into one.
 
 ## What Quando does not do
 
@@ -120,11 +156,10 @@ It is also not a date library. `Temporal` is, and Quando is built on it rather
 than replacing it. Times that go in and come out are `Temporal` values.
 
 <!-- card
-```json
-[
-  { "scope": "weekdays 09:00-17:00", "value": "open" },
-  { "scope": "holidays:gb",          "value": "closed" },
-  { "scope": "2026-03-14",           "value": "09:00-15:00" }
-]
+```ts
+const openingHours = weekdays()
+  .and(timeOfDay("09:00", "17:00"))
+  .except(dates("2026-12-25"));
+// → 2026-03-09T09:00:00 → 2026-03-09T17:00:00
 ```
 -->
