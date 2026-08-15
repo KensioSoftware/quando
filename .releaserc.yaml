@@ -150,11 +150,11 @@ plugins:
   # in the repository holding them, and none in the tarball either.
   #
   # Note there is no @semantic-release/git plugin: nothing here commits the
-  # bumped version back to main directly. It could not work anyway — the main
-  # ruleset requires three passing status checks on whatever lands there, and a
-  # commit made inside this run has none. The pull request the workflow opens
-  # is that commit taking the ordinary route instead. Tags are unaffected,
-  # because the ruleset only covers the default branch.
+  # bumped version back to main directly. It could not work under main's
+  # intended ruleset anyway — three passing status checks on whatever lands
+  # there, and a commit made inside this run has none. The pull request the
+  # workflow opens is that commit taking the ordinary route instead. Tags are
+  # unaffected, because a ruleset only covers branches.
   - - "@semantic-release/github"
     # The released-in comments this would otherwise leave on every merged pull
     # request and closed issue. The GitHub Release is the announcement.
