@@ -93,6 +93,14 @@ A schedule that is _never_ open has no answer to give and no way to discover
 that, so pass `within` when that is a possibility. It is the same caveat as
 [termination](../queries/#termination) elsewhere.
 
+`within` bounds how far to look, not what is found. Ask at eight in the morning
+with two hours to look and you get the nine o'clock opening ending at five —
+its real closing time — rather than one ending at ten where the search stopped.
+That is a deliberate difference from [`next`](../queries/#next) on a rule, which
+clips its answer to the window it was given like everything else in the core:
+here the horizon is a search bound, and reporting it as a closing time would be
+a wrong answer rather than a partial one.
+
 ## A rota
 
 The same shape with the value left open: a rota assigns a person, a tariff

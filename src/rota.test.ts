@@ -58,7 +58,7 @@ describe("a rota", () => {
   });
 
   it("runs on for as long as it is asked to", () => {
-    // No end given, so the shifts keep coming; taking three is what stops it.
+    // No end given, so the shifts keep coming; taking two is what stops it.
     const rolling = rota().assign(weekdays(), "alice");
     const shifts = rolling.shifts(MONDAY);
 

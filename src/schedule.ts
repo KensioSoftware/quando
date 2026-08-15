@@ -56,6 +56,11 @@ export interface Schedule extends Cascade<boolean> {
    * The next stretch it is open, at or after a moment, or `undefined` if there
    * is none within `within` of it.
    *
+   * `within` bounds how far to look and not what is found: a stretch that
+   * starts inside the horizon is returned whole, ending when it really closes
+   * rather than where the search stopped. That differs from `next` on a rule,
+   * which clips its answer to the window it was given.
+   *
    * A schedule that is never open has no answer to give and no way to discover
    * that, so pass `within` when that is a possibility.
    */
@@ -99,9 +104,20 @@ function build(layers: readonly Layer<boolean>[]): Schedule {
         within === undefined ? { from: at } : { from: at, to: at.add(within) };
 
       for (const period of resolve(self, search)) {
-        if (period.value) {
+        if (!period.value) {
+          continue;
+        }
+        if (within === undefined || period.start === undefined) {
           return period;
         }
+
+        // The horizon bounds how far to look, not what is found. Everything
+        // resolved against a context is clipped to it, so a stretch that runs
+        // past the horizon comes back ending at the horizon — which reads as a
+        // closing time and is not one. Read it again from its own start, with
+        // nothing to clip it, so the end is when it really closes.
+        const [whole] = take(resolve(self, { from: period.start }), 1);
+        return whole ?? period;
       }
       return;
     },

@@ -106,6 +106,19 @@ describe("asking a schedule questions", () => {
     );
   });
 
+  it("gives the whole opening even when the horizon stops inside it", () => {
+    // Two hours of looking finds the nine o'clock opening. The horizon bounded
+    // the search; it is not a closing time, and reporting it as one would be a
+    // wrong answer rather than a partial one.
+    const twoHours = Temporal.Duration.from({ hours: 2 });
+    const next = OPENING_HOURS.opensNext(when("2026-03-09T08:00"), twoHours);
+
+    assertIdentical(
+      next?.end?.toPlainDateTime().toString(),
+      "2026-03-09T17:00:00",
+    );
+  });
+
   it("finds nothing when the horizon is too short", () => {
     const soon = Temporal.Duration.from({ hours: 2 });
     const next = OPENING_HOURS.opensNext(when("2026-03-13T18:00"), soon);
