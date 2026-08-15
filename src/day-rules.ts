@@ -70,6 +70,15 @@ export function weekdayIntervals(
   zone?: string,
 ): IntervalStream {
   const wanted = new Set(days);
+
+  // Nothing can match, so there is nothing to walk the calendar for. Without
+  // this, an unbounded context sends `matchingDays` forward a day at a time
+  // until Temporal's year limit, thousands of centuries later, and reports it
+  // as a date range error rather than as the empty rule it is.
+  if (wanted.size === 0) {
+    return [];
+  }
+
   return matchingDays(context, zoneOf(context, zone), (date) => {
     const weekday = weekdayOf(date);
     return weekday !== undefined && wanted.has(weekday);

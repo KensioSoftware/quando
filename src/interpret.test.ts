@@ -80,6 +80,16 @@ describe("days of the week", () => {
     );
   });
 
+  it("covers nothing when no days are selected, without walking the calendar", () => {
+    // An unbounded context and a predicate that never matches would otherwise
+    // send the walk forward to Temporal's year limit and fail there.
+    const endless = intervals(
+      { type: "daysOfWeek", days: [] },
+      inWindow("2026-03-09T00:00"),
+    );
+    assertIdentical(render(take(endless, 1)), "");
+  });
+
   it("is endless without a window, and still cheap to sample", () => {
     const endless = intervals(
       { type: "daysOfWeek", days: ["wednesday"] },

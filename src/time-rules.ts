@@ -52,10 +52,20 @@ export function* timeOfDayIntervals(
     }
 
     const closing = wraps ? date.add({ days: 1 }) : date;
-    yield {
-      start,
-      end: closing.toZonedDateTime({ timeZone: inZone, plainTime: closes }),
-    };
+    const end = closing.toZonedDateTime({
+      timeZone: inZone,
+      plainTime: closes,
+    });
+
+    // A window can collapse to nothing on the morning clocks go forward. Both
+    // ends of 01:00-02:00 in London on 2026-03-29 resolve to the same instant,
+    // because the hour between them does not exist and Temporal's default
+    // disambiguation moves a nonexistent time forward to the far side of the
+    // gap. Yielding that would put a zero-length interval into a stream whose
+    // contract says there are none.
+    if (Temporal.ZonedDateTime.compare(start, end) < 0) {
+      yield { start, end };
+    }
 
     date = date.add({ days: 1 });
   }
