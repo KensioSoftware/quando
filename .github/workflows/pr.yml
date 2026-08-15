@@ -136,9 +136,8 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
+      # Also covers reading the head commit's subject, below.
       contents: read
-      # Reading the single commit's subject, below.
-      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -150,8 +149,13 @@ jobs:
           # A title is text anyone opening a pull request chooses, and `${{ }}`
           # pastes it in as shell source before bash ever sees it.
           TITLE: ${{ github.event.pull_request.title }}
+          # Both of these come from the same event payload, so they describe the
+          # same revision of the pull request. Counting commits from the payload
+          # and then fetching them fresh would not: a push between the event and
+          # this job would have it read one commit out of a branch that now has
+          # two, and check a subject that is no longer the one landing.
           COMMIT_COUNT: ${{ github.event.pull_request.commits }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -165,9 +169,12 @@ jobs:
           setting="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.squash_merge_commit_title')"
 
           if [[ "$setting" == "COMMIT_OR_PR_TITLE" && "$COMMIT_COUNT" == "1" ]]; then
+            # The subject is taken inside jq rather than by piping to `head`,
+            # which would close the pipe under `gh` and, with `pipefail` set,
+            # fail the step on a SIGPIPE that means nothing went wrong.
             landing="$(
-              gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" \
-                --jq '.[0].commit.message' | head -n 1
+              gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA" \
+                --jq '.commit.message | split("\n")[0]'
             )"
             source="the commit subject, which is what a one-commit squash uses"
           else

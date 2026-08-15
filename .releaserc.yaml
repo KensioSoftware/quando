@@ -50,11 +50,18 @@ plugins:
 
   # The release notes, assembled from the commit subjects since the last tag.
   #
-  # Which is to say from the pull request titles. Everything lands on main as a
-  # squash, so a subject is the title someone wrote on a pull request with the
-  # number GitHub appended to it, and both halves of that become links: the
-  # number back to the pull request, the hash to the commit. A reader of the
-  # release gets from a line of notes to the diff behind it in one click.
+  # Which is to say from the pull request titles, when everything lands on main
+  # as a squash: a subject is then the title someone wrote on a pull request
+  # with the number GitHub appended to it, and both halves of that become links
+  # — the number back to the pull request, the hash to the commit. A reader of
+  # the release gets from a line of notes to the diff behind it in one click.
+  #
+  # Squash-only is the intended configuration and is not yet enforced; merge
+  # commits and rebase merges are both still enabled. See item 4 in the setup
+  # notes at the top of .github/workflows/release.yml. Until it is, a change
+  # landed by either of those routes puts a subject on main that
+  # .github/workflows/pr.yml never saw, and these notes are only as good as
+  # whatever that subject happens to be.
   #
   # There is no hand-written CHANGELOG.md, and the reason is not that generated
   # notes read better — they read worse, and that is the trade being made
@@ -153,8 +160,10 @@ plugins:
   # bumped version back to main directly. It could not work under main's
   # intended ruleset anyway — three passing status checks on whatever lands
   # there, and a commit made inside this run has none. The pull request the
-  # workflow opens is that commit taking the ordinary route instead. Tags are
-  # unaffected, because a ruleset only covers branches.
+  # workflow opens is that commit taking the ordinary route instead. The
+  # ruleset in question targets branches, so it has nothing to say about the
+  # tag semantic-release pushes — though rulesets can target tags too, so that
+  # is a statement about this one rather than about rulesets.
   - - "@semantic-release/github"
     # The released-in comments this would otherwise leave on every merged pull
     # request and closed issue. The GitHub Release is the announcement.
