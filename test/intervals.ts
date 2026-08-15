@@ -3,6 +3,7 @@
  * as the timeline they describe rather than as Temporal construction.
  */
 
+import type { Valued } from "../src/cascade.js";
 import type { Context } from "../src/context.js";
 import type { Interval } from "../src/interval.js";
 
@@ -42,6 +43,20 @@ export function render(intervals: Iterable<Interval>): string {
 
 function edge(at: Temporal.ZonedDateTime | undefined): string {
   return at === undefined ? "*" : at.toPlainDateTime().toString();
+}
+
+/**
+ * The same, for a stream that carries values: `[start,end)=value`. Keeps a
+ * cascade assertion readable as the timeline it describes.
+ */
+export function renderValued<V>(assigned: Iterable<Valued<V>>): string {
+  const parts: string[] = [];
+  for (const interval of assigned) {
+    parts.push(
+      `[${edge(interval.start)},${edge(interval.end)})=${String(interval.value)}`,
+    );
+  }
+  return parts.join(" ");
 }
 
 /**

@@ -134,6 +134,54 @@ A rule from unknown JSON, or a `TypeError` naming what is wrong and where.
 `path` is the root name used in messages, and defaults to `"rule"`. See
 [serialisation](../serialisation/).
 
+## Cascades
+
+Ordered layers carrying values, resolved by precedence. See
+[cascades](../cascades/).
+
+|                                                                       |                                                                              |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `cascade<V>(...layers: readonly Layer<V>[]): Cascade<V>`              | an ordered list of layers, lowest priority first                             |
+| `layer<V>(scope: Rule, value: V): ConstantLayer<V>`                   | one value, across the whole of a scope                                       |
+| `replace<V>(scope: Rule, replacement: Cascade<V>): ReplacingLayer<V>` | a scope claimed outright, with what holds inside it given by another cascade |
+| `replace(scope: Rule, replacement: Rule): ReplacingLayer<boolean>`    | the same, taking the rule a schedule means                                   |
+| `whenever(rule: Rule): Cascade<boolean>`                              | true while a rule holds, unassigned elsewhere                                |
+| `isCascade<V>(value: Rule \| Cascade<V>): value is Cascade<V>`        | tells a cascade from a rule                                                  |
+| `resolve<V>(cascade: Cascade<V>, context: Context): ValuedStream<V>`  | the values a cascade assigns                                                 |
+
+```ts
+interface Cascade<V> {
+  readonly type: "cascade";
+  readonly layers: readonly Layer<V>[];
+}
+
+type Layer<V> = ConstantLayer<V> | ReplacingLayer<V>;
+
+interface ConstantLayer<V> {
+  readonly scope: Rule;
+  readonly value: V;
+}
+
+interface ReplacingLayer<V> {
+  readonly scope: Rule;
+  readonly replace: Cascade<V>;
+}
+
+interface Valued<V> extends Interval {
+  readonly value: V;
+}
+
+type ValuedStream<V> = Iterable<Valued<V>>;
+```
+
+`Valued<V>` extends `Interval`, so `duration`, `contains` and `isEmpty` read one
+unchanged. A `ValuedStream<V>` keeps the same contract as an `IntervalStream`,
+with the addition that two touching intervals only count as coalesced if their
+values differ.
+
+Overlap between layers is settled by precedence — the last layer to claim a
+moment wins — and there is no merge function for quantities yet.
+
 ## Rule types
 
 The data behind the builders. A `Rule` is one of eight tagged objects, and
@@ -281,10 +329,12 @@ lasted, which across a clock change is not what the clock says. See
 
 ## Not here yet
 
-Designed, not built, and so deliberately absent from the package: cascades
-(layers carrying values), estimates and uncertainty, backward search over an
-unbounded past, custom rule types, a canonical form for comparing rules, and the
-command line. Nothing above depends on them arriving.
+Designed, not built, and so deliberately absent from the package: merging
+values that should add rather than displace, `parseCascade` for the JSON
+boundary a cascade does not yet have, queries that take a cascade rather than a
+rule, estimates and uncertainty, backward search over an unbounded past, custom
+rule types, a canonical form for comparing rules, and the command line. Nothing
+above depends on them arriving.
 
 <!-- card
 ```ts

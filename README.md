@@ -86,6 +86,7 @@ this repository:
 - [Queries](docs/queries/) — the four questions, and termination
 - [Time zones](docs/time-zones/) — wall clock against elapsed time
 - [Serialisation](docs/serialisation/) — the JSON form and its boundary
+- [Cascades](docs/cascades/) — layers carrying values, resolved by precedence
 - [API](docs/api/) — everything the package exports
 
 ## What it is not
@@ -95,8 +96,8 @@ scheduler: Quando calculates _when_ and never fires anything, so its answer is
 your scheduler's input. Not storage, and not a holiday data provider; calendar
 data belongs in satellite packages so that the core carries none.
 
-Cascades — layered rules carrying values — are designed and not yet built, along
-with estimates and a command line.
+Cascades carry values by precedence; merging values that should add rather than
+displace is designed and not yet built, along with estimates and a command line.
 
 ## Licence
 
