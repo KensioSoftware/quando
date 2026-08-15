@@ -39,7 +39,7 @@ const dispatch = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
 console.log(dispatch?.toString());
 ```
 
-```
+```text
 2026-03-17T11:55:00+00:00[Europe/London]
 ```
 
@@ -76,7 +76,7 @@ try {
 }
 ```
 
-```
+```text
 RangeError: advanceBy() measures elapsed time, so P1D is ambiguous: days are calendar units, and a day is not 24 hours on the mornings a clock changes. Give hours, minutes or seconds.
 RangeError: advanceBy() cannot go backwards. Asked for -PT1H.
 ```
@@ -112,7 +112,7 @@ console.log(
 );
 ```
 
-```
+```text
 undefined
 2026-03-16T11:55:00+00:00[Europe/London]
 ```
@@ -137,7 +137,7 @@ console.log(activeAt(openingHours, closing));
 console.log(activeAt(openingHours, closing.subtract({ nanoseconds: 1 })));
 ```
 
-```
+```text
 false
 true
 ```
@@ -176,7 +176,7 @@ try {
 }
 ```
 
-```
+```text
 PT40H
 RangeError: elapsed() needs a window with an end: give the context a `to`.
 ```
@@ -215,7 +215,7 @@ console.log(
 );
 ```
 
-```
+```text
 2026-03-13T11:00:00 → 2026-03-13T17:00:00
 undefined
 2026-03-16T09:00:00
@@ -251,7 +251,7 @@ console.log(
 );
 ```
 
-```
+```text
 undefined
 ```
 

@@ -247,7 +247,7 @@ console.log(contains(first!, at("2026-03-09T12:00")));
 console.log(duration(first!)?.toString());
 ```
 
-```
+```text
 2026-03-09T11:00:00 → 2026-03-09T12:00:00
 2026-03-09T09:00:00 → 2026-03-09T17:00:00
 undefined → 2026-03-09T09:00:00

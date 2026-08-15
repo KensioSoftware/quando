@@ -35,7 +35,7 @@ does not report a problem, it simply never finishes.
 So a Quando rule does not answer about an instant. It produces the **intervals**
 over which it holds:
 
-```
+```text
 weekdays 09:00–17:00, for the week of 2026-03-09:
 
   Mon ▓▓▓▓▓▓▓▓        Tue ▓▓▓▓▓▓▓▓        Wed ▓▓▓▓▓▓▓▓
@@ -98,7 +98,7 @@ for (const { start, end } of intervals(openingHours, week)) {
 }
 ```
 
-```
+```text
 2026-03-09T09:00:00 → 2026-03-09T17:00:00
 2026-03-10T09:00:00 → 2026-03-10T17:00:00
 2026-03-11T09:00:00 → 2026-03-11T15:00:00
@@ -116,7 +116,7 @@ The intended answer to that is **layers**, ordered like the rules in a
 stylesheet: each says where it applies and what applies there, and the last one
 to claim a moment wins.
 
-```
+```text
   1. weekdays 09:00–17:00         ← the usual hours
   2. bank holidays: closed        ← an exception
   3. the 11th: 09:00–15:00        ← an override, wins inside its own day
@@ -159,7 +159,7 @@ than replacing it. Times that go in and come out are `Temporal` values.
 ```ts
 const openingHours = weekdays()
   .and(timeOfDay("09:00", "17:00"))
-  .except(dates("2026-12-25"));
-// → 2026-03-09T09:00:00 → 2026-03-09T17:00:00
+  .except(closesEarly)
+  .or(closesEarly.and(timeOfDay("09:00", "15:00")));
 ```
 -->

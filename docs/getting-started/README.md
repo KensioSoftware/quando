@@ -19,7 +19,12 @@ The cost is that the runtime has to have `Temporal`:
   a strict engine setting — rather than leaving it to surface as a missing
   `Temporal` at the first call.
 - **A browser that implements it.** Where one does not — Safari, at the time of
-  writing — load a polyfill first. Quando neither ships nor imports it:
+  writing — install a polyfill yourself and load it first. Quando neither ships
+  nor imports one, so this is a dependency of yours rather than of Quando's:
+
+  ```bash
+  npm install temporal-polyfill
+  ```
 
   ```ts
   import "temporal-polyfill/global";
@@ -77,7 +82,7 @@ console.log(activeAt(openingHours, friday));
 console.log(activeAt(openingHours, saturday));
 ```
 
-```
+```text
 true
 false
 ```
@@ -101,7 +106,7 @@ console.log(opening?.start?.toString());
 console.log(opening?.end?.toString());
 ```
 
-```
+```text
 2026-03-16T09:00:00+00:00[Europe/London]
 2026-03-16T17:00:00+00:00[Europe/London]
 ```
@@ -129,7 +134,7 @@ console.log(week.toString());
 console.log(week.total("hours"));
 ```
 
-```
+```text
 PT40H
 40
 ```
@@ -153,7 +158,7 @@ const packed = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
 console.log(packed?.toString());
 ```
 
-```
+```text
 2026-03-16T11:55:00+00:00[Europe/London]
 ```
 

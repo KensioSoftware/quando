@@ -28,7 +28,7 @@ for (const { start, end } of intervals(always(), week)) {
 console.log([...intervals(never(), week)].length);
 ```
 
-```
+```text
 2026-03-09T00:00:00 → 2026-03-16T00:00:00
 0
 ```
@@ -69,7 +69,7 @@ for (const { start, end } of intervals(weekdays(), fortnight)) {
 }
 ```
 
-```
+```text
 2026-03-09T00:00:00 → 2026-03-14T00:00:00
 2026-03-16T00:00:00 → 2026-03-21T00:00:00
 ```
@@ -108,7 +108,7 @@ for (const { start, end } of intervals(timeOfDay("22:00", "06:00"), twoDays)) {
 }
 ```
 
-```
+```text
 2026-03-09T00:00:00 → 2026-03-09T06:00:00
 2026-03-09T22:00:00 → 2026-03-10T06:00:00
 2026-03-10T22:00:00 → 2026-03-11T00:00:00
@@ -139,7 +139,7 @@ try {
 }
 ```
 
-```
+```text
 {"type":"timeOfDay","from":"09:00","to":"09:00"}
 RangeError: A time-of-day window from 09:00 to 09:00 has the same start and end. Use { type: "always" } for a whole day.
 ```
@@ -171,7 +171,7 @@ for (const { start, end } of intervals(shutdown, march)) {
 }
 ```
 
-```
+```text
 2026-03-14T00:00:00 → 2026-03-17T00:00:00
 ```
 
@@ -207,7 +207,7 @@ for (const { start, end } of intervals(not(timeOfDay("09:00", "17:00")), day)) {
 }
 ```
 
-```
+```text
 2026-03-09T00:00:00 → 2026-03-09T09:00:00
 2026-03-09T17:00:00 → 2026-03-10T00:00:00
 ```
@@ -231,7 +231,7 @@ console.log([...intervals(all(), day)].length);
 console.log([...intervals(any(), day)].length);
 ```
 
-```
+```text
 1
 0
 ```
@@ -267,7 +267,7 @@ for (const { start, end } of intervals(openingHours, week)) {
 }
 ```
 
-```
+```text
 2026-03-09T09:00:00 → 2026-03-09T17:00:00
 2026-03-10T09:00:00 → 2026-03-10T17:00:00
 2026-03-12T09:00:00 → 2026-03-12T17:00:00
@@ -294,7 +294,7 @@ for (const { start, end } of intervals(cover, week)) {
 }
 ```
 
-```
+```text
 2026-03-12T18:00:00 → 2026-03-12T23:00:00
 2026-03-13T18:00:00 → 2026-03-13T23:00:00
 2026-03-14T00:00:00 → 2026-03-16T00:00:00
@@ -328,7 +328,7 @@ for (const { start } of openings) {
 }
 ```
 
-```
+```text
 2026-03-09T09:00:00
 2026-03-10T09:00:00
 2026-03-11T09:00:00

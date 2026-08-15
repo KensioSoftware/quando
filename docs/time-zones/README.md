@@ -36,7 +36,7 @@ for (const { start } of intervals(officeHours, inTokyo)) {
 }
 ```
 
-```
+```text
 2026-03-09T09:00:00+00:00[Europe/London]
 2026-03-09T09:00:00+09:00[Asia/Tokyo]
 ```
@@ -69,7 +69,7 @@ for (const { start, end } of intervals(londonOffice, fromTokyo)) {
 }
 ```
 
-```
+```text
 2026-03-09T18:00:00+09:00[Asia/Tokyo] → 2026-03-10T02:00:00+09:00[Asia/Tokyo]
 2026-03-10T18:00:00+09:00[Asia/Tokyo] → 2026-03-11T00:00:00+09:00[Asia/Tokyo]
 ```
@@ -132,7 +132,7 @@ for (const context of [springForward, backAgain]) {
 }
 ```
 
-```
+```text
 2026-03-28T22:00:00 → 2026-03-29T06:00:00: PT7H
 2026-10-24T22:00:00 → 2026-10-25T06:00:00: PT9H
 ```
@@ -156,7 +156,7 @@ const after = advanceBy(clockOn, Temporal.Duration.from({ hours: 8 }), {
 console.log(after?.toString());
 ```
 
-```
+```text
 2026-10-25T05:00:00+00:00[Europe/London]
 ```
 
@@ -187,7 +187,7 @@ for (const { start, end } of intervals(smallHours, overTheChange)) {
 }
 ```
 
-```
+```text
 2026-03-28T01:00:00+00:00[Europe/London] → 2026-03-28T02:00:00+00:00[Europe/London]
 2026-03-30T01:00:00+01:00[Europe/London] → 2026-03-30T02:00:00+01:00[Europe/London]
 ```

@@ -25,7 +25,7 @@ const openingHours = weekdays()
 console.log(JSON.stringify(openingHours, null, 2));
 ```
 
-```
+```text
 {
   "type": "all",
   "rules": [
@@ -97,7 +97,7 @@ console.log(rule.type);
 console.log(activeAt(rule, sunday));
 ```
 
-```
+```text
 all
 true
 ```
@@ -130,7 +130,7 @@ const roundTripped = parseRule(JSON.parse(JSON.stringify(openingHours)));
 console.log(JSON.stringify(roundTripped) === JSON.stringify(openingHours));
 ```
 
-```
+```text
 true
 ```
 
@@ -160,7 +160,7 @@ for (const document of documents) {
 }
 ```
 
-```
+```text
 TypeError: rule.zonee: is not a field of a daysOfWeek rule. Expected days, zone
 TypeError: rule.type: "weekdays" is not a rule type. Expected one of always, never, daysOfWeek, timeOfDay, dates, all, any, not
 TypeError: rule.days[0]: "mondey" is not a day of the week. Expected one of monday, tuesday, wednesday, thursday, friday, saturday, sunday
@@ -207,7 +207,7 @@ console.log(
 );
 ```
 
-```
+```text
 {"type":"timeOfDay","from":"09:00","to":"09:00"}
 ```
 
