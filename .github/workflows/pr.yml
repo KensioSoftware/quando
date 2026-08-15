@@ -5,16 +5,22 @@ on:
   pull_request:
     branches:
       - main
-  # release.yml opens its version pull request with GITHUB_TOKEN, and a pull
-  # request opened with that token does not fire `pull_request` — GitHub
-  # declines to let a workflow start another workflow. Without this the main
-  # intended ruleset's three required checks would never report on it and it
-  # could never be merged. See the setup notes at the top of release.yml.
+  # release.yml opens a version pull request from a `release/**` branch using
+  # GITHUB_TOKEN, and two things follow from that. What actually happens was
+  # observed on the v0.1.0 release; an earlier version of this comment guessed,
+  # and guessed wrong.
   #
-  # A ruleset matches a check by name whatever workflow posted it, and these
-  # are the same three jobs under the same three names, so running them on the
-  # push satisfies the same gate. Scoped to the branch prefix release.yml uses,
-  # so ordinary branches still get one run rather than two.
+  # Its *push* starts no run at all, because GitHub will not let work done with
+  # GITHUB_TOKEN start another workflow. So the trigger below never fires for
+  # release.yml's own push. It is kept for a person pushing a fixup to one of
+  # those branches, which does fire, and which would otherwise get no checks.
+  #
+  # Its *pull request* does create a run of this workflow — but with
+  # `github-actions[bot]` as the actor, GitHub holds it as `action_required`
+  # until someone approves it from the Actions tab. So main's three required
+  # checks do report on the version pull request, at the cost of one approval
+  # click per release. There is no repository-level setting exposed to waive
+  # that, and a release is already a deliberate act, so it is left as is.
   push:
     branches:
       - "release/**"

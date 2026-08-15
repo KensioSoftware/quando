@@ -245,11 +245,14 @@ jobs:
   # `version` in package.json, caught up to what was just published, and sent
   # to main as a pull request.
   #
-  # A pull request rather than a push, because main's intended ruleset requires
-  # three passing status checks and a commit created inside this run has none.
-  # pr.yml runs those three on pushes to `release/**` for exactly this reason.
-  # It is also the right shape with no ruleset in place, so this does not wait
-  # on one.
+  # A pull request rather than a push, because main's ruleset requires three
+  # passing status checks and a commit created inside this run has none.
+  #
+  # Opening it here does start a run of pr.yml, so those checks do report —
+  # but GitHub holds that run as `action_required` until someone approves it,
+  # because the actor is `github-actions[bot]`. Expect one approval click in
+  # the Actions tab per release before this pull request can merge. See the
+  # `on:` comment in pr.yml, which records what was actually observed.
   #
   # That number is not what the released version *is* — the tag and the
   # registry are that, and both already exist by the time this runs. So a
