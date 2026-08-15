@@ -1,10 +1,59 @@
-import { assertIdentical } from "@kensio/smartass";
+import { span } from "#test/intervals.js";
+import {
+  assertArrayLength,
+  assertIdentical,
+  assertTrue,
+} from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { packageName } from "./index.js";
+import {
+  clip,
+  complement,
+  contains,
+  duration,
+  intersect,
+  union,
+} from "./index.js";
 
-describe("the placeholder entry point", () => {
-  it("exports something, so that the toolchain has something to check", () => {
-    assertIdentical(packageName, "@kensio/quando");
+/**
+ * A smoke test of the public surface: everything a consumer needs for the
+ * interval core is reachable from the entry point, and composes.
+ */
+describe("the public entry point", () => {
+  it("composes the algebra into an answer", () => {
+    const officeHours = [
+      span("2026-03-16T09:00", "2026-03-16T17:00"),
+      span("2026-03-17T09:00", "2026-03-17T17:00"),
+    ];
+    const closedForLunch = [
+      span("2026-03-16T12:30", "2026-03-16T13:30"),
+      span("2026-03-17T12:30", "2026-03-17T13:30"),
+    ];
+    const visiting = span("2026-03-16T13:00", "2026-03-17T10:00");
+
+    const open = intersect(officeHours, complement(closedForLunch));
+    const reachable = [...clip(open, visiting)];
+
+    assertIdentical(
+      reachable.map((interval) => duration(interval)?.toString()).join(" "),
+      "PT3H30M PT1H",
+    );
+  });
+
+  it("exposes union and containment", () => {
+    const merged = [
+      ...union(
+        [span("2026-03-16T09:00", "2026-03-16T12:00")],
+        [span("2026-03-16T12:00", "2026-03-16T17:00")],
+      ),
+    ];
+
+    assertArrayLength(merged, 1);
+    assertTrue(
+      contains(
+        merged[0],
+        Temporal.ZonedDateTime.from("2026-03-16T15:00[Europe/London]"),
+      ),
+    );
   });
 });

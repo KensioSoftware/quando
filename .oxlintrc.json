@@ -37,6 +37,11 @@
     "node_modules/",
     "scripts/sh/",
     ".cache/",
+    // Throwaway design spikes. They are written to be read and run once, print
+    // their findings to stdout, and answer a question — not to be maintained,
+    // and not shipped. Holding them to the library's rules would mean rewriting
+    // them for no reader.
+    ".claude/",
     "**/*.config.ts"
   ],
 
@@ -116,6 +121,11 @@
     "eslint/init-declarations": "off",
     "eslint/no-continue": "off",
     "eslint/no-inline-comments": "off",
+    // Merges consecutive declarations into one comma-separated statement, which
+    // reads worse and — because it is auto-fixable — silently rewrites every
+    // `pnpm fmt`. Declarations are grouped by what they mean, not by how few
+    // `const` keywords can be used.
+    "eslint/one-var": "off",
     "eslint/no-magic-numbers": "off",
     "eslint/no-ternary": "off",
     "eslint/prefer-destructuring": "off",
