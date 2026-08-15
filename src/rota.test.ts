@@ -14,7 +14,7 @@ import { take } from "./stream.js";
 const ON_CALL = rota()
   .assign(weekdays(), "alice")
   .assign(weekends(), "bob")
-  .on("2026-03-11", "carol");
+  .swap("2026-03-11", "carol");
 
 const MONDAY = when("2026-03-09T00:00");
 const NEXT_MONDAY = when("2026-03-16T00:00");
@@ -92,7 +92,7 @@ describe("what it refuses", () => {
   it("says so when a day is not a date", () => {
     let thrown: unknown;
     try {
-      rota().on("next Tuesday", "alice");
+      rota().swap("next Tuesday", "alice");
     } catch (error) {
       thrown = error;
     }

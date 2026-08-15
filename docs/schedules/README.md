@@ -16,7 +16,7 @@ import { schedule, weekdays } from "@kensio/quando";
 const openingHours = schedule()
   .open(weekdays(), "09:00-17:00")
   .closed("2026-03-10")
-  .on("2026-03-11", "09:00-15:00");
+  .hoursOn("2026-03-11", "09:00-15:00");
 
 console.log(
   openingHours.isOpen(
@@ -50,8 +50,8 @@ say so. That is the same rule cascades follow, arrived at by writing the
 sentence in the obvious order rather than by knowing anything about layers.
 
 The third answer is the one worth pausing on. Half past three on the eleventh is
-**shut**, because `.on(…)` says _these hours instead_ rather than _these hours
-as well_. The usual five o'clock does not show through underneath it.
+**shut**, because `.hoursOn(…)` says _these hours instead_ rather than _these
+hours as well_. The usual five o'clock does not show through underneath it.
 
 ## Asking a schedule things
 
@@ -104,7 +104,7 @@ import { rota, weekdays, weekends } from "@kensio/quando";
 const onCall = rota()
   .assign(weekdays(), "alice")
   .assign(weekends(), "bob")
-  .on("2026-03-11", "carol");
+  .swap("2026-03-11", "carol");
 
 console.log(
   onCall.whoIsOn(
@@ -139,7 +139,7 @@ carol
 |                         |                                                       |
 | ----------------------- | ----------------------------------------------------- |
 | `.assign(scope, value)` | these times belong to this one                        |
-| `.on(day, value)`       | a swap: on this day, this one instead                 |
+| `.swap(day, value)`     | a swap: this day goes to this one instead             |
 | `.whoIsOn(at)`          | who is on at that moment, or `undefined` if nobody is |
 | `.shifts(from, to?)`    | each stretch and who has it; endless without a `to`   |
 
@@ -163,7 +163,7 @@ import { resolve, schedule, weekdays } from "@kensio/quando";
 
 const openingHours = schedule()
   .open(weekdays(), "09:00-17:00")
-  .on("2026-03-11", "09:00-15:00");
+  .hoursOn("2026-03-11", "09:00-15:00");
 
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -247,6 +247,6 @@ either way.
 const openingHours = schedule()
   .open(weekdays(), "09:00-17:00")
   .closed(bankHolidays)
-  .on("2026-03-11", "09:00-15:00");
+  .hoursOn("2026-03-11", "09:00-15:00");
 ```
 -->

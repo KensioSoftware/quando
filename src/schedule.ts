@@ -41,13 +41,13 @@ export interface Schedule extends Cascade<boolean> {
   readonly closed: (scope: PlainRule) => Schedule;
 
   /**
-   * On this day, these hours instead — not as well as.
+   * The hours on this day, in place of whatever was said before.
    *
-   * The usual hours do not show through the part this leaves out, which is
-   * what "we close early on the eleventh" means and what makes it different
-   * from being closed between three and five.
+   * Instead of, not as well as: the usual hours do not show through the part
+   * this leaves out, which is what "we close early on the eleventh" means and
+   * what makes it different from being shut between three and five.
    */
-  readonly on: (day: PlainRule, hours: PlainRule) => Schedule;
+  readonly hoursOn: (day: PlainRule, hours: PlainRule) => Schedule;
 
   /** Whether it is open at that moment. */
   readonly isOpen: (at: Temporal.ZonedDateTime) => boolean;
@@ -83,7 +83,7 @@ function build(layers: readonly Layer<boolean>[]): Schedule {
 
     open: (scope, hours) => build([...layers, open(scope, hours)]),
     closed: (scope) => build([...layers, layer(asDays(scope), false)]),
-    on: (day, hours) =>
+    hoursOn: (day, hours) =>
       build([...layers, replace(asDays(day), asHours(hours))]),
 
     isOpen: (at) => {
@@ -128,7 +128,7 @@ function build(layers: readonly Layer<boolean>[]): Schedule {
  * const openingHours = schedule()
  *   .open(weekdays(), "09:00-17:00")
  *   .closed("2026-12-25")
- *   .on("2026-03-11", "09:00-15:00");
+ *   .hoursOn("2026-03-11", "09:00-15:00");
  * ```
  */
 export function schedule(): Schedule {

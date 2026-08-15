@@ -75,7 +75,7 @@ import { rota, schedule, weekdays, weekends } from "@kensio/quando";
 const openingHours = schedule()
   .open(weekdays(), "09:00-17:00")
   .closed("2026-12-25")
-  .on("2026-03-11", "09:00-15:00"); // close early, just that day
+  .hoursOn("2026-03-11", "09:00-15:00"); // close early, just that day
 
 openingHours.isOpen(friday);
 // → true

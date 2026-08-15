@@ -17,7 +17,7 @@ import { schedule } from "./schedule.js";
 
 const OPENING_HOURS = schedule()
   .open(weekdays(), "09:00-17:00")
-  .on("2026-03-11", "09:00-15:00");
+  .hoursOn("2026-03-11", "09:00-15:00");
 
 const WEEK = inWindow("2026-03-09T00:00", "2026-03-16T00:00");
 
@@ -59,7 +59,7 @@ describe("reading it in the order it is said", () => {
   const openingHours = schedule()
     .open(weekdays(), "09:00-17:00")
     .closed("2026-03-10")
-    .on("2026-03-11", "09:00-15:00");
+    .hoursOn("2026-03-11", "09:00-15:00");
 
   it("is open during the usual hours", () => {
     assertTrue(openingHours.isOpen(when("2026-03-09T10:00")));

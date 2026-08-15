@@ -23,8 +23,14 @@ export interface Rota<V> extends Cascade<V> {
   /** These times belong to this one, unless something later says otherwise. */
   readonly assign: <const W>(scope: PlainRule, value: W) => Rota<V | W>;
 
-  /** A swap: on this day, this one instead. */
-  readonly on: <const W>(day: PlainRule, value: W) => Rota<V | W>;
+  /**
+   * A swap: this day goes to this one instead.
+   *
+   * The same thing as an `assign` naming a single day — it exists because
+   * "Carol is swapping the eleventh" is what happened, and a rota reads better
+   * when the exceptions say they are exceptions.
+   */
+  readonly swap: <const W>(day: PlainRule, value: W) => Rota<V | W>;
 
   /** Who is on at that moment, or `undefined` if nobody is. */
   readonly whoIsOn: (at: Temporal.ZonedDateTime) => V | undefined;
@@ -49,7 +55,7 @@ function build<V>(layers: readonly Layer<V>[]): Rota<V> {
     assign: <W>(scope: PlainRule, value: W) =>
       build<V | W>([...layers, layer<V | W>(asDays(scope), value)]),
 
-    on: <W>(day: PlainRule, value: W) =>
+    swap: <W>(day: PlainRule, value: W) =>
       build<V | W>([...layers, layer<V | W>(asDays(day), value)]),
 
     whoIsOn: (at) => {
@@ -74,7 +80,7 @@ function build<V>(layers: readonly Layer<V>[]): Rota<V> {
  * const onCall = rota()
  *   .assign(weekdays(), "alice")
  *   .assign(weekends(), "bob")
- *   .on("2026-03-11", "carol");
+ *   .swap("2026-03-11", "carol");
  * ```
  */
 export function rota<V = never>(): Rota<V> {
