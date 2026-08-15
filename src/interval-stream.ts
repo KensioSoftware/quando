@@ -26,10 +26,17 @@ import { type Peekable, peekable } from "./stream.js";
 /**
  * A lazy sequence of intervals.
  *
- * **Contract, which every producer must uphold:** intervals arrive sorted by
- * start, do not overlap, and are already coalesced — no two touching intervals
- * where one would do. The sweeps below are single-pass and rely on it; a
- * producer that breaks it produces wrong answers rather than errors.
+ * **Contract, which every producer must uphold:** intervals arrive in
+ * *ascending* order of start, do not overlap, and are already coalesced — no
+ * two touching intervals where one would do. The sweeps below are single-pass
+ * and rely on all three; a producer that breaks one produces wrong answers
+ * rather than errors.
+ *
+ * Ascending is stated rather than implied because the opposite is a real thing
+ * to want later: "when did this last open" wants to walk backwards. A
+ * descending stream would satisfy every other clause here while being read
+ * wrongly by all of it, so if one is ever added it needs to be a distinct type
+ * rather than a stream that happens to run the other way.
  */
 export type IntervalStream = Iterable<Interval>;
 
