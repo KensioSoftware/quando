@@ -2,7 +2,9 @@
  * Quando: declarative temporal rules for schedules, deadlines, constraints and
  * exceptions.
  *
- * What exists so far is the interval core and the rule language on top of it.
+ * What exists so far is the interval core, the rule language on top of it, and
+ * the two ends of "rules are data": a builder that writes one, and a parser
+ * that reads one back from whatever a database or a form actually held.
  * Cascades — layered rules carrying values — and the query surface are still to
  * come.
  *
@@ -46,3 +48,20 @@ export type {
 export { WEEKDAYS } from "./rule.js";
 
 export { intervals } from "./interpret.js";
+
+export type { Built } from "./build.js";
+export {
+  all,
+  always,
+  any,
+  dates,
+  daysOfWeek,
+  inZone,
+  never,
+  not,
+  timeOfDay,
+  weekdays,
+  weekends,
+} from "./build.js";
+
+export { parseRule } from "./parse.js";
