@@ -3,6 +3,7 @@ import {
   assertFalse,
   assertIdentical,
   assertInstanceOf,
+  assertStringIncludes,
   assertThrowsError,
   assertTrue,
   assertUndefined,
@@ -101,6 +102,16 @@ describe("next", () => {
     assertUndefined(found);
   });
 
+  it("lets `within` narrow a window but never widen it", () => {
+    // The context says the caller cares about Saturday morning only. A generous
+    // `within` must not talk them into an answer from Monday.
+    const saturdayMorning = inWindow("2026-03-14T10:00", "2026-03-14T12:00");
+    const found = next(OPEN, saturdayMorning, {
+      within: Temporal.Duration.from({ days: 7 }),
+    });
+    assertUndefined(found);
+  });
+
   it("finds it once the search is long enough", () => {
     const found = next(OPEN, inWindow("2026-03-14T10:00"), {
       within: Temporal.Duration.from({ days: 3 }),
@@ -185,6 +196,35 @@ describe("advanceBy", () => {
       within: Temporal.Duration.from({ days: 3 }),
     });
     assertUndefined(reached);
+  });
+
+  it("refuses calendar units, which do not mean one fixed length of time", () => {
+    // `P1D` would be compared as 24 hours and then added as a calendar day,
+    // which are an hour apart on the morning the clocks change.
+    for (const ambiguous of [
+      Temporal.Duration.from({ days: 1 }),
+      Temporal.Duration.from({ weeks: 1 }),
+      Temporal.Duration.from({ months: 1 }),
+      Temporal.Duration.from({ years: 1 }),
+    ]) {
+      const error = assertThrowsError(() =>
+        advanceBy(when("2026-03-29T00:00"), ambiguous, {
+          during: { type: "always" },
+        }),
+      );
+      assertInstanceOf(error, RangeError);
+      assertStringIncludes(error.message, "calendar units");
+    }
+  });
+
+  it("takes the exact equivalent happily", () => {
+    const reached = advanceBy(when("2026-03-29T00:00"), hours(24), {
+      during: { type: "always" },
+    });
+    assertIdentical(
+      reached?.toPlainDateTime().toString(),
+      "2026-03-30T01:00:00",
+    );
   });
 
   it("refuses to go backwards", () => {

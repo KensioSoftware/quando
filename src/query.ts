@@ -12,7 +12,7 @@
  */
 
 import type { Context } from "./context.js";
-import { duration, type Interval } from "./interval.js";
+import { duration, earlierEnd, type Interval } from "./interval.js";
 import { intervals } from "./interpret.js";
 import type { Rule } from "./rule.js";
 import { take } from "./stream.js";
@@ -30,7 +30,12 @@ const NOTHING = Temporal.Duration.from({ seconds: 0 });
  * that case runs until stopped. Give a bound when the answer might be nothing.
  */
 export interface Search {
-  /** Look no further ahead than this from where the search starts. */
+  /**
+   * Look no further ahead than this from where the search starts.
+   *
+   * Narrows only. A context that already ends before the horizon keeps its own
+   * end, because a caller who gave a window meant it.
+   */
   readonly within?: Temporal.Duration;
 }
 
@@ -39,8 +44,39 @@ function bounded(context: Context, search: Search | undefined): Context {
   if (within === undefined) {
     return context;
   }
+
+  // Whichever runs out first. `within` narrows a search and must never widen
+  // one: a context that already ends on Saturday means the caller is not
+  // interested in Monday, whatever horizon the search asks for.
   const horizon = context.from.add(within);
-  return { ...context, to: horizon };
+  return { ...context, to: earlierEnd(context.to, horizon) ?? horizon };
+}
+
+/**
+ * Refuses an amount whose units do not mean one fixed length of time.
+ *
+ * A day is not 24 hours on the two mornings a year a clock changes, and a
+ * month is not any number of hours at all. Both halves of this function would
+ * otherwise disagree about that: the accounting compares durations without a
+ * reference point, where a day *is* 24 hours, while the final step adds to a
+ * `ZonedDateTime`, where it is a calendar day. `P1D` and `PT24H` would land an
+ * hour apart, and neither answer would be wrong enough to notice.
+ *
+ * Weeks and months do not even get that far — comparing them without a
+ * reference point throws, with an empty message.
+ */
+function checkExact(amount: Temporal.Duration): void {
+  const calendar = (["years", "months", "weeks", "days"] as const).filter(
+    (unit) => amount[unit] !== 0,
+  );
+
+  if (calendar.length > 0) {
+    throw new RangeError(
+      `advanceBy() measures elapsed time, so ${amount.toString()} is ambiguous: ` +
+        `${calendar.join(" and ")} are calendar units, and a day is not 24 hours ` +
+        `on the mornings a clock changes. Give hours, minutes or seconds.`,
+    );
+  }
 }
 
 /**
@@ -114,6 +150,7 @@ export function advanceBy(
   amount: Temporal.Duration,
   options: { readonly during: Rule } & Search & Omit<Context, "from" | "to">,
 ): Temporal.ZonedDateTime | undefined {
+  checkExact(amount);
   if (Temporal.Duration.compare(amount, NOTHING) < 0) {
     throw new RangeError(
       `advanceBy() cannot go backwards. Asked for ${amount.toString()}.`,
