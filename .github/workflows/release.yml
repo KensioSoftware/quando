@@ -3,8 +3,9 @@
 # What it does is decided by .releaserc.yaml; this file is the plumbing.
 #
 # Several things this depends on live in repository or npm settings rather than
-# in any file here, so nothing in a checkout can prove they are still true. This
-# is the list, and what breaks without each.
+# in any file here, so nothing in a checkout can prove they are still true. All
+# five are in place as of the first bootstrap publish; this is the list, and
+# what breaks if one of them is ever undone.
 #
 #   1. A trusted publisher on npmjs.com for @kensio/quando, pointing at this
 #      repository, this workflow file, and the "release" environment below,
@@ -12,15 +13,20 @@
 #      stored NPM_TOKEN — there is no npm credential in this repository.
 #      Renaming this file silently invalidates it, so an authentication error
 #      on publish is the first place to look.
-#      STATUS: not verifiable from here. Set up on npmjs.com.
+#
+#      A trusted publisher can only be attached to a package that exists, so
+#      the very first publish could not use one: 0.1.0-beta.0 was pushed by
+#      hand to create @kensio/quando, and everything since goes through OIDC.
+#      That one version therefore carries no provenance attestation, and is the
+#      only version that will not.
+#      STATUS: configured. Not verifiable from a checkout — npm exposes no
+#      public endpoint for it — which is why it is written down here.
 #
 #   2. A repository environment named "release". Adding a required reviewer
 #      makes a publish wait for a second pair of eyes, which is worth having
 #      if anyone else ever gains write access. Starting the run is already a
 #      deliberate act, so approving your own run adds little on its own.
-#      STATUS: does not exist yet. Referencing it below makes GitHub create it
-#      on the first run, with no protection rules, which is why item 1 has to
-#      be scoped to it deliberately rather than assumed.
+#      STATUS: created, with a branch policy on it.
 #
 #   3. Settings → Actions → General → "Allow GitHub Actions to create and
 #      approve pull requests", for the version job at the bottom. Without it
@@ -40,9 +46,8 @@
 #   5. A ruleset on main requiring the Lint, Test and Build checks. Several
 #      comments below explain themselves in terms of it — in particular why the
 #      version job opens a pull request rather than pushing.
-#      STATUS: no ruleset and no branch protection exist yet. Nothing here
-#      breaks without one; it is the enforcement that is missing, not the
-#      mechanism.
+#      STATUS: active on the default branch, requiring Lint, Test and Build,
+#      plus pull requests, and refusing deletion and non-fast-forward pushes.
 
 name: Release
 
@@ -55,6 +60,13 @@ on:
   #
   # Running this from a branch other than main is harmless — .releaserc.yaml
   # releases from main only, so semantic-release finds nothing to do.
+  #
+  # Worth knowing before the first run: semantic-release starts at 1.0.0 when
+  # it finds no tag, whatever the commit subjects say and whatever version
+  # package.json holds. The hand-pushed 0.1.0-beta.0 on npm is not a tag and
+  # does not count. If a 0.x line is wanted first, an annotated tag is what
+  # anchors it — with v0.1.0 in place a dry run produced 0.1.1 rather than
+  # 1.0.0.
   workflow_dispatch:
     inputs:
       minor:
