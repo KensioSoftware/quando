@@ -1,0 +1,179 @@
+---
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - main
+  # release.yml opens its version pull request with GITHUB_TOKEN, and a pull
+  # request opened with that token does not fire `pull_request` — GitHub
+  # declines to let a workflow start another workflow. Without this the main
+  # ruleset's four required checks would never report on it and it could never
+  # be merged.
+  #
+  # A ruleset matches a check by name whatever workflow posted it, and these
+  # are the same four jobs under the same four names, so running them on the
+  # push satisfies the same gate. Scoped to the branch prefix release.yml uses,
+  # so ordinary branches still get one run rather than two.
+  push:
+    branches:
+      - "release/**"
+
+defaults:
+  run:
+    shell: bash
+
+# Only the head of a branch is worth checking. Pushing a fixup while the
+# previous commit is still running abandons that run instead of queueing
+# behind it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.0.10
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # `lint:ci` is `lint` with oxlint's GitHub formatter, which annotates the
+      # diff itself so a failure is readable where the change is rather than
+      # only in the log.
+      - run: pnpm lint:ci
+      - run: pnpm fta
+
+  test:
+    name: Test on Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor `engines` states, and the version .nvmrc develops against.
+        # A library whose whole subject is dates and time zones is worth
+        # proving on both rather than assuming the older one from a passing
+        # build on the newer: Intl and Temporal data ships with the runtime.
+        #
+        # What each runtime can tell us differs, though: whether the tests pass
+        # is a question about the runtime, and whether they cover enough of the
+        # source is not. Only the .nvmrc version measures coverage.
+        include:
+          - node: "22"
+            script: test
+          - node: "24"
+            script: test:coverage
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.0.10
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ${{ matrix.script }}
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.0.10
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:check
+      - run: pnpm build
+      # What gets published is the tarball, not the working tree, and the two
+      # differ in ways nothing else here would catch. It rides along with the
+      # build rather than taking a runner of its own: `pnpm pack` runs the
+      # build again anyway, and a job spends far longer installing than either
+      # of these takes.
+      - run: pnpm pack:check
+
+  # The title, which is the release note.
+  #
+  # These merge as squashes, so the title becomes the commit subject, and the
+  # commit subject is both what semantic-release reads to decide the version
+  # and — since there is no CHANGELOG.md any more — the line a reader of the
+  # release sees. A title that does not parse as a conventional commit is
+  # therefore two failures at once, and both of them are silent: the change
+  # releases nothing, and it appears in no notes. Nothing downstream can report
+  # that, because "no release" and "nothing releasable happened" look the same
+  # from there.
+  #
+  # So it is asked here, while the change is still in front of its author and
+  # the title is one edit away. The types are read out of .releaserc.yaml
+  # rather than repeated, so this cannot drift from what actually publishes;
+  # the ones that release nothing are listed here because a title still has to
+  # parse to be a legal subject, whether or not it ships.
+  #
+  # Deliberately not added to the main ruleset's required checks by this pull
+  # request. The other four say the code works, which is a different kind of
+  # claim, and whether a badly titled pull request should be blocked or only
+  # embarrassed is a decision for the settings page rather than for this file.
+  title:
+    name: Title
+    # The `release/**` push above is release.yml's own version pull request,
+    # which has no `pull_request` payload to read.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check the title
+        env:
+          # Through the environment rather than interpolated into the script.
+          # A title is text anyone opening a pull request chooses, and `${{ }}`
+          # pastes it in as shell source before bash ever sees it.
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          # The types under `releaseRules:` in .releaserc.yaml. Anchored to
+          # that block, because the notes generator further down the file lists
+          # its own `- type:` entries and they are a different question.
+          releasing="$(
+            awk '
+              /^      releaseRules:/ { inside = 1; next }
+              inside && !/^        / { exit }
+              inside && $1 == "-" && $2 == "type:" { print $3 }
+            ' .releaserc.yaml | paste -sd '|' -
+          )"
+          # The rest of the conventional set. These publish nothing, so a
+          # change titled with one of them says nothing in the notes either —
+          # which is the point of them, not a problem with them.
+          silent="docs|test|chore|ci|style|revert"
+
+          # The header pattern conventional-commits-parser actually uses, with
+          # the type narrowed to the ones this repository recognises.
+          subject="^(${releasing}|${silent})(\([^)]+\))?!?: .+"
+
+          if [[ ! "$TITLE" =~ $subject ]]; then
+            echo "::error::\"$TITLE\" is not a conventional commit subject. It becomes the commit message on main and the line in the release notes, and a title that does not parse releases nothing and appears nowhere. Expected one of ${releasing}|${silent}, optionally scoped, then ': ' and a description."
+            exit 1
+          fi
+
+          echo "\"$TITLE\" parses."
