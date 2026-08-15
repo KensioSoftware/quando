@@ -32,8 +32,10 @@
 #      "Pull request title". Everything below assumes a commit on main is a
 #      pull request title, because that is what semantic-release reads and what
 #      the release notes are made of. A merge commit or a rebase merge puts
-#      subjects on main that pr.yml never checked.
-#      STATUS: merge commits and rebase merges are both still enabled.
+#      subjects on main that pr.yml never checked, so re-enabling either one
+#      quietly removes the guarantee the Title check exists to give.
+#      STATUS: set. Squash is the only method and the subject is the pull
+#      request title.
 #
 #   5. A ruleset on main requiring the Lint, Test and Build checks. Several
 #      comments below explain themselves in terms of it — in particular why the

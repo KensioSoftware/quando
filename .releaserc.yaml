@@ -56,12 +56,14 @@ plugins:
   # — the number back to the pull request, the hash to the commit. A reader of
   # the release gets from a line of notes to the diff behind it in one click.
   #
-  # Squash-only is the intended configuration and is not yet enforced; merge
-  # commits and rebase merges are both still enabled. See item 4 in the setup
-  # notes at the top of .github/workflows/release.yml. Until it is, a change
-  # landed by either of those routes puts a subject on main that
-  # .github/workflows/pr.yml never saw, and these notes are only as good as
-  # whatever that subject happens to be.
+  # Squash is the only merge method the repository allows, and the subject it
+  # uses is the pull request title — which is the one .github/workflows/pr.yml
+  # checks. That pairing is what makes these notes worth anything, and it lives
+  # in repository settings rather than here, so it is recorded as item 4 in the
+  # setup notes at the top of .github/workflows/release.yml. Allowing merge
+  # commits or rebase merges again would put subjects on main that nothing
+  # checked, and these notes would be only as good as whatever those happened
+  # to be.
   #
   # There is no hand-written CHANGELOG.md, and the reason is not that generated
   # notes read better — they read worse, and that is the trade being made
