@@ -5,7 +5,8 @@
  * What exists so far is the interval core — the algebra everything else is
  * built from. Rules, cascades and queries are still to come.
  *
- * Requires a runtime with `Temporal`: Node 26 or later, or a current browser.
+ * Requires a runtime with `Temporal`: Node 26 or later, or a browser that
+ * implements it.
  * Quando reads the global rather than importing a polyfill, so anywhere without
  * one natively can load `temporal-polyfill` first and everything here works
  * untouched.

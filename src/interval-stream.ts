@@ -15,6 +15,7 @@ import {
   compareStarts,
   earlierEnd,
   type Interval,
+  isEmpty,
   laterEnd,
   laterStart,
   startsAtOrBeforeEnd,
@@ -97,6 +98,14 @@ export function* union(
       yield open;
       open = next;
     }
+
+    // Nothing can extend an interval that already runs to the unbounded
+    // future, so there is no reason to keep pulling — and every reason not to,
+    // since either source may be infinite and this would never yield at all.
+    if (open.end === undefined) {
+      yield open;
+      return;
+    }
   }
 
   if (open !== undefined) {
@@ -145,6 +154,14 @@ export function* complement(source: IntervalStream): IntervalStream {
   let seenAny = false;
 
   for (const interval of source) {
+    // A zero-length interval covers nothing, so it neither opens a gap nor
+    // closes one. Letting it through would split the surrounding gap into two
+    // touching halves, and a stream of touching intervals is one this module's
+    // own sweeps would then read wrongly.
+    if (isEmpty(interval)) {
+      continue;
+    }
+
     if (!seenAny) {
       seenAny = true;
       // The stretch before the first interval — unless the source itself begins

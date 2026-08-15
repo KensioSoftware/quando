@@ -128,6 +128,17 @@ describe("union", () => {
     );
   });
 
+  it("stops as soon as it opens onto the unbounded future", () => {
+    // Nothing can extend an interval that already runs forever, so the sweep
+    // must yield and stop rather than draining the other side — which here is
+    // infinite, so failing to stop means never yielding at all.
+    const forever = [span("2026-03-01T00:00", undefined)];
+    const daily = dailyForever("2026-03-01", "09:00", "17:00");
+
+    const merged = take(union(forever, daily), 1);
+    assertIdentical(render(merged), "[2026-03-01T00:00:00,*)");
+  });
+
   it("is empty for two empty streams", () => {
     assertIdentical(render(union([], [])), "");
   });
@@ -164,6 +175,15 @@ describe("complement", () => {
   it("is nothing for a source that covers everything", () => {
     const everything = [span(undefined, undefined)];
     assertIdentical(render(complement(everything)), "");
+  });
+
+  it("ignores zero-length intervals rather than splitting a gap around them", () => {
+    // An empty interval covers nothing, so it should leave no trace. Letting it
+    // through would emit two touching intervals where one belongs, and a
+    // touching pair breaks the contract these sweeps read each other under.
+    const withEmpty = [span("2026-03-16T09:00", "2026-03-16T09:00")];
+
+    assertIdentical(render(complement(withEmpty)), "[*,*)");
   });
 
   it("round-trips when applied twice", () => {
