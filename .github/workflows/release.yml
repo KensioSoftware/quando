@@ -70,9 +70,9 @@ permissions: {}
 # for another pull request to have landed a change that only conflicts with
 # this one semantically, which no merge check can see.
 #
-# They are separate jobs from the publish because four jobs cost the slowest of
+# They are separate jobs from the publish because three jobs cost the slowest of
 # them rather than the sum. The check names are deliberately not the bare
-# "Lint"/"Build"/"Test on Node 22" that pr.yml uses: those four are the
+# "Lint"/"Build"/"Test" that pr.yml uses: those three are the
 # required status checks in the main ruleset, and a ruleset matches a check by
 # name whatever workflow posted it, so a release dispatched from a branch with
 # an open pull request would otherwise report into that pull request's gate.
@@ -106,22 +106,13 @@ jobs:
       - run: pnpm lint:ci
       - run: pnpm fta
 
+  # The same single runtime pr.yml proves, for the same reason: `engines` and
+  # .nvmrc name the same Node, because `Temporal` is what sets the floor.
   test:
-    name: Release test on Node ${{ matrix.node }}
+    name: Release test
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      # The same two runtimes pr.yml proves, for the same reasons: the floor
-      # `engines` states, and the version .nvmrc develops against, with only
-      # the latter measuring coverage.
-      matrix:
-        include:
-          - node: "22"
-            script: test
-          - node: "24"
-            script: test:coverage
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -129,10 +120,10 @@ jobs:
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm ${{ matrix.script }}
+      - run: pnpm test:coverage
 
   build:
     name: Release build
@@ -219,9 +210,9 @@ jobs:
   # `version` in package.json, caught up to what was just published, and sent
   # to main as a pull request.
   #
-  # A pull request rather than a push, because the main ruleset requires four
+  # A pull request rather than a push, because the main ruleset requires three
   # passing status checks and a commit created inside this run has none. pr.yml
-  # runs those four on pushes to `release/**` for exactly this reason.
+  # runs those three on pushes to `release/**` for exactly this reason.
   #
   # That number is not what the released version *is* — the tag and the
   # registry are that, and both already exist by the time this runs. So a

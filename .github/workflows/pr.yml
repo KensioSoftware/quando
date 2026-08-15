@@ -8,11 +8,11 @@ on:
   # release.yml opens its version pull request with GITHUB_TOKEN, and a pull
   # request opened with that token does not fire `pull_request` — GitHub
   # declines to let a workflow start another workflow. Without this the main
-  # ruleset's four required checks would never report on it and it could never
+  # ruleset's three required checks would never report on it and it could never
   # be merged.
   #
   # A ruleset matches a check by name whatever workflow posted it, and these
-  # are the same four jobs under the same four names, so running them on the
+  # are the same three jobs under the same three names, so running them on the
   # push satisfies the same gate. Scoped to the branch prefix release.yml uses,
   # so ordinary branches still get one run rather than two.
   push:
@@ -56,25 +56,17 @@ jobs:
       - run: pnpm lint:ci
       - run: pnpm fta
 
+  # One runtime, not a matrix. `engines` floors at Node 26 and .nvmrc develops
+  # against 26, so "the floor" and "the version we develop against" are the
+  # same runtime and there is no second one to prove anything on.
+  #
+  # The floor is 26 because `Temporal` is a global there and is not on 24. That
+  # is the substrate this package is built on rather than a nicety, so the
+  # alternative was shipping a polyfill to consumers who mostly do not need
+  # one.
   test:
-    name: Test on Node ${{ matrix.node }}
+    name: Test
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # The floor `engines` states, and the version .nvmrc develops against.
-        # A library whose whole subject is dates and time zones is worth
-        # proving on both rather than assuming the older one from a passing
-        # build on the newer: Intl and Temporal data ships with the runtime.
-        #
-        # What each runtime can tell us differs, though: whether the tests pass
-        # is a question about the runtime, and whether they cover enough of the
-        # source is not. Only the .nvmrc version measures coverage.
-        include:
-          - node: "22"
-            script: test
-          - node: "24"
-            script: test:coverage
     steps:
       - uses: actions/checkout@v7
         with:
@@ -82,10 +74,10 @@ jobs:
       - uses: pnpm/action-setup@v6.0.10
       - uses: actions/setup-node@v7.0.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm ${{ matrix.script }}
+      - run: pnpm test:coverage
 
   build:
     name: Build
@@ -127,7 +119,7 @@ jobs:
   # parse to be a legal subject, whether or not it ships.
   #
   # Deliberately not added to the main ruleset's required checks by this pull
-  # request. The other four say the code works, which is a different kind of
+  # request. The other three say the code works, which is a different kind of
   # claim, and whether a badly titled pull request should be blocked or only
   # embarrassed is a decision for the settings page rather than for this file.
   title:

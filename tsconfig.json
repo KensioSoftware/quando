@@ -3,7 +3,14 @@
     "target": "ES2023",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2023"],
+    // ESNext rather than a numbered library, for `Temporal`. It is the whole
+    // substrate this package is built on and TypeScript ships its types here
+    // and nowhere else yet; a numbered lib leaves `Temporal` undeclared.
+    //
+    // Note this is a claim about the runtime, and the runtime floor that backs
+    // it is `engines: node >= 26`. Anything older has no global `Temporal` and
+    // the types would be lying.
+    "lib": ["ESNext"],
     "types": ["node"],
 
     "strict": true,

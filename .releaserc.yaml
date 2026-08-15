@@ -151,7 +151,7 @@ plugins:
   #
   # Note there is no @semantic-release/git plugin: nothing here commits the
   # bumped version back to main directly. It could not work anyway — the main
-  # ruleset requires four passing status checks on whatever lands there, and a
+  # ruleset requires three passing status checks on whatever lands there, and a
   # commit made inside this run has none. The pull request the workflow opens
   # is that commit taking the ordinary route instead. Tags are unaffected,
   # because the ruleset only covers the default branch.
