@@ -140,6 +140,44 @@ describe("refusing an invalid rule", () => {
     );
   });
 
+  it("refuses a misspelled field rather than quietly dropping it", () => {
+    // The dangerous one: this would otherwise parse as a valid rule with no
+    // zone, read in whatever zone the query used — a different schedule, with
+    // nothing said about it.
+    assertIdentical(
+      complaintAbout({
+        type: "timeOfDay",
+        from: "09:00",
+        to: "17:00",
+        zonee: "Europe/London",
+      }),
+      "rule.zonee: is not a field of a timeOfDay rule. Expected from, to, zone",
+    );
+  });
+
+  it("refuses a field the rule type has no business with", () => {
+    assertIdentical(
+      complaintAbout({ type: "always", zone: "Europe/London" }),
+      "rule.zone: is not a field of a always rule, which takes none",
+    );
+    assertIdentical(
+      complaintAbout({ type: "all", rules: [], zone: "Europe/London" }),
+      "rule.zone: is not a field of a all rule. Expected rules",
+    );
+  });
+
+  it("finds a stray field inside the nesting too", () => {
+    assertIdentical(
+      complaintAbout({
+        type: "all",
+        rules: [
+          { type: "dates", dates: ["2026-03-14"], timezone: "Europe/London" },
+        ],
+      }),
+      "rule.rules[0].timezone: is not a field of a dates rule. Expected dates, zone",
+    );
+  });
+
   it("complains about the wrong shape in a field", () => {
     assertIdentical(
       complaintAbout({ type: "daysOfWeek", days: "monday" }),

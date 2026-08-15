@@ -23,16 +23,52 @@ import {
 } from "./parse-fields.js";
 import type { Rule } from "./rule.js";
 
-const RULE_TYPES = new Set([
-  "always",
-  "never",
-  "daysOfWeek",
-  "timeOfDay",
-  "dates",
-  "all",
-  "any",
-  "not",
+/**
+ * Every rule type, and the fields it is allowed to carry. One table rather than
+ * two, so the list of known types and the list of known fields cannot drift.
+ */
+const FIELDS = new Map<string, readonly string[]>([
+  ["always", []],
+  ["never", []],
+  ["daysOfWeek", ["days", "zone"]],
+  ["timeOfDay", ["from", "to", "zone"]],
+  ["dates", ["dates", "zone"]],
+  ["all", ["rules"]],
+  ["any", ["rules"]],
+  ["not", ["rule"]],
 ]);
+
+/**
+ * Refuses a field the rule type does not have.
+ *
+ * Quietly ignoring one is the worse option by some distance. A document
+ * carrying `"zonee"` would parse as a perfectly valid rule with no zone, which
+ * is a *different schedule* — read in whatever zone the query happened to use —
+ * and nothing would have said so. The same goes for a `zone` on a rule type
+ * that has no business with one.
+ *
+ * The cost is that a document written by a later version of Quando, carrying a
+ * field this one has not heard of, is rejected rather than tolerated. That is
+ * the right way round: a field exists to change what a rule means, so ignoring
+ * an unknown one is agreeing to get the answer wrong quietly.
+ */
+function checkFields(
+  node: Record<string, unknown>,
+  type: string,
+  allowed: readonly string[],
+  path: string,
+): void {
+  for (const field of Object.keys(node)) {
+    if (field !== "type" && !allowed.includes(field)) {
+      fail(
+        `${path}.${field}`,
+        allowed.length === 0
+          ? `is not a field of a ${type} rule, which takes none`
+          : `is not a field of a ${type} rule. Expected ${allowed.join(", ")}`,
+      );
+    }
+  }
+}
 
 function asRules(value: unknown, path: string): Rule[] {
   if (!Array.isArray(value)) {
@@ -54,12 +90,15 @@ export function parseRule(value: unknown, path = "rule"): Rule {
   if (typeof type !== "string") {
     return fail(`${path}.type`, `expected a string, found ${shapeOf(type)}`);
   }
-  if (!RULE_TYPES.has(type)) {
+
+  const allowed = FIELDS.get(type);
+  if (allowed === undefined) {
     return fail(
       `${path}.type`,
-      `"${type}" is not a rule type. Expected one of ${[...RULE_TYPES].join(", ")}`,
+      `"${type}" is not a rule type. Expected one of ${[...FIELDS.keys()].join(", ")}`,
     );
   }
+  checkFields(node, type, allowed, path);
 
   switch (type) {
     case "always": {
