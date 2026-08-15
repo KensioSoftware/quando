@@ -2,27 +2,47 @@
 # Publishes @kensio/quando, when someone runs it from the Actions tab.
 # What it does is decided by .releaserc.yaml; this file is the plumbing.
 #
-# Three things live outside the repository and have to exist for it to work:
+# Several things this depends on live in repository or npm settings rather than
+# in any file here, so nothing in a checkout can prove they are still true. This
+# is the list, and what breaks without each.
 #
 #   1. A trusted publisher on npmjs.com for @kensio/quando, pointing at this
 #      repository, this workflow file, and the "release" environment below,
 #      with npm publish as the only allowed action. This is what replaces a
 #      stored NPM_TOKEN — there is no npm credential in this repository.
+#      Renaming this file silently invalidates it, so an authentication error
+#      on publish is the first place to look.
+#      STATUS: not verifiable from here. Set up on npmjs.com.
 #
 #   2. A repository environment named "release". Adding a required reviewer
 #      makes a publish wait for a second pair of eyes, which is worth having
 #      if anyone else ever gains write access. Starting the run is already a
-#      deliberate act, so approving your own run adds little on its own. The
-#      choice is only made there, not here.
+#      deliberate act, so approving your own run adds little on its own.
+#      STATUS: does not exist yet. Referencing it below makes GitHub create it
+#      on the first run, with no protection rules, which is why item 1 has to
+#      be scoped to it deliberately rather than assumed.
 #
 #   3. Settings → Actions → General → "Allow GitHub Actions to create and
 #      approve pull requests", for the version job at the bottom. Without it
 #      `gh pr create` fails with a permissions error that does not mention the
 #      setting.
+#      STATUS: enabled.
 #
-# None of them is recorded in the repository, so if publishes start failing
-# with an authentication error, check that the trusted publisher still names
-# this workflow file — renaming this file silently invalidates it.
+#   4. Squash as the only merge method, with "Default commit message" set to
+#      "Pull request title". Everything below assumes a commit on main is a
+#      pull request title, because that is what semantic-release reads and what
+#      the release notes are made of. A merge commit or a rebase merge puts
+#      subjects on main that pr.yml never checked, so re-enabling either one
+#      quietly removes the guarantee the Title check exists to give.
+#      STATUS: set. Squash is the only method and the subject is the pull
+#      request title.
+#
+#   5. A ruleset on main requiring the Lint, Test and Build checks. Several
+#      comments below explain themselves in terms of it — in particular why the
+#      version job opens a pull request rather than pushing.
+#      STATUS: no ruleset and no branch protection exist yet. Nothing here
+#      breaks without one; it is the enforcement that is missing, not the
+#      mechanism.
 
 name: Release
 
@@ -64,18 +84,20 @@ permissions: {}
 
 # The checks pr.yml already ran, run again against main, and then publish.
 #
-# Re-running them is not belt and braces. The main ruleset does require a pull
-# request to be up to date with main before it merges, but "up to date" is
-# measured when the merge happens and this run may be days later — long enough
-# for another pull request to have landed a change that only conflicts with
-# this one semantically, which no merge check can see.
+# Re-running them is not belt and braces. A ruleset can require a pull request
+# to be up to date with main before it merges, but "up to date" is measured when
+# the merge happens and this run may be days later — long enough for another
+# pull request to have landed a change that only conflicts with this one
+# semantically, which no merge check can see.
 #
 # They are separate jobs from the publish because three jobs cost the slowest of
 # them rather than the sum. The check names are deliberately not the bare
-# "Lint"/"Build"/"Test" that pr.yml uses: those three are the
-# required status checks in the main ruleset, and a ruleset matches a check by
-# name whatever workflow posted it, so a release dispatched from a branch with
-# an open pull request would otherwise report into that pull request's gate.
+# "Lint"/"Test"/"Build" that pr.yml uses: those three are the names intended as
+# main's required checks, and a ruleset matches a check by name whatever
+# workflow posted it, so a release dispatched from a branch with an open pull
+# request would otherwise report into that pull request's gate. True whether or
+# not the ruleset of item 5 exists yet, so the distinct names are worth keeping
+# either way.
 #
 # Spelled out rather than calling `pnpm check`, which starts with `pnpm fmt`
 # and rewrites files instead of reporting on them. Keep these jobs and the ones
@@ -211,9 +233,11 @@ jobs:
   # `version` in package.json, caught up to what was just published, and sent
   # to main as a pull request.
   #
-  # A pull request rather than a push, because the main ruleset requires three
-  # passing status checks and a commit created inside this run has none. pr.yml
-  # runs those three on pushes to `release/**` for exactly this reason.
+  # A pull request rather than a push, because main's intended ruleset requires
+  # three passing status checks and a commit created inside this run has none.
+  # pr.yml runs those three on pushes to `release/**` for exactly this reason.
+  # It is also the right shape with no ruleset in place, so this does not wait
+  # on one.
   #
   # That number is not what the released version *is* — the tag and the
   # registry are that, and both already exist by the time this runs. So a

@@ -8,8 +8,8 @@ on:
   # release.yml opens its version pull request with GITHUB_TOKEN, and a pull
   # request opened with that token does not fire `pull_request` — GitHub
   # declines to let a workflow start another workflow. Without this the main
-  # ruleset's three required checks would never report on it and it could never
-  # be merged.
+  # intended ruleset's three required checks would never report on it and it
+  # could never be merged. See the setup notes at the top of release.yml.
   #
   # A ruleset matches a check by name whatever workflow posted it, and these
   # are the same three jobs under the same three names, so running them on the
@@ -105,27 +105,30 @@ jobs:
       # of these takes.
       - run: pnpm pack:check
 
-  # The title, which is the release note.
+  # The subject that lands on main, which is the release note.
   #
-  # These merge as squashes, so the title becomes the commit subject, and the
-  # commit subject is both what semantic-release reads to decide the version
-  # and — since there is no CHANGELOG.md any more — the line a reader of the
-  # release sees. A title that does not parse as a conventional commit is
-  # therefore two failures at once, and both of them are silent: the change
-  # releases nothing, and it appears in no notes. Nothing downstream can report
-  # that, because "no release" and "nothing releasable happened" look the same
-  # from there.
+  # These merge as squashes, so a subject here becomes a commit subject on main,
+  # and that subject is both what semantic-release reads to decide the version
+  # and — since there is no CHANGELOG.md — the line a reader of the release
+  # sees. One that does not parse as a conventional commit is therefore two
+  # failures at once, and both are silent: the change releases nothing, and it
+  # appears in no notes. Nothing downstream can report that, because "no
+  # release" and "nothing releasable happened" look the same from there.
   #
   # So it is asked here, while the change is still in front of its author and
-  # the title is one edit away. The types are read out of .releaserc.yaml
-  # rather than repeated, so this cannot drift from what actually publishes;
-  # the ones that release nothing are listed here because a title still has to
-  # parse to be a legal subject, whether or not it ships.
+  # one edit away. The types are read out of .releaserc.yaml rather than
+  # repeated, so this cannot drift from what actually publishes; the ones that
+  # release nothing are listed because a subject still has to parse to be a
+  # legal one, whether or not it ships.
   #
-  # Deliberately not added to the main ruleset's required checks by this pull
-  # request. The other three say the code works, which is a different kind of
-  # claim, and whether a badly titled pull request should be blocked or only
-  # embarrassed is a decision for the settings page rather than for this file.
+  # Which string will land is a repository setting rather than something this
+  # file can assume, so the step below asks rather than guessing. See item 4 in
+  # release.yml's setup notes.
+  #
+  # Deliberately not proposed as one of main's required checks. The other three
+  # say the code works, which is a different kind of claim, and whether a badly
+  # titled pull request should be blocked or only embarrassed is a decision for
+  # the settings page rather than for this file.
   title:
     name: Title
     # The `release/**` push above is release.yml's own version pull request,
@@ -133,20 +136,51 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
+      # Also covers reading the head commit's subject, below.
       contents: read
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Check the title
+      - name: Check the subject that will land on main
         env:
           # Through the environment rather than interpolated into the script.
           # A title is text anyone opening a pull request chooses, and `${{ }}`
           # pastes it in as shell source before bash ever sees it.
           TITLE: ${{ github.event.pull_request.title }}
+          # Both of these come from the same event payload, so they describe the
+          # same revision of the pull request. Counting commits from the payload
+          # and then fetching them fresh would not: a push between the event and
+          # this job would have it read one commit out of a branch that now has
+          # two, and check a subject that is no longer the one landing.
+          COMMIT_COUNT: ${{ github.event.pull_request.commits }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+
+          # Which string GitHub will actually use as the squash subject is a
+          # repository setting, not something this file can assume. Under
+          # PR_TITLE it is always the pull request title; under GitHub's default
+          # of COMMIT_OR_PR_TITLE a single-commit pull request squashes with
+          # that commit's subject instead, and checking the title would then be
+          # checking a string that never reaches main. So ask.
+          setting="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.squash_merge_commit_title')"
+
+          if [[ "$setting" == "COMMIT_OR_PR_TITLE" && "$COMMIT_COUNT" == "1" ]]; then
+            # The subject is taken inside jq rather than by piping to `head`,
+            # which would close the pipe under `gh` and, with `pipefail` set,
+            # fail the step on a SIGPIPE that means nothing went wrong.
+            landing="$(
+              gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA" \
+                --jq '.commit.message | split("\n")[0]'
+            )"
+            source="the commit subject, which is what a one-commit squash uses"
+          else
+            landing="$TITLE"
+            source="the pull request title"
+          fi
 
           # The types under `releaseRules:` in .releaserc.yaml. Anchored to
           # that block, because the notes generator further down the file lists
@@ -167,9 +201,9 @@ jobs:
           # the type narrowed to the ones this repository recognises.
           subject="^(${releasing}|${silent})(\([^)]+\))?!?: .+"
 
-          if [[ ! "$TITLE" =~ $subject ]]; then
-            echo "::error::\"$TITLE\" is not a conventional commit subject. It becomes the commit message on main and the line in the release notes, and a title that does not parse releases nothing and appears nowhere. Expected one of ${releasing}|${silent}, optionally scoped, then ': ' and a description."
+          if [[ ! "$landing" =~ $subject ]]; then
+            echo "::error::\"$landing\" is not a conventional commit subject. This is ${source}, so it becomes the commit message on main and the line in the release notes, and a subject that does not parse releases nothing and appears nowhere. Expected one of ${releasing}|${silent}, optionally scoped, then ': ' and a description."
             exit 1
           fi
 
-          echo "\"$TITLE\" parses."
+          echo "\"$landing\" parses (${source})."
