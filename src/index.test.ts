@@ -12,6 +12,8 @@ import {
   contains,
   duration,
   intersect,
+  intervals,
+  type Rule,
   union,
 } from "./index.js";
 
@@ -38,6 +40,25 @@ describe("the public entry point", () => {
       reachable.map((interval) => duration(interval)?.toString()).join(" "),
       "PT3H30M PT1H",
     );
+  });
+
+  it("reads a rule through the entry point", () => {
+    const officeHours: Rule = {
+      type: "all",
+      rules: [
+        { type: "daysOfWeek", days: ["monday"] },
+        { type: "timeOfDay", from: "09:00", to: "17:00" },
+      ],
+    };
+    const week = [
+      ...intervals(officeHours, {
+        from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+        to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
+      }),
+    ];
+
+    assertArrayLength(week, 1);
+    assertIdentical(duration(week[0])?.toString(), "PT8H");
   });
 
   it("exposes union and containment", () => {

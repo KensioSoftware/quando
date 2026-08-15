@@ -3,6 +3,7 @@
  * as the timeline they describe rather than as Temporal construction.
  */
 
+import type { Context } from "../src/context.js";
 import type { Interval } from "../src/interval.js";
 
 export const LONDON = "Europe/London";
@@ -82,4 +83,15 @@ export function* dailyForever(
       end: date.toZonedDateTime({ timeZone: zone, plainTime: endTime }),
     };
   }
+}
+
+/** A context over a window, for evaluating rules in tests. */
+export function inWindow(
+  from: string,
+  to?: string,
+  zone: string = LONDON,
+): Context {
+  return to === undefined
+    ? { from: when(from, zone) }
+    : { from: when(from, zone), to: when(to, zone) };
 }
