@@ -5,8 +5,10 @@
  * What exists so far is the interval core, the rule language on top of it, and
  * the two ends of "rules are data": a builder that writes one, and a parser
  * that reads one back from whatever a database or a form actually held.
- * Cascades — layered rules carrying values — and the query surface are still to
- * come.
+ * Queries sit on top: is it open now, how much working time is in this window,
+ * when does it next open, and where do you get to after three hours that only
+ * count while it is open. Cascades — layered rules carrying values — are still
+ * to come.
  *
  * Requires a runtime with `Temporal`: Node 26 or later, or a browser that
  * implements it.
@@ -65,3 +67,6 @@ export {
 } from "./build.js";
 
 export { parseRule } from "./parse.js";
+
+export type { Search } from "./query.js";
+export { activeAt, advanceBy, elapsed, next } from "./query.js";
