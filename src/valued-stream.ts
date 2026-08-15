@@ -16,8 +16,9 @@ import { peekable } from "./stream.js";
  * A lazy sequence of valued intervals.
  *
  * Same contract as `IntervalStream` — ascending by start, non-overlapping,
- * coalesced — with the addition that two touching intervals only count as
- * coalesced if their values differ.
+ * coalesced — with one addition: touching intervals carrying the same value
+ * are merged, so where two intervals do touch, the values on either side of
+ * the boundary differ.
  */
 export type ValuedStream<V> = Iterable<Valued<V>>;
 

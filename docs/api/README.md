@@ -176,8 +176,8 @@ type ValuedStream<V> = Iterable<Valued<V>>;
 
 `Valued<V>` extends `Interval`, so `duration`, `contains` and `isEmpty` read one
 unchanged. A `ValuedStream<V>` keeps the same contract as an `IntervalStream`,
-with the addition that two touching intervals only count as coalesced if their
-values differ.
+with one addition: touching intervals carrying the same value are merged, so
+where two intervals do touch, the values on either side of the boundary differ.
 
 Overlap between layers is settled by precedence — the last layer to claim a
 moment wins — and there is no merge function for quantities yet.

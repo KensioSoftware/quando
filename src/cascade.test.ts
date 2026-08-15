@@ -2,12 +2,16 @@ import {
   assertArrayLength,
   assertFalse,
   assertIdentical,
+  assertInstanceOf,
+  assertStringIncludes,
+  assertThrowsError,
   assertTrue,
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
 import { dates, timeOfDay, weekdays } from "./build.js";
 import { cascade, isCascade, layer, replace, whenever } from "./cascade.js";
+import { parseRule } from "./parse.js";
 
 const WEDNESDAY = dates("2026-03-11");
 
@@ -69,6 +73,19 @@ describe("replace", () => {
     const layered = replace(WEDNESDAY, inner);
 
     assertIdentical(layered.replace, inner);
+  });
+});
+
+describe("the boundary with rules", () => {
+  it("is refused by parseRule, which reads rules and not cascades", () => {
+    // A cascade is tagged data too, so it is worth knowing that handing one to
+    // the rule parser says so rather than half-succeeding.
+    const schedule = whenever(weekdays());
+
+    const error = assertThrowsError(() => parseRule(schedule));
+
+    assertInstanceOf(error, TypeError);
+    assertStringIncludes(error.message, '"cascade" is not a rule type');
   });
 });
 

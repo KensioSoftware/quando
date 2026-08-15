@@ -138,6 +138,17 @@ describe("coalescing", () => {
     );
   });
 
+  it("joins a run split three ways by an overriding layer", () => {
+    // The upper layer wins the Wednesday and assigns what the lower one would
+    // have. Three winning regions, one answer.
+    const rota = cascade(layer(weekdays(), "alice"), layer(WEDNESDAY, "alice"));
+
+    assertIdentical(
+      read(rota),
+      "[2026-03-09T00:00:00,2026-03-14T00:00:00)=alice",
+    );
+  });
+
   it("merges the same object, and leaves equal-looking ones apart", () => {
     const monday = daysOfWeek("monday");
     const tuesday = daysOfWeek("tuesday");
@@ -179,6 +190,22 @@ describe("a replacing layer", () => {
     const afterClosing = inWindow("2026-03-11T15:00", "2026-03-12T00:00");
 
     assertArrayLength([...resolve(openingHours, afterClosing)], 0);
+  });
+
+  it("blanks its scope when it replaces with a cascade of nothing", () => {
+    // The claim stands even with nothing to put inside it, which is what makes
+    // an empty replacement a way of saying "not this day, whatever the layers
+    // below think".
+    const shutdown = cascade(
+      layer(weekdays(), "open"),
+      replace(WEDNESDAY, cascade<string>()),
+    );
+
+    assertIdentical(
+      read(shutdown),
+      "[2026-03-09T00:00:00,2026-03-11T00:00:00)=open " +
+        "[2026-03-12T00:00:00,2026-03-14T00:00:00)=open",
+    );
   });
 
   it("clips a replacement that reaches outside the scope it replaces", () => {
