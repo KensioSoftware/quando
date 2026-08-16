@@ -1,6 +1,6 @@
 {
   "name": "@kensio/quando",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Declarative temporal rules for schedules, deadlines, constraints, and exceptions",
   "repository": "https://github.com/KensioSoftware/quando",
   "homepage": "https://quandojs.dev",
