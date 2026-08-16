@@ -245,14 +245,23 @@ jobs:
           # The footer reaches the analyzer by the other route, and only if it
           # lands in the squash body — which is a repository setting, like the
           # subject above, so ask rather than assume.
+          #
+          # The ask often comes back empty, and that is the case worth getting
+          # right. GitHub only puts the merge settings in this payload for a
+          # token with admin rights, and `github.token` has none: the first run
+          # of this check reported "the squash body is blank" on a repository
+          # set to COMMIT_MESSAGES. So an unreadable setting must mean *check
+          # everything*, not *check nothing* — a guard that silently passes is
+          # worse than no guard, because it reads like one that ran.
           message_setting="$(
-            gh api "repos/$GITHUB_REPOSITORY" --jq '.squash_merge_commit_message'
+            gh api "repos/$GITHUB_REPOSITORY" \
+              --jq '.squash_merge_commit_message // empty' 2>/dev/null || true
           )"
 
           case "$message_setting" in
             PR_BODY)
               landing_body="$BODY"
-              body_source="the pull request body"
+              body_source="the pull request body, which becomes the squash body"
               ;;
             COMMIT_MESSAGES)
               # Every commit's whole message is concatenated into the squash
@@ -262,20 +271,35 @@ jobs:
                 gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" \
                   --paginate --jq '.[].commit.message'
               )"
-              body_source="the commit messages, which is what the squash body uses"
+              body_source="the commit messages, which become the squash body"
               ;;
-            *)
-              # BLANK, and anything GitHub adds later: nothing carries a footer
-              # to main, so there is nothing here to refuse.
+            BLANK)
+              # Nothing carries a footer to main, so there is nothing here to
+              # refuse. Only trusted when the setting was actually readable.
               landing_body=""
               body_source="nothing — this repository squashes with a blank body"
+              ;;
+            *)
+              # Unreadable, or a setting GitHub adds later. Check both of the
+              # places a footer could come from, since either might be the one
+              # that lands. The template asks for no footer anywhere, so this
+              # refuses nothing it does not already ask authors to avoid.
+              # Both, each starting at a line of its own: the pattern below is
+              # anchored, so a footer indented by this file's own layout would
+              # slip past it.
+              landing_body="$(
+                printf '%s\n' "$BODY"
+                gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" \
+                  --paginate --jq '.[].commit.message'
+              )"
+              body_source="the pull request body or the commit messages (the merge setting is not readable from here, so both are checked)"
               ;;
           esac
 
           # The two keywords conventional-commits-parser treats as notes, at
           # the start of a line, which is where a footer is.
           if grep -qE '^BREAKING[ -]CHANGE:' <<<"$landing_body"; then
-            echo "::error::A BREAKING CHANGE: footer is in ${body_source}, so it becomes part of the commit on main. Major versions are published by hand here, so the release run refuses one rather than shipping it. Say what breaks without the footer keyword, or take it up as a hand-published major."
+            echo "::error::A BREAKING CHANGE: footer is in ${body_source}. Major versions are published by hand here, so the release run refuses one rather than shipping it: this would land on main and then stop the next release. Say what breaks without the footer keyword, or take it up as a hand-published major."
             exit 1
           fi
 
