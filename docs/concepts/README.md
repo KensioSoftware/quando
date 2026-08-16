@@ -110,11 +110,11 @@ That is the right answer, and it names the eleventh twice — once to remove it,
 once to put it back. What you meant was simpler: _on the eleventh, ignore the
 usual hours and use these instead._
 
-## Layers and values, which are designed and not built
+## Layers, which are the answer to that
 
-The intended answer to that is **layers**, ordered like the rules in a
-stylesheet: each says where it applies and what applies there, and the last one
-to claim a moment wins.
+The answer is **layers**, ordered like the rules in a stylesheet: each says
+where it applies and what applies there, and the last one to claim a moment
+wins.
 
 ```text
   1. weekdays 09:00–17:00         ← the usual hours
@@ -122,18 +122,20 @@ to claim a moment wins.
   3. the 11th: 09:00–15:00        ← an override, wins inside its own day
 ```
 
-Once a layer can carry a value rather than merely open or closed, the same
+Because a layer carries a value rather than merely open or closed, the same
 machinery answers questions that are not yes-or-no — who is on call this week,
 what the electricity tariff is at three in the morning, how many staff are
 rostered — with a plain schedule being the case where the value is _open_.
 
-**None of that is built.** There is no layer type, no cascade and no value in
-the package today; what a rule covers is all a rule says. It is described here
-because it is what the boolean core was shaped to carry, and because it explains
-why rules deliberately have no value of their own: a rule that carried one would
-make `not` meaningless, and the set algebra with it.
+This is what a [cascade](../cascades/) is, and it is why rules deliberately have
+no value of their own: a rule that carried one would make `not` meaningless, and
+the set algebra with it. Values belong to assignment, which is a separate
+concept sitting on top of the same intervals.
 
-Until it lands, an override is written the way it is above.
+What overlap means is still only half answered. A cascade settles it by
+precedence, which is what a rota and a schedule need. Quantities that should
+_add_ rather than displace — three staff plus two — need a merge function, and
+that is the open question.
 
 ## Rules are data
 

@@ -64,6 +64,31 @@ advanceBy(friday, Temporal.Duration.from({ hours: 3 }), {
 That last one is why the library exists, and it is the one that is genuinely
 awkward to do by hand.
 
+## Or say it the way you would say it
+
+For opening hours and rotas there is a plainer front door, which builds the same
+thing:
+
+```ts
+import { rota, schedule, weekdays, weekends } from "@kensio/quando";
+
+const openingHours = schedule()
+  .open(weekdays(), "09:00-17:00")
+  .closed("2026-12-25")
+  .hoursOn("2026-03-11", "09:00-15:00"); // close early, just that day
+
+openingHours.isOpen(friday);
+// → true
+
+const onCall = rota().assign(weekdays(), "alice").assign(weekends(), "bob");
+
+onCall.whoIsOn(friday);
+// → "alice"
+```
+
+Each line outranks the ones above it, so exceptions read in the order you would
+say them. See [schedules and rotas](docs/schedules/).
+
 ## Why intervals
 
 A rule does not answer about an instant — it produces the intervals over which
@@ -86,6 +111,8 @@ this repository:
 - [Queries](docs/queries/) — the four questions, and termination
 - [Time zones](docs/time-zones/) — wall clock against elapsed time
 - [Serialisation](docs/serialisation/) — the JSON form and its boundary
+- [Schedules and rotas](docs/schedules/) — opening hours and who is on, plainly
+- [Cascades](docs/cascades/) — layers carrying values, resolved by precedence
 - [API](docs/api/) — everything the package exports
 
 ## What it is not
@@ -95,8 +122,8 @@ scheduler: Quando calculates _when_ and never fires anything, so its answer is
 your scheduler's input. Not storage, and not a holiday data provider; calendar
 data belongs in satellite packages so that the core carries none.
 
-Cascades — layered rules carrying values — are designed and not yet built, along
-with estimates and a command line.
+Cascades carry values by precedence; merging values that should add rather than
+displace is designed and not yet built, along with estimates and a command line.
 
 ## Licence
 

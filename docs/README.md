@@ -10,13 +10,13 @@ made on the site is a change that will be overwritten.
 ## Status
 
 There is a package, and these pages document what is in it: the interval core,
-the rule language and its builder, the JSON boundary, and the four queries.
-Every example on them was run against the built package and its output pasted
-in.
+the rule language and its builder, the JSON boundary, the four queries, and
+cascades. Every example on them was run against the built package and its
+output pasted in.
 
-Cascades — layers carrying values — are designed and not built, and so are
-estimates, backward search over an unbounded past, and the command line. Pages
-about them are deliberately absent until there is something to call: a
+Merging values that add rather than displace is designed and not built, and so
+are estimates, backward search over an unbounded past, and the command line.
+Pages about them are deliberately absent until there is something to call: a
 documented function that does not exist is worse than an undocumented one that
 does.
 
@@ -66,13 +66,17 @@ const hours = weekdays().and(timeOfDay("09:00", "17:00"));
   against elapsed time across a clock change.
 - [Serialisation](serialisation/): the JSON form, and why an unknown field is an
   error rather than something to ignore.
+- [Schedules and rotas](schedules/): opening hours and who is on, in the words
+  usually used for them. The plainest way in for the common shapes.
+- [Cascades](cascades/): ordered layers carrying values — what schedules and
+  rotas are underneath, and what to reach for when their words run out.
 - [API](api/): everything the package exports.
 
 ## Planned
 
 Written when there is something true to say:
 
-- **Cascades** — layering, precedence, overrides.
+- **Merging values** — overlap that adds rather than displaces.
 - **Estimates** — ranges, distributions, and the questions they answer.
 - **Custom rule types** — the escape hatch, and the registry parsing needs.
 - **The command line** — every `quando` command.

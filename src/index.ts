@@ -7,8 +7,9 @@
  * that reads one back from whatever a database or a form actually held.
  * Queries sit on top: is it open now, how much working time is in this window,
  * when does it next open, and where do you get to after three hours that only
- * count while it is open. Cascades — layered rules carrying values — are still
- * to come.
+ * count while it is open. Cascades sit beside them: ordered layers that carry
+ * values, resolved by precedence, for the questions a boolean schedule cannot
+ * answer.
  *
  * Requires a runtime with `Temporal`: Node 26 or later, or a browser that
  * implements it.
@@ -67,6 +68,27 @@ export {
 } from "./build.js";
 
 export { parseRule } from "./parse.js";
+
+export type {
+  Cascade,
+  ConstantLayer,
+  Layer,
+  ReplacingLayer,
+  Valued,
+} from "./cascade.js";
+export { cascade, isCascade, layer, replace, whenever } from "./cascade.js";
+
+export type { ValuedStream } from "./valued-stream.js";
+
+export { resolve } from "./resolve.js";
+
+export type { PlainRule } from "./plain-forms.js";
+
+export type { Schedule } from "./schedule.js";
+export { schedule } from "./schedule.js";
+
+export type { Rota } from "./rota.js";
+export { rota } from "./rota.js";
 
 export type { Search } from "./query.js";
 export { activeAt, advanceBy, elapsed, next } from "./query.js";
