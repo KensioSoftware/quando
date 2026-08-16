@@ -16,5 +16,6 @@ Brief, concise description of the change:
 See https://www.conventionalcommits.org/en/v1.0.0/
 
 <!-- One exception to that spec: no `!` in the title and no `BREAKING CHANGE:`
-     footer. Major versions are published by hand here, so the release run
-     refuses one rather than shipping it. -->
+     footer. Major versions are published by hand here, so a release run
+     refuses one rather than shipping it — the Title check says so on the pull
+     request instead, while it is still one edit away. -->

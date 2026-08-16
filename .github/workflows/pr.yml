@@ -144,6 +144,10 @@ jobs:
     permissions:
       # Also covers reading the head commit's subject, below.
       contents: read
+      # Listing the pull request's commits, which is what the squash body is
+      # made of under this repository's merge settings. Their footers land on
+      # main even though their subjects do not.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -162,6 +166,11 @@ jobs:
           # two, and check a subject that is no longer the one landing.
           COMMIT_COUNT: ${{ github.event.pull_request.commits }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # For the breaking-change check below, which has to read whatever
+          # becomes the squash body. Through the environment for the same
+          # reason as the title: both are text an author chooses.
+          BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -213,3 +222,61 @@ jobs:
           fi
 
           echo "\"$landing\" parses (${source})."
+
+          # Conventional commits mark a breaking change with a `!` in the
+          # header or a `BREAKING CHANGE:` footer, and the pattern above
+          # tolerates the `!` because the spec does. This repository does not.
+          #
+          # `.releaserc.yaml` refuses to publish a major — that is a decision
+          # about what consumers have to rewrite, made by a person publishing
+          # by hand — so a breaking marker does not produce a major release. It
+          # produces a release run that stops, after the change is already on
+          # main, with nothing published and no way to tell from the outside
+          # whether that was the marker or an ordinary quiet release.
+          #
+          # Which is the same argument that put the subject check here rather
+          # than at release time: it is one edit away while the change is still
+          # in front of its author, and a fortnight of archaeology afterwards.
+          if [[ "$landing" =~ ^[a-z]+(\([^\)]*\))?! ]]; then
+            echo "::error::\"$landing\" carries a breaking-change marker. Major versions are published by hand here, so the release run refuses one rather than shipping it: this would land on main and then stop the next release. Drop the '!' and say what breaks in the body, or take it up as a hand-published major."
+            exit 1
+          fi
+
+          # The footer reaches the analyzer by the other route, and only if it
+          # lands in the squash body — which is a repository setting, like the
+          # subject above, so ask rather than assume.
+          message_setting="$(
+            gh api "repos/$GITHUB_REPOSITORY" --jq '.squash_merge_commit_message'
+          )"
+
+          case "$message_setting" in
+            PR_BODY)
+              landing_body="$BODY"
+              body_source="the pull request body"
+              ;;
+            COMMIT_MESSAGES)
+              # Every commit's whole message is concatenated into the squash
+              # body, so a footer in any one of them reaches main even though
+              # its subject does not.
+              landing_body="$(
+                gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" \
+                  --paginate --jq '.[].commit.message'
+              )"
+              body_source="the commit messages, which is what the squash body uses"
+              ;;
+            *)
+              # BLANK, and anything GitHub adds later: nothing carries a footer
+              # to main, so there is nothing here to refuse.
+              landing_body=""
+              body_source="nothing — this repository squashes with a blank body"
+              ;;
+          esac
+
+          # The two keywords conventional-commits-parser treats as notes, at
+          # the start of a line, which is where a footer is.
+          if grep -qE '^BREAKING[ -]CHANGE:' <<<"$landing_body"; then
+            echo "::error::A BREAKING CHANGE: footer is in ${body_source}, so it becomes part of the commit on main. Major versions are published by hand here, so the release run refuses one rather than shipping it. Say what breaks without the footer keyword, or take it up as a hand-published major."
+            exit 1
+          fi
+
+          echo "No breaking-change marker (checked ${body_source})."
