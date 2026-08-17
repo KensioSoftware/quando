@@ -78,7 +78,8 @@ describe("the builder", () => {
     it("survives a round trip through JSON unchanged", () => {
       // Given a built rule, stored and read back through the parser.
       const built = weekdays().and(timeOfDay("09:00", "17:00"));
-      const parsed = parseRule(JSON.parse(JSON.stringify(built)));
+      const stored = JSON.stringify(built);
+      const parsed = parseRule(JSON.parse(stored));
 
       // When both are read over the same week.
       // Then they cover the same time. Storing a rule loses nothing.
@@ -142,7 +143,10 @@ describe("the builder", () => {
       // When each is read over the week.
       // Then `always` and an empty `all` give the whole window, while `never`
       // and an empty `any` give none of it.
-      assertIdentical(read(always()), "[2026-03-09T00:00:00,2026-03-16T00:00:00)");
+      assertIdentical(
+        read(always()),
+        "[2026-03-09T00:00:00,2026-03-16T00:00:00)",
+      );
       assertIdentical(read(never()), "");
       assertIdentical(read(all()), "[2026-03-09T00:00:00,2026-03-16T00:00:00)");
       assertIdentical(read(any()), "");
@@ -152,8 +156,10 @@ describe("the builder", () => {
       // Given the weekend.
       // When its complement is read over the week.
       // Then the five weekdays come back as one stretch, clipped to the window.
+      const weekdaysOnly = not(weekends());
+
       assertIdentical(
-        read(not(weekends())),
+        read(weekdaysOnly),
         "[2026-03-09T00:00:00,2026-03-14T00:00:00)",
       );
     });
@@ -161,7 +167,11 @@ describe("the builder", () => {
     it("names a zone for a leaf", () => {
       // Given London office hours, read from a Tokyo day. London is nine hours
       // behind in March.
-      const tokyo = inWindow("2026-03-09T00:00", "2026-03-10T00:00", "Asia/Tokyo");
+      const tokyo = inWindow(
+        "2026-03-09T00:00",
+        "2026-03-10T00:00",
+        "Asia/Tokyo",
+      );
       const london = inZone(timeOfDay("09:00", "17:00"), "Europe/London");
 
       // When the rule is serialised, and read over that day.

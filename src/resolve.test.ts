@@ -230,11 +230,12 @@ describe("resolving a cascade", () => {
 
   describe("a replacing layer", () => {
     /** Weekday office hours, closing at three on the Wednesday. */
-    const openingHours = () =>
-      cascade(
-        layer(all(weekdays(), timeOfDay("09:00", "17:00")), true),
-        replace(WEDNESDAY, timeOfDay("09:00", "15:00")),
-      );
+    const openingHours = () => {
+      const usualHours = all(weekdays(), timeOfDay("09:00", "17:00"));
+      const early = replace(WEDNESDAY, timeOfDay("09:00", "15:00"));
+
+      return cascade(layer(usualHours, true), early);
+    };
 
     it("replaces the hours inside its scope rather than punching a hole", () => {
       // Given the opening hours.
@@ -309,7 +310,10 @@ describe("resolving a cascade", () => {
         layer(timeOfDay("09:00", "17:00"), "open"),
         replace(timeOfDay("12:00", "13:00"), lunch),
       );
-      const rota = cascade(layer(WEDNESDAY, "shut"), replace(weekdays(), inner));
+      const rota = cascade(
+        layer(WEDNESDAY, "shut"),
+        replace(weekdays(), inner),
+      );
       const wednesday = inWindow("2026-03-11T00:00", "2026-03-12T00:00");
 
       // When the Wednesday is resolved.
