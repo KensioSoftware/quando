@@ -33,7 +33,10 @@ describe("take", () => {
     // When a count of zero or below is asked for.
     // Then nothing is pulled at all.
     assertArrayLength(take(naturals(), 0), 0);
-    assertArrayLength(take(naturals(), faker.number.int({ min: -20, max: -1 })), 0);
+    assertArrayLength(
+      take(naturals(), faker.number.int({ min: -20, max: -1 })),
+      0,
+    );
   });
 
   it("refuses a count that is not a whole number", () => {
