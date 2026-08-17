@@ -219,7 +219,12 @@
         "typescript/explicit-function-return-type": "off",
         "unicorn/no-null": "off",
         // An explicit `undefined` argument is often the case under test.
-        "unicorn/no-useless-undefined": "off"
+        "unicorn/no-useless-undefined": "off",
+        // Support for a test belongs inside the describe it serves, where a
+        // reader meets it beside the tests that use it. This rule hoists it to
+        // module scope, which is where shared mutable fixtures come from.
+        // Rebuilding a closure per call costs nothing at this size.
+        "unicorn/consistent-function-scoping": "off"
       }
     },
     {

@@ -1,3 +1,4 @@
+import { faker } from "@faker-js/faker";
 import {
   assertArrayLength,
   assertFalse,
@@ -13,87 +14,118 @@ import { dates, timeOfDay, weekdays } from "./build.js";
 import { cascade, isCascade, layer, replace, whenever } from "./cascade.js";
 import { parseRule } from "./parse.js";
 
-const WEDNESDAY = dates("2026-03-11");
+describe("cascades as data", () => {
+  const WEDNESDAY = dates("2026-03-11");
 
-describe("a built cascade", () => {
-  it("is the document it stands for, with the builders' methods left out", () => {
-    const rota = cascade(layer(weekdays(), "alice"), layer(WEDNESDAY, "bob"));
+  /** Two people who are certainly not the same person. */
+  const twoNames = (): [string, string] => {
+    const [first = "", second = ""] = faker.helpers.uniqueArray(
+      () => faker.person.firstName(),
+      2,
+    );
+    return [first, second];
+  };
 
-    const document = {
-      type: "cascade",
-      layers: [
-        {
-          scope: {
-            type: "daysOfWeek",
-            days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
-          },
-          value: "alice",
-        },
-        {
-          scope: { type: "dates", dates: ["2026-03-11"] },
-          value: "bob",
-        },
-      ],
-    };
+  describe("a built cascade", () => {
+    it("is the document it stands for, with the builders' methods left out", () => {
+      // Given a rota built through the builders, whose methods are functions
+      // hanging off ordinary objects.
+      const [weekdayCover, wednesdayCover] = twoNames();
+      const rota = cascade(
+        layer(weekdays(), weekdayCover),
+        layer(WEDNESDAY, wednesdayCover),
+      );
 
-    assertIdentical(JSON.stringify(rota), JSON.stringify(document));
-  });
+      // When it is serialised.
+      const serialised = JSON.stringify(rota);
 
-  it("holds no layers when given none", () => {
-    // The identity: a cascade of nothing assigns nothing, which is what makes
-    // building one from a list that filtered to empty behave.
-    assertArrayLength(cascade<string>().layers, 0);
-  });
-});
-
-describe("replace", () => {
-  it("stores a bare rule as the cascade it stands for", () => {
-    // The sugar is resolved when the layer is written, so a stored document
-    // never needs a reader to know which of the two forms was used.
-    const early = replace(WEDNESDAY, timeOfDay("09:00", "15:00"));
-
-    const document = {
-      scope: { type: "dates", dates: ["2026-03-11"] },
-      replace: {
+      // Then out comes the document a hand-written one would be, with the
+      // methods gone.
+      const document = {
         type: "cascade",
         layers: [
           {
-            scope: { type: "timeOfDay", from: "09:00", to: "15:00" },
-            value: true,
+            scope: {
+              type: "daysOfWeek",
+              days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+            },
+            value: weekdayCover,
+          },
+          {
+            scope: { type: "dates", dates: ["2026-03-11"] },
+            value: wednesdayCover,
           },
         ],
-      },
-    };
+      };
+      assertIdentical(serialised, JSON.stringify(document));
+    });
 
-    assertIdentical(JSON.stringify(early), JSON.stringify(document));
+    it("holds no layers when given none", () => {
+      // Given nothing to layer, as a list filtered down to empty would give.
+      // When a cascade is built from it.
+      // Then it holds no layers, which is the identity for this shape.
+      assertArrayLength(cascade<string>().layers, 0);
+    });
   });
 
-  it("keeps a cascade replacement as it was given", () => {
-    const inner = cascade(layer(timeOfDay("09:00", "15:00"), "short"));
-    const layered = replace(WEDNESDAY, inner);
+  describe("replace", () => {
+    it("stores a bare rule as the cascade it stands for", () => {
+      // Given an early closing written with the rule form of the sugar.
+      // When the layer is built.
+      const early = replace(WEDNESDAY, timeOfDay("09:00", "15:00"));
 
-    assertIdentical(layered.replace, inner);
+      // Then what it holds is the lifted cascade. The sugar is resolved as the
+      // layer is written, and a stored document carries only the one form.
+      const document = {
+        scope: { type: "dates", dates: ["2026-03-11"] },
+        replace: {
+          type: "cascade",
+          layers: [
+            {
+              scope: { type: "timeOfDay", from: "09:00", to: "15:00" },
+              value: true,
+            },
+          ],
+        },
+      };
+      assertIdentical(JSON.stringify(early), JSON.stringify(document));
+    });
+
+    it("keeps a cascade replacement as it was given", () => {
+      // Given a replacement that is already a cascade.
+      const inner = cascade(layer(timeOfDay("09:00", "15:00"), "short"));
+
+      // When the layer is built.
+      const layered = replace(WEDNESDAY, inner);
+
+      // Then the cascade is stored untouched, with no second lifting.
+      assertIdentical(layered.replace, inner);
+    });
   });
-});
 
-describe("the boundary with rules", () => {
-  it("is refused by parseRule, which reads rules and not cascades", () => {
-    // A cascade is tagged data too, so it is worth knowing that handing one to
-    // the rule parser says so rather than half-succeeding.
-    const schedule = whenever(weekdays());
+  describe("the boundary with rules", () => {
+    it("refuses a cascade handed to the rule parser", () => {
+      // Given a cascade, which is tagged data of the same shape family as a
+      // rule and could plausibly be handed to the wrong reader.
+      const schedule = whenever(weekdays());
 
-    const error = assertThrowsError(() => parseRule(schedule));
+      // When the rule parser is asked to read it.
+      const error = assertThrowsError(() => parseRule(schedule));
 
-    assertInstanceOf(error, TypeError);
-    assertStringIncludes(error.message, '"cascade" is not a rule type');
-  });
-});
+      // Then it says which type it found, and stops.
+      assertInstanceOf(error, TypeError);
+      assertStringIncludes(error.message, '"cascade" is not a rule type');
+    });
 
-describe("isCascade", () => {
-  it("tells a cascade from a rule", () => {
-    const schedule = whenever(weekdays());
+    it("tells a cascade from a rule", () => {
+      // Given one of each.
+      const schedule = whenever(weekdays());
+      const rule = weekdays();
 
-    assertTrue(isCascade(schedule));
-    assertFalse(isCascade(weekdays()));
+      // When each is tested.
+      // Then only the cascade answers to it.
+      assertTrue(isCascade(schedule));
+      assertFalse(isCascade(rule));
+    });
   });
 });

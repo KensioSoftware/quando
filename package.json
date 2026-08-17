@@ -42,6 +42,7 @@
     "check": "pnpm fmt && pnpm docs:check && pnpm fta && pnpm build:check && pnpm pack:check && pnpm test:coverage"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
     "@kensio/smartass": "^1.33.0",
     "@semantic-release/exec": "7.1.0",
     "@types/node": "^26.0.0",
