@@ -1,7 +1,8 @@
 Brief, concise description of the change:
 
-<!-- One paragraph of prose, no headings or bullet lists. CodeRabbit will fill
-     in a more detailed description once this is open. -->
+<!-- One paragraph of prose, no headings or bullet lists. This is the whole
+     description, so say what changed and why. CodeRabbit no longer reviews or
+     summarises on open: comment `@coderabbitai review` when one is wanted. -->
 
 <!-- If there is an issue, link it here:
      Resolves https://github.com/KensioSoftware/quando/issues/N -->

@@ -4,8 +4,8 @@
 # this repository only.
 reviews:
   auto_review:
-    # Review a pull request once, when it is opened.
-    enabled: true
-    # Do not review again on every push after that. Ask for another review with
-    # an `@coderabbitai review` comment on the pull request.
+    # Do not review on opening a pull request, and do not review again on every
+    # push after that. Ask for a review with an `@coderabbitai review` comment
+    # on the pull request when one is wanted.
+    enabled: false
     auto_incremental_review: false
