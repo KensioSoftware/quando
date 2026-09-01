@@ -1,57 +1,19 @@
 /**
  * Checking one field of an incoming rule document.
  *
- * Each of these either returns the value at the type it claims to be, or
- * throws saying what was found instead and where. The `path` threaded through
- * them is what turns "not a date" into
- * `rule.rules[1].rules[0].dates[0]: "not a date" is not a date`.
+ * These are the checks that know about time: a day of the week is one of
+ * seven names, a date is a date, a zone is one the runtime has heard of. Each
+ * either returns the value at the type it claims to be, or throws saying what
+ * was found instead and where.
+ *
+ * [parse-shape.ts](./parse-shape.ts) holds the ones underneath, which check
+ * that JSON is the shape it claims to be and know nothing about time.
  */
 
+import { asString, asStrings, fail } from "./parse-shape.js";
 import { WEEKDAYS, type Weekday } from "./rule.js";
 
 const WEEKDAY_NAMES = new Set<string>(WEEKDAYS);
-
-export function fail(path: string, problem: string): never {
-  throw new TypeError(`${path}: ${problem}`);
-}
-
-/** What a value looks like, for an error message. */
-export function shapeOf(value: unknown): string {
-  if (value === null) {
-    return "null";
-  }
-  if (Array.isArray(value)) {
-    return "an array";
-  }
-  return typeof value;
-}
-
-export function asRecord(
-  value: unknown,
-  path: string,
-): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return fail(path, `expected a rule object, found ${shapeOf(value)}`);
-  }
-  return value as Record<string, unknown>;
-}
-
-export function asString(value: unknown, path: string): string {
-  return typeof value === "string"
-    ? value
-    : fail(path, `expected a string, found ${shapeOf(value)}`);
-}
-
-export function asStrings(value: unknown, path: string): string[] {
-  if (!Array.isArray(value)) {
-    return fail(path, `expected an array, found ${shapeOf(value)}`);
-  }
-  return value.map((item, index) =>
-    typeof item === "string"
-      ? item
-      : fail(`${path}[${index}]`, `expected a string, found ${shapeOf(item)}`),
-  );
-}
 
 export function asDays(value: unknown, path: string): Weekday[] {
   return asStrings(value, path).map((day, index) =>

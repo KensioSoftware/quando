@@ -321,9 +321,6 @@ Deliberately, and worth knowing before you build on this:
   function, and the shape of that is the one genuinely open question left in
   the design. Precedence is what a rota and a schedule need, and it is what a
   merge would be built on, so it is additive rather than a rewrite.
-- **Reading a cascade back from JSON.** [`parseRule`](../serialisation/) checks
-  rules, not cascades. A cascade serialises today and comes back unchecked, so
-  validate it yourself at the boundary until there is a `parseCascade`.
 - **Queries over cascades.** `activeAt`, `elapsed`, `next` and `advanceBy` take
   a `Rule`. To ask those of a cascade, resolve it and read the stream.
 
