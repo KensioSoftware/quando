@@ -71,6 +71,8 @@ const hours = weekdays().and(timeOfDay("09:00", "17:00"));
   rotas are underneath, and what to reach for when their words run out.
 - [Merging](merging/): overlap that adds rather than displaces, and the four
   strategies that say which.
+- [Comparing](comparing/): one form for rules that say the same thing, and the
+  equality and cache keys that follow.
 - [API](api/): everything the package exports.
 
 ## Planned

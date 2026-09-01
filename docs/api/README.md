@@ -172,6 +172,18 @@ throws. Three are exported for writing one:
 | `asBoolean(value: unknown, path: string)`    | a boolean, for a schedule                   |
 | `fail(path: string, problem: string): never` | throws in the form the rest of parsing uses |
 
+### Comparing
+
+|                                     |                                         |
+| ----------------------------------- | --------------------------------------- |
+| `canonical(rule): Rule`             | the one form of a rule that says this   |
+| `canonical<V>(cascade): Cascade<V>` | the same for a cascade, layers in place |
+| `fingerprint<V>(value): string`     | a stable key, equal for equal meanings  |
+| `equals<V>(left, right): boolean`   | whether two say the same thing          |
+
+Syntactic. Two rules that cover the same time by different routes are not
+equal. See [comparing](../comparing/).
+
 ## Schedules and rotas
 
 The domain layer over cascades: a `Schedule` is a `Cascade<boolean>` and a
@@ -411,9 +423,8 @@ lasted, which across a clock change is not what the clock says. See
 ## Not here yet
 
 Designed, not built, and so deliberately absent from the package: estimates and
-uncertainty, backward search over an unbounded past, custom rule types, a
-canonical form for comparing rules, and the command line. Nothing above depends
-on them arriving.
+uncertainty, backward search over an unbounded past, custom rule types, rule
+set diffing, and the command line. Nothing above depends on them arriving.
 
 <!-- card
 ```ts
