@@ -17,9 +17,6 @@ implements it. Quando reads the global rather than importing a polyfill, so it
 has no runtime dependencies; anywhere without `Temporal` natively can load
 `temporal-polyfill` first and everything here works untouched.
 
-> The rule language, builder, parser and queries below are on `main` and go out
-> in the next release. `0.1.0` on npm carries only the interval core.
-
 ## A rule
 
 ```ts
