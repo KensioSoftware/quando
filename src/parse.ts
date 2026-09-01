@@ -12,15 +12,8 @@
  * only give the two somewhere to disagree.
  */
 
-import {
-  asDates,
-  asDays,
-  asRecord,
-  asTime,
-  fail,
-  shapeOf,
-  zonePart,
-} from "./parse-fields.js";
+import { asDates, asDays, asTime, zonePart } from "./parse-fields.js";
+import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
 import type { Rule } from "./rule.js";
 
 /**
@@ -38,38 +31,6 @@ const FIELDS = new Map<string, readonly string[]>([
   ["not", ["rule"]],
 ]);
 
-/**
- * Refuses a field the rule type does not have.
- *
- * Quietly ignoring one is the worse option by some distance. A document
- * carrying `"zonee"` would parse as a perfectly valid rule with no zone, which
- * is a *different schedule* — read in whatever zone the query happened to use —
- * and nothing would have said so. The same goes for a `zone` on a rule type
- * that has no business with one.
- *
- * The cost is that a document written by a later version of Quando, carrying a
- * field this one has not heard of, is rejected rather than tolerated. That is
- * the right way round: a field exists to change what a rule means, so ignoring
- * an unknown one is agreeing to get the answer wrong quietly.
- */
-function checkFields(
-  node: Record<string, unknown>,
-  type: string,
-  allowed: readonly string[],
-  path: string,
-): void {
-  for (const field of Object.keys(node)) {
-    if (field !== "type" && !allowed.includes(field)) {
-      fail(
-        `${path}.${field}`,
-        allowed.length === 0
-          ? `is not a field of a ${type} rule, which takes none`
-          : `is not a field of a ${type} rule. Expected ${allowed.join(", ")}`,
-      );
-    }
-  }
-}
-
 function asRules(value: unknown, path: string): Rule[] {
   if (!Array.isArray(value)) {
     return fail(path, `expected an array of rules, found ${shapeOf(value)}`);
@@ -84,7 +45,7 @@ function asRules(value: unknown, path: string): Rule[] {
  * deep reports as `rule.rules[2].rules[0].days[3]` rather than as a puzzle.
  */
 export function parseRule(value: unknown, path = "rule"): Rule {
-  const node = asRecord(value, path);
+  const node = asRecord(value, path, "a rule object");
   const type = node["type"];
 
   if (typeof type !== "string") {
@@ -98,7 +59,7 @@ export function parseRule(value: unknown, path = "rule"): Rule {
       `"${type}" is not a rule type. Expected one of ${[...FIELDS.keys()].join(", ")}`,
     );
   }
-  checkFields(node, type, allowed, path);
+  checkFields(node, allowed, path, `a ${type} rule`);
 
   switch (type) {
     case "always": {

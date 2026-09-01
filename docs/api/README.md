@@ -134,6 +134,24 @@ A rule from unknown JSON, or a `TypeError` naming what is wrong and where.
 `path` is the root name used in messages, and defaults to `"rule"`. See
 [serialisation](../serialisation/).
 
+### `parseCascade<V>(value, parseValue: ValueParser<V>, path?): Cascade<V>`
+
+A cascade from unknown JSON, on the same terms. `parseValue` reads one stored
+value back at the type you keep it in, because the values in a cascade are
+yours and Quando has nothing to check one against. `path` defaults to
+`"cascade"`.
+
+### `ValueParser<V>`
+
+`(value: unknown, path: string) => V`. Returns the value at its type, or
+throws. Three are exported for writing one:
+
+|                                              |                                             |
+| -------------------------------------------- | ------------------------------------------- |
+| `asString(value: unknown, path: string)`     | a string, for a rota of names               |
+| `asBoolean(value: unknown, path: string)`    | a boolean, for a schedule                   |
+| `fail(path: string, problem: string): never` | throws in the form the rest of parsing uses |
+
 ## Schedules and rotas
 
 The domain layer over cascades: a `Schedule` is a `Cascade<boolean>` and a
@@ -366,11 +384,10 @@ lasted, which across a clock change is not what the clock says. See
 ## Not here yet
 
 Designed, not built, and so deliberately absent from the package: merging
-values that should add rather than displace, `parseCascade` for the JSON
-boundary a cascade does not yet have, queries that take a cascade rather than a
-rule, estimates and uncertainty, backward search over an unbounded past, custom
-rule types, a canonical form for comparing rules, and the command line. Nothing
-above depends on them arriving.
+values that should add rather than displace, queries that take a cascade rather
+than a rule, estimates and uncertainty, backward search over an unbounded past,
+custom rule types, a canonical form for comparing rules, and the command line.
+Nothing above depends on them arriving.
 
 <!-- card
 ```ts

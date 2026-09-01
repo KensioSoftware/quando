@@ -69,6 +69,11 @@ export {
 
 export { parseRule } from "./parse.js";
 
+export type { ValueParser } from "./parse-cascade.js";
+export { parseCascade } from "./parse-cascade.js";
+
+export { asBoolean, asString, fail } from "./parse-shape.js";
+
 export type {
   Cascade,
   ConstantLayer,

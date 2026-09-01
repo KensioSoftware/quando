@@ -237,10 +237,10 @@ So a stored schedule is read by `resolve` and by everything else that takes a
 cascade, and that is the whole of what it can be read by today. Two things
 follow, and neither is hidden anywhere else:
 
-- **Nothing checks it.** [`parseRule`](../serialisation/) reads rules, not
-  cascades, and there is no `parseCascade` yet — the `as` in that example is a
-  promise you are making, not one the library keeps. Validate at your own
-  boundary until there is one.
+- **Check it on the way in.** The `as` in that example is a promise you are
+  making, and [`parseCascade`](../serialisation/#parsecascade-when-the-document-carries-values)
+  is the one the library keeps. Pass it `asBoolean` for a schedule, and a
+  `TypeError` names anything wrong.
 - **There is no reviving it.** Nothing turns a cascade back into a `Schedule`,
   so the methods are gone for good on that value. Keep the building code as the
   source of truth if you want them, and treat the JSON as what you store and

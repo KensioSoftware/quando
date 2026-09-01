@@ -137,6 +137,106 @@ true
 A rule survives the round trip intact, which is the property everything else
 here depends on.
 
+## `parseCascade`, when the document carries values
+
+A [schedule and a rota](../schedules/) are both [cascades](../cascades/), and a
+cascade is JSON in the same way a rule is:
+
+```ts
+import { daysOfWeek, rota } from "@kensio/quando";
+
+const onCall = rota()
+  .assign(daysOfWeek("monday", "tuesday"), "alice")
+  .swap("2026-03-10", "carol");
+
+console.log(JSON.stringify(onCall, null, 2));
+```
+
+```text
+{
+  "type": "cascade",
+  "layers": [
+    {
+      "scope": {
+        "type": "daysOfWeek",
+        "days": [
+          "monday",
+          "tuesday"
+        ]
+      },
+      "value": "alice"
+    },
+    {
+      "scope": {
+        "type": "dates",
+        "dates": [
+          "2026-03-10"
+        ]
+      },
+      "value": "carol"
+    }
+  ]
+}
+```
+
+Reading one back takes an argument `parseRule` has no need of. The rule
+vocabulary is closed, and Quando knows every rule there is. The values in a
+cascade are yours (a name, a tariff, a headcount), and Quando has never seen
+one. So the second argument is the function that reads a value:
+
+```ts
+import { asString, parseCascade, resolve } from "@kensio/quando";
+
+const stored = `{
+  "type": "cascade",
+  "layers": [
+    { "scope": { "type": "daysOfWeek", "days": ["monday", "tuesday"] },
+      "value": "alice" },
+    { "scope": { "type": "dates", "dates": ["2026-03-10"] },
+      "value": "carol" }
+  ]
+}`;
+
+const onCall = parseCascade(JSON.parse(stored), asString);
+
+const week = {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-12T00:00[Europe/London]"),
+};
+
+for (const shift of resolve(onCall, week)) {
+  console.log(`${shift.start?.toPlainDate()} ${shift.value}`);
+}
+```
+
+```text
+2026-03-09 alice
+2026-03-10 carol
+```
+
+`asString` and `asBoolean` cover the two commonest cases (a rota of names, and
+a schedule of open and closed). Anything else is a function of your own, and
+`fail` writes its message in the form the rest of parsing uses:
+
+```ts
+import { fail } from "@kensio/quando";
+
+const asHeadcount = (value: unknown, path: string): number =>
+  typeof value === "number" && Number.isInteger(value)
+    ? value
+    : fail(path, `expected a whole number of staff, found ${typeof value}`);
+```
+
+What comes back is a plain `Cascade`, without the `.assign` and `.whoIsOn` that
+a rota carries. The same thing `parseRule` does, and for the same reason. JSON
+has no way to hold a method. `resolve` reads a parsed cascade unchanged, and
+that is the whole of what a schedule and a rota do underneath.
+
+A layer holds a `value` or a `replace`, and holding both is an error. So is
+holding neither. That last one is how a layer built with `undefined` arrives.
+`JSON.stringify` drops the field rather than writing it, and what reaches
+storage is a scope with nothing inside it.
+
 ## Bad documents fail loudly, and say where
 
 ```ts
@@ -172,6 +272,41 @@ TypeError: rule.rules[1].rule: expected a rule object, found number
 Every message carries a path, so a rule nested six deep reports as
 `rule.rules[2].rules[0].days[3]` rather than as a puzzle. Pass your own root
 name as the second argument if `rule` is not what you call it.
+
+`parseCascade` reports the same way, through the layers and on into the rules
+that scope them:
+
+```ts
+import { asString, parseCascade } from "@kensio/quando";
+
+const documents: unknown[] = [
+  { type: "daysOfWeek", days: ["monday"] },
+  { type: "cascade", layers: [{ scope: { type: "always" }, valeu: "alice" }] },
+  { type: "cascade", layers: [{ scope: { type: "always" } }] },
+  { type: "cascade", layers: [{ scope: { type: "always" }, value: 42 }] },
+  { type: "cascade", layers: [{ scope: { type: "weekdays" }, value: "a" }] },
+];
+
+for (const document of documents) {
+  try {
+    parseCascade(document, asString);
+  } catch (error) {
+    console.log(String(error));
+  }
+}
+```
+
+```text
+TypeError: cascade.type: expected "cascade", found "daysOfWeek"
+TypeError: cascade.layers[0].valeu: is not a field of a layer. Expected scope, value, replace
+TypeError: cascade.layers[0]: has neither a value nor a replace, so nothing holds inside its scope. A layer built with `undefined` as its value arrives this way, because `JSON.stringify` drops the field rather than writing it
+TypeError: cascade.layers[0].value: expected a string, found number
+TypeError: cascade.layers[0].scope.type: "weekdays" is not a rule type. Expected one of always, never, daysOfWeek, timeOfDay, dates, all, any, not
+```
+
+The first is the mix-up worth naming. A rule and a cascade are both stored the
+same way and both carry a type. A column holding one where the other was
+expected is an ordinary mistake, and the message says which arrived.
 
 ## Why an unknown field is an error
 
