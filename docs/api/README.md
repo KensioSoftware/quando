@@ -87,29 +87,49 @@ See [queries](../queries/).
 | `activeAt(rule, at, context?): boolean`                                 | whether a rule covers an instant        |
 | `elapsed(rule, context): Temporal.Duration`                             | how much time a rule covers in a window |
 | `next(rule, context, search?): Interval \| undefined`                   | the next stretch a rule covers          |
-| `advanceBy(from, amount, options): Temporal.ZonedDateTime \| undefined` | where an amount of rule-time gets you   |
+| `advanceBy(from, amount, options): Temporal.ZonedDateTime \| undefined` | where an amount of that time gets you   |
+
+Each takes a `Covers<V>`, which is a `Rule` or a cascade narrowed to one of its
+values by `assigned`. See [cascades](../cascades/#asking-a-cascade-the-four-questions).
 
 ```ts
-function activeAt(
-  rule: Rule,
+type Covers<V> = Rule | Assigned<V>;
+
+interface Assigned<V> {
+  readonly cascade: Cascade<V>;
+  readonly is: V;
+}
+
+function assigned<V>(cascade: Cascade<V>, is: V): Assigned<V>;
+
+function activeAt<V>(
+  covers: Covers<V>,
   at: Temporal.ZonedDateTime,
   context?: Omit<Context, "from" | "to">,
 ): boolean;
 
-function elapsed(rule: Rule, context: Context): Temporal.Duration;
+function elapsed<V>(covers: Covers<V>, context: Context): Temporal.Duration;
 
-function next(
-  rule: Rule,
+function next<V>(
+  covers: Covers<V>,
   context: Context,
   search?: Search,
 ): Interval | undefined;
 
-function advanceBy(
+function advanceBy<V>(
   from: Temporal.ZonedDateTime,
   amount: Temporal.Duration,
-  options: { readonly during: Rule } & Search & Omit<Context, "from" | "to">,
+  options: { readonly during: Covers<V> } & Search &
+    Omit<Context, "from" | "to">,
 ): Temporal.ZonedDateTime | undefined;
 ```
+
+### Asking what, rather than whether
+
+|                                                          |                                    |
+| -------------------------------------------------------- | ---------------------------------- |
+| `valueAt<V>(cascade, at, context?): V \| undefined`      | what a cascade assigns at a moment |
+| `nextValue<V>(cascade, context): Valued<V> \| undefined` | the next stretch, and its value    |
 
 `elapsed` throws a `RangeError` on a context with no `to`. `advanceBy` throws a
 `RangeError` on a negative amount, or on one carrying years, months, weeks or
@@ -390,10 +410,10 @@ lasted, which across a clock change is not what the clock says. See
 
 ## Not here yet
 
-Designed, not built, and so deliberately absent from the package: queries that
-take a cascade rather than a rule, estimates and uncertainty, backward search
-over an unbounded past, custom rule types, a canonical form for comparing
-rules, and the command line. Nothing above depends on them arriving.
+Designed, not built, and so deliberately absent from the package: estimates and
+uncertainty, backward search over an unbounded past, custom rule types, a
+canonical form for comparing rules, and the command line. Nothing above depends
+on them arriving.
 
 <!-- card
 ```ts
