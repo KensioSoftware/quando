@@ -81,9 +81,20 @@ export type {
   ReplacingLayer,
   Valued,
 } from "./cascade.js";
-export { cascade, isCascade, layer, replace, whenever } from "./cascade.js";
+export {
+  cascade,
+  isCascade,
+  layer,
+  merged,
+  replace,
+  whenever,
+} from "./cascade.js";
+
+export type { Merge, MergeStrategy } from "./merge.js";
+export { MERGE_STRATEGIES } from "./merge.js";
 
 export type { ValuedStream } from "./valued-stream.js";
+export { overlay } from "./valued-stream.js";
 
 export { resolve } from "./resolve.js";
 

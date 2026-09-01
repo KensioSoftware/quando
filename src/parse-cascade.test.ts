@@ -7,7 +7,7 @@ import {
 import { faker } from "@faker-js/faker";
 import { describe, it } from "vitest";
 
-import { cascade, layer, replace, whenever } from "./cascade.js";
+import { cascade, layer, merged, replace, whenever } from "./cascade.js";
 import { dates, daysOfWeek, weekdays, weekends } from "./build.js";
 import { parseCascade } from "./parse-cascade.js";
 import { asBoolean, asString, fail, shapeOf } from "./parse-shape.js";
@@ -15,6 +15,10 @@ import { resolve } from "./resolve.js";
 import { take } from "./stream.js";
 
 describe("parsing a cascade from JSON", () => {
+  /** A value parser for the cascades of numbers below. */
+  const asNumber = (value: unknown, path: string): number =>
+    typeof value === "number" ? value : fail(path, "expected a number");
+
   /** The message from parsing something that should not parse. */
   const complaintAbout = (value: unknown): string => {
     const error = assertThrowsError(() => parseCascade(value, asString));
@@ -133,6 +137,49 @@ describe("parsing a cascade from JSON", () => {
     });
   });
 
+  describe("the merge strategy", () => {
+    it("round trips a cascade that names one", () => {
+      // Given a roster of headcounts whose overlaps add.
+      const staff = merged("sum", layer(weekdays(), 3), layer(weekends(), 1));
+      const document = stored(staff);
+
+      // When it is read back and serialised again.
+      // Then the strategy survives with everything else. A document that lost
+      // it would parse cleanly and mean something different.
+      assertIdentical(
+        JSON.stringify(parseCascade(document, asNumber)),
+        JSON.stringify(document),
+      );
+    });
+
+    it("leaves an absent strategy absent rather than undefined", () => {
+      // Given a cascade that says nothing about merging.
+      // When it is parsed and serialised.
+      // Then the field is still missing. A present `undefined` would make two
+      // equivalent cascades compare as different documents.
+      const plain = { type: "cascade", layers: [] };
+      assertIdentical(
+        JSON.stringify(parseCascade(plain, asString)),
+        '{"type":"cascade","layers":[]}',
+      );
+    });
+
+    it("refuses a strategy it has not heard of", () => {
+      // Given a document naming a merge Quando does not implement.
+      // When it is parsed.
+      // Then it is refused, and the message lists the ones that exist.
+      assertIdentical(
+        complaintAbout({ type: "cascade", merge: "average", layers: [] }),
+        'cascade.merge: "average" is not a merge strategy. Expected one of ' +
+          "override, sum, max, min, concat",
+      );
+      assertIdentical(
+        complaintAbout({ type: "cascade", merge: 7, layers: [] }),
+        "cascade.merge: expected a merge strategy, found number",
+      );
+    });
+  });
+
   describe("refusing an invalid cascade", () => {
     it("says what it found instead of a cascade", () => {
       // Given things a column might hold that are not cascade objects.
@@ -173,7 +220,7 @@ describe("parsing a cascade from JSON", () => {
           layers: [],
           scope: { type: "always" },
         }),
-        "cascade.scope: is not a field of a cascade. Expected layers",
+        "cascade.scope: is not a field of a cascade. Expected merge, layers",
       );
     });
 
