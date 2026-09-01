@@ -81,4 +81,17 @@ Written when there is something true to say:
 
 - **Estimates** — ranges, distributions, and the questions they answer.
 - **Custom rule types** — the escape hatch, and the registry parsing needs.
+- **Rule set diffing** — what changed when a schedule was updated, and which
+  bookings it affects.
 - **The command line** — every `quando` command.
+
+Two of the open questions change the shape of the API rather than adding to it,
+so they belong to a later major version:
+
+- **Constraints on a set of occurrences** — caps per window, minimum spacing,
+  and rolling-window totals. A different problem from an interval set, and the
+  largest thing Quando cannot express. See
+  [what a rule cannot say](concepts/#what-a-rule-cannot-say).
+- **Validity horizons** — answering _unknown_ beyond the point a rule set is
+  known to be complete, rather than answering confidently and wrongly. It
+  changes the return type of every query.

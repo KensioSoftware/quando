@@ -121,7 +121,12 @@ scheduler: Quando calculates _when_ and never fires anything, so its answer is
 your scheduler's input. Not storage, and not a holiday data provider; calendar
 data belongs in satellite packages so that the core carries none.
 
-Estimates and a command line are designed and not yet built.
+Not a constraint solver either. Caps per window, minimum spacing and
+rolling-window totals ("ninety days in any hundred and eighty") constrain a
+pattern of occurrences rather than the moments in one, which is a different
+problem. See [what a rule cannot say](docs/concepts/#what-a-rule-cannot-say).
+
+Estimates, rule set diffing and a command line are designed and not yet built.
 
 ## Licence
 
