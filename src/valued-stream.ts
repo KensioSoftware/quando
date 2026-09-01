@@ -1,16 +1,17 @@
 /**
- * Streams of intervals that carry values, and the two operations resolution
- * needs over them.
+ * Streams of intervals that carry values, and the operations resolution needs
+ * over them.
  *
  * The same shape as `interval-stream.ts` one level down, and deliberately
- * separate from it: those sweeps are set algebra over *when*, and nothing in
- * them has an opinion about values. These two do nothing but carry values
- * along, which is why neither needs the overlap arithmetic next door.
+ * separate from it. Those sweeps are set algebra over *when*, and nothing in
+ * them has an opinion about values. {@link overlay} is where an opinion is
+ * needed, and it is handed one rather than choosing.
  */
 
 import type { Valued } from "./cascade.js";
-import { compareStarts } from "./interval.js";
-import { peekable } from "./stream.js";
+import { compareEnds, compareStarts, earlierEnd } from "./interval.js";
+import type { Merge } from "./merge.js";
+import { type Peekable, peekable } from "./stream.js";
 
 /**
  * A lazy sequence of valued intervals.
@@ -23,39 +24,123 @@ import { peekable } from "./stream.js";
 export type ValuedStream<V> = Iterable<Valued<V>>;
 
 /**
- * One ascending stream from many.
+ * Two streams laid over one another, with `merge` settling the overlap.
  *
- * The sources are disjoint by construction — a moment is won by exactly one
- * layer — so this only has to take whichever starts earliest, with none of the
- * overlap arithmetic the interval sweeps need.
+ * Where only one covers a moment, its value comes through. Where both do, the
+ * two values go to `merge`, `under` first. Where neither does, the moment is
+ * absent, the same as everywhere else in the library.
+ *
+ * It walks both fronts and cuts whichever runs on at the other's boundary, so
+ * it pulls only as far as the next piece of the answer and stays lazy over
+ * endless sources.
+ *
+ * Output is not coalesced. Cutting at every boundary splits runs carrying the
+ * same value on both sides, and {@link coalesce} over the top puts them back.
+ * Teaching this sweep to look ahead instead would buy nothing.
  */
-export function* interleave<V>(
-  sources: readonly ValuedStream<V>[],
+export function* overlay<V>(
+  under: ValuedStream<V>,
+  over: ValuedStream<V>,
+  merge: Merge<V>,
 ): ValuedStream<V> {
-  const fronts = sources.map((source) => peekable(source));
+  const a = peekable(under);
+  const b = peekable(over);
+
+  // What is left of each front interval. A stretch already yielded is cut off
+  // the front rather than yielded twice, which is what keeps this to one pass
+  // over sources that can only be read forwards.
+  let restA = a.peek();
+  let restB = b.peek();
 
   for (;;) {
-    let earliest: Valued<V> | undefined;
-    let from: (typeof fronts)[number] | undefined;
-
-    for (const front of fronts) {
-      const next = front.peek();
-      if (
-        next !== undefined &&
-        (earliest === undefined ||
-          compareStarts(next.start, earliest.start) < 0)
-      ) {
-        earliest = next;
-        from = front;
-      }
-    }
-
-    if (from === undefined || earliest === undefined) {
+    if (restA === undefined || restB === undefined) {
+      yield* remainder(restA ?? restB, restA === undefined ? b : a);
       return;
     }
-    from.drop();
-    yield earliest;
+
+    const order = compareStarts(restA.start, restB.start);
+
+    if (order === 0) {
+      // Both cover the stretch up to whichever ends first, and that stretch is
+      // the only place `merge` is ever called.
+      const end = earlierEnd(restA.end, restB.end);
+      yield { start: restA.start, end, value: merge(restA.value, restB.value) };
+      const cutA = cut(restA, end, a);
+      restB = cut(restB, end, b);
+      restA = cutA;
+      continue;
+    }
+
+    // One of them starts first and holds alone until the other begins. Its own
+    // end may come first, in which case the whole of it stands alone.
+    if (order < 0) {
+      const boundary = restB.start;
+      if (compareEnds(restA.end, boundary) <= 0) {
+        yield restA;
+        a.drop();
+        restA = a.peek();
+        continue;
+      }
+      yield { start: restA.start, end: boundary, value: restA.value };
+      restA = { ...restA, start: boundary };
+      continue;
+    }
+
+    const boundary = restA.start;
+    if (compareEnds(restB.end, boundary) <= 0) {
+      yield restB;
+      b.drop();
+      restB = b.peek();
+      continue;
+    }
+    yield { start: restB.start, end: boundary, value: restB.value };
+    restB = { ...restB, start: boundary };
   }
+}
+
+/**
+ * Whatever is left of one side once the other is spent, beginning with the
+ * piece already in hand.
+ *
+ * That piece may have been cut short, so it is yielded from the local rather
+ * than read again from the source, and the source's own copy of it dropped.
+ */
+function* remainder<V>(
+  held: Valued<V> | undefined,
+  source: Peekable<Valued<V>>,
+): ValuedStream<V> {
+  if (held === undefined) {
+    return;
+  }
+  yield held;
+  source.drop();
+
+  for (;;) {
+    const next = source.peek();
+    if (next === undefined) {
+      return;
+    }
+    source.drop();
+    yield next;
+  }
+}
+
+/**
+ * What is left of an interval once the stretch up to `end` has been yielded.
+ *
+ * An interval used up entirely is dropped and the next one pulled, so the
+ * front always holds something still to yield.
+ */
+function cut<V>(
+  interval: Valued<V>,
+  end: Temporal.ZonedDateTime | undefined,
+  source: Peekable<Valued<V>>,
+): Valued<V> | undefined {
+  if (end === undefined || compareEnds(interval.end, end) <= 0) {
+    source.drop();
+    return source.peek();
+  }
+  return { ...interval, start: end };
 }
 
 /**

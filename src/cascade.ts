@@ -12,6 +12,7 @@
  */
 
 import type { Interval } from "./interval.js";
+import type { MergeStrategy } from "./merge.js";
 import type { Rule } from "./rule.js";
 
 /**
@@ -64,6 +65,15 @@ export interface ReplacingLayer<V> {
  */
 export interface Cascade<V> {
   readonly type: "cascade";
+  /**
+   * What happens where two layers claim the same moment. Absent means
+   * `override`, which is the precedence a cascade has always had.
+   *
+   * The strategy is a name in the document. A merge function passed to
+   * `resolve` could not be stored, and a cascade that no longer says how it
+   * combines is one two readers can disagree about.
+   */
+  readonly merge?: MergeStrategy;
   readonly layers: readonly Layer<V>[];
 }
 
@@ -75,6 +85,23 @@ export function isCascade<V>(value: Rule | Cascade<V>): value is Cascade<V> {
 /** An ordered list of layers, lowest priority first. */
 export function cascade<V>(...layers: readonly Layer<V>[]): Cascade<V> {
   return { type: "cascade", layers };
+}
+
+/**
+ * An ordered list of layers whose overlaps combine rather than displace.
+ *
+ * ```ts
+ * const staff = merged("sum", layer(weekdays(), 3), layer(dates("2026-03-11"), 2));
+ * ```
+ *
+ * The Wednesday has five. Under {@link cascade} it would have two, because the
+ * later layer would displace the earlier one.
+ */
+export function merged<V>(
+  strategy: MergeStrategy,
+  ...layers: readonly Layer<V>[]
+): Cascade<V> {
+  return { type: "cascade", merge: strategy, layers };
 }
 
 /** One value, across the whole of a scope. */

@@ -312,15 +312,15 @@ The caveat is the one from [queries](../queries/#termination): a cascade that
 assigns _nothing_ over an unbounded context has no answer to give and no way to
 discover that, so bound the context when the answer might be nothing.
 
+## Overlap that adds rather than displaces
+
+Everything above settles an overlap by precedence. A roster wants the other
+answer, and [merging](../merging/) is how a cascade asks for it.
+
 ## What is not here yet
 
 Deliberately, and worth knowing before you build on this:
 
-- **Merging quantities.** Overlap is settled by precedence, full stop. Adding
-  three staff to two, or taking the higher of two tariffs, needs a merge
-  function, and the shape of that is the one genuinely open question left in
-  the design. Precedence is what a rota and a schedule need, and it is what a
-  merge would be built on, so it is additive rather than a rewrite.
 - **Queries over cascades.** `activeAt`, `elapsed`, `next` and `advanceBy` take
   a `Rule`. To ask those of a cascade, resolve it and read the stream.
 

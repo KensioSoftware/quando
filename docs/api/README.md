@@ -200,14 +200,21 @@ are made of, and what to reach for when their vocabulary runs out. See
 | `replace<V>(scope: Rule, replacement: Cascade<V>): ReplacingLayer<V>` | a scope claimed outright, with what holds inside it given by another cascade |
 | `replace(scope: Rule, replacement: Rule): ReplacingLayer<boolean>`    | the same, taking the rule a schedule means                                   |
 | `whenever(rule: Rule): Cascade<boolean>`                              | true while a rule holds, unassigned elsewhere                                |
+| `merged<V>(strategy: MergeStrategy, ...layers): Cascade<V>`           | the same as `cascade`, with overlaps combined rather than displaced          |
 | `isCascade<V>(value: Rule \| Cascade<V>): value is Cascade<V>`        | tells a cascade from a rule                                                  |
 | `resolve<V>(cascade: Cascade<V>, context: Context): ValuedStream<V>`  | the values a cascade assigns                                                 |
+| `overlay<V>(under, over, merge: Merge<V>): ValuedStream<V>`           | two valued streams laid over one another                                     |
 
 ```ts
 interface Cascade<V> {
   readonly type: "cascade";
+  readonly merge?: MergeStrategy;
   readonly layers: readonly Layer<V>[];
 }
+
+type MergeStrategy = "override" | "sum" | "max" | "min" | "concat";
+
+type Merge<V> = (under: V, over: V) => V;
 
 type Layer<V> = ConstantLayer<V> | ReplacingLayer<V>;
 
@@ -383,11 +390,10 @@ lasted, which across a clock change is not what the clock says. See
 
 ## Not here yet
 
-Designed, not built, and so deliberately absent from the package: merging
-values that should add rather than displace, queries that take a cascade rather
-than a rule, estimates and uncertainty, backward search over an unbounded past,
-custom rule types, a canonical form for comparing rules, and the command line.
-Nothing above depends on them arriving.
+Designed, not built, and so deliberately absent from the package: queries that
+take a cascade rather than a rule, estimates and uncertainty, backward search
+over an unbounded past, custom rule types, a canonical form for comparing
+rules, and the command line. Nothing above depends on them arriving.
 
 <!-- card
 ```ts

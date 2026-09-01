@@ -110,6 +110,7 @@ this repository:
 - [Serialisation](docs/serialisation/) — the JSON form and its boundary
 - [Schedules and rotas](docs/schedules/) — opening hours and who is on, plainly
 - [Cascades](docs/cascades/) — layers carrying values, resolved by precedence
+- [Merging](docs/merging/) — overlap that adds rather than displaces
 - [API](docs/api/) — everything the package exports
 
 ## What it is not
@@ -119,8 +120,7 @@ scheduler: Quando calculates _when_ and never fires anything, so its answer is
 your scheduler's input. Not storage, and not a holiday data provider; calendar
 data belongs in satellite packages so that the core carries none.
 
-Cascades carry values by precedence; merging values that should add rather than
-displace is designed and not yet built, along with estimates and a command line.
+Estimates and a command line are designed and not yet built.
 
 ## Licence
 
