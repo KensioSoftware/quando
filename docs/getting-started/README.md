@@ -45,12 +45,6 @@ lib setting says.
 npm install @kensio/quando
 ```
 
-> The rule language, the builder, the parser and the queries described in these
-> pages are on `main` and go out in the next release. `0.1.0`, which is what npm
-> serves today, carries only the interval core — `intersect`, `union`,
-> `complement`, `clip` and the comparisons beneath them. If what you installed
-> has no `weekdays`, that is why.
-
 ## A rule
 
 A rule says _when_. It is built from small pieces that combine, and the pieces
