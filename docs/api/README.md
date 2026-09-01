@@ -146,11 +146,11 @@ yours and Quando has nothing to check one against. `path` defaults to
 `(value: unknown, path: string) => V`. Returns the value at its type, or
 throws. Three are exported for writing one:
 
-|                                              |                                      |
-| -------------------------------------------- | ------------------------------------ |
-| `asString(value: unknown, path: string)`     | a string, for a rota of names        |
-| `asBoolean(value: unknown, path: string)`    | a boolean, for a schedule            |
-| `fail(path: string, problem: string): never` | throws in the form parsing else uses |
+|                                              |                                             |
+| -------------------------------------------- | ------------------------------------------- |
+| `asString(value: unknown, path: string)`     | a string, for a rota of names               |
+| `asBoolean(value: unknown, path: string)`    | a boolean, for a schedule                   |
+| `fail(path: string, problem: string): never` | throws in the form the rest of parsing uses |
 
 ## Schedules and rotas
 
