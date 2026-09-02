@@ -70,8 +70,10 @@ console.log(JSON.stringify(openingHours, null, 2));
 Two things are worth reading off that. `.except(…)` really is
 `all(this, not(any(…)))`, spelled out — the nesting is the method's definition
 rather than an artefact. And an `all` has landed inside an `all`, which is
-harmless and means what it says; there is no canonical form yet, so a document
-is not a fingerprint you can compare two rules by.
+harmless and means what it says. Two rules that say the same thing can be two
+different documents like this, which is what
+[`canonical`](../comparing/) is for: put a rule through it before comparing
+two, or before using one as a cache key.
 
 ## `parseRule` is the boundary
 

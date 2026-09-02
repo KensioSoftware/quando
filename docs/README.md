@@ -10,9 +10,9 @@ made on the site is a change that will be overwritten.
 ## Status
 
 There is a package, and these pages document what is in it: the interval core,
-the rule language and its builder, the JSON boundary, the four queries, and
-cascades. Every example on them was run against the built package and its
-output pasted in.
+the rule language and its builder, the JSON boundary, the four queries,
+cascades, merging, and canonical form. Every example on them was run against
+the built package and its output pasted in.
 
 Estimates, backward search over an unbounded past and the command line are
 designed and not built. Pages about them are deliberately absent until there is

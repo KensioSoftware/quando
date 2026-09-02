@@ -429,13 +429,6 @@ back beginning there.
 Everything above settles an overlap by precedence. A roster wants the other
 answer, and [merging](../merging/) is how a cascade asks for it.
 
-## What is not here yet
-
-Deliberately, and worth knowing before you build on this:
-
-- **Queries over cascades.** `activeAt`, `elapsed`, `next` and `advanceBy` take
-  a `Rule`. To ask those of a cascade, resolve it and read the stream.
-
 <!-- card
 ```ts
 const onCall = cascade(
