@@ -111,6 +111,7 @@ this repository:
 - [Schedules and rotas](docs/schedules/) — opening hours and who is on, plainly
 - [Cascades](docs/cascades/) — layers carrying values, resolved by precedence
 - [Merging](docs/merging/) — overlap that adds rather than displaces
+- [Comparing](docs/comparing/) — canonical form, equality and cache keys
 - [API](docs/api/) — everything the package exports
 
 ## What it is not

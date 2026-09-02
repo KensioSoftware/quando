@@ -98,6 +98,8 @@ export { overlay } from "./valued-stream.js";
 
 export { resolve } from "./resolve.js";
 
+export { canonical, equals, fingerprint } from "./canonical.js";
+
 export type { PlainRule } from "./plain-forms.js";
 
 export type { Schedule } from "./schedule.js";
