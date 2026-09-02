@@ -11,11 +11,10 @@
  * `rota<string>()` when the names are not known up front.
  */
 
+import { valueAt } from "./assigned.js";
 import { type Cascade, type Layer, layer } from "./cascade.js";
-import type { Context } from "./context.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
 import { resolve } from "./resolve.js";
-import { take } from "./stream.js";
 import type { ValuedStream } from "./valued-stream.js";
 
 /** Who or what holds when, and the questions worth asking about that. */
@@ -58,13 +57,7 @@ function build<V>(layers: readonly Layer<V>[]): Rota<V> {
     swap: <W>(day: PlainRule, value: W) =>
       build<V | W>([...layers, layer<V | W>(asDays(day), value)]),
 
-    whoIsOn: (at) => {
-      // The smallest window there is, so this terminates whatever the layers
-      // say — the same trick `activeAt` uses on a rule.
-      const moment: Context = { from: at, to: at.add({ nanoseconds: 1 }) };
-      const [now] = take(resolve(self, moment), 1);
-      return now?.value;
-    },
+    whoIsOn: (at) => valueAt(self, at),
 
     shifts: (from, to) =>
       resolve(self, to === undefined ? { from } : { from, to }),

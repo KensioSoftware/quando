@@ -106,5 +106,8 @@ export { schedule } from "./schedule.js";
 export type { Rota } from "./rota.js";
 export { rota } from "./rota.js";
 
+export type { Assigned, Covers } from "./assigned.js";
+export { assigned, nextValue, valueAt } from "./assigned.js";
+
 export type { Search } from "./query.js";
 export { activeAt, advanceBy, elapsed, next } from "./query.js";

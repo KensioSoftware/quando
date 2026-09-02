@@ -12,6 +12,7 @@
  * writing the sentence in the obvious order rather than by knowing the rule.
  */
 
+import { valueAt } from "./assigned.js";
 import { all } from "./build.js";
 import { type Cascade, type Layer, layer, replace } from "./cascade.js";
 import type { Context } from "./context.js";
@@ -91,13 +92,7 @@ function build(layers: readonly Layer<boolean>[]): Schedule {
     hoursOn: (day, hours) =>
       build([...layers, replace(asDays(day), asHours(hours))]),
 
-    isOpen: (at) => {
-      // The smallest window there is, so this terminates whatever the layers
-      // say — the same trick `activeAt` uses on a rule.
-      const moment: Context = { from: at, to: at.add({ nanoseconds: 1 }) };
-      const [now] = take(resolve(self, moment), 1);
-      return now?.value ?? false;
-    },
+    isOpen: (at) => valueAt(self, at) ?? false,
 
     opensNext: (at, within) => {
       const search: Context =

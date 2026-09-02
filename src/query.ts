@@ -1,20 +1,23 @@
 /**
- * Asking a rule a question, rather than reading the times it covers.
+ * Asking a question, rather than reading the times something covers.
  *
  * `intervals` is the plumbing. These are what a caller actually wants: is it
  * open now, how much working time is in this window, when does it next open,
  * and — the one both of the libraries this evolves from were built around —
  * where do you get to after three hours that only count while it is open.
  *
+ * Each takes a rule, or a cascade narrowed to one of its values by
+ * [`assigned`](./assigned.ts). "Three hours while the warehouse is open" and
+ * "three hours while Alice is on call" are the same question.
+ *
  * Durations are exact elapsed time throughout. Three operating hours means
  * three real hours of opening, so a window spanning a clock change is measured
  * by how long it lasted rather than by what the clock said.
  */
 
+import { type Covers, covered } from "./assigned.js";
 import type { Context } from "./context.js";
 import { duration, earlierEnd, type Interval } from "./interval.js";
-import { intervals } from "./interpret.js";
-import type { Rule } from "./rule.js";
 import { take } from "./stream.js";
 
 /** Zero, as a duration to accumulate onto. */
@@ -80,13 +83,14 @@ function checkExact(amount: Temporal.Duration): void {
 }
 
 /**
- * Whether a rule covers an instant.
+ * Whether a rule, or a value a cascade assigns, covers an instant.
  *
- * Always terminates, whatever the rule and whatever the context: it asks about
- * the smallest window there is, so nothing can walk far looking for an answer.
+ * Always terminates, whatever it is reading and whatever the context: it asks
+ * about the smallest window there is, so nothing can walk far looking for an
+ * answer.
  */
-export function activeAt(
-  rule: Rule,
+export function activeAt<V>(
+  covers: Covers<V>,
   at: Temporal.ZonedDateTime,
   context?: Omit<Context, "from" | "to">,
 ): boolean {
@@ -95,16 +99,19 @@ export function activeAt(
     from: at,
     to: at.add({ nanoseconds: 1 }),
   };
-  return take(intervals(rule, moment), 1).length > 0;
+  return take(covered(covers, moment), 1).length > 0;
 }
 
 /**
- * How much time a rule covers within a window.
+ * How much time a rule, or a value a cascade assigns, covers within a window.
  *
  * Needs a window with an end, because the alternative is a number that never
  * finishes being counted.
  */
-export function elapsed(rule: Rule, context: Context): Temporal.Duration {
+export function elapsed<V>(
+  covers: Covers<V>,
+  context: Context,
+): Temporal.Duration {
   if (context.to === undefined) {
     throw new RangeError(
       "elapsed() needs a window with an end: give the context a `to`.",
@@ -112,7 +119,7 @@ export function elapsed(rule: Rule, context: Context): Temporal.Duration {
   }
 
   let total = NOTHING;
-  for (const interval of intervals(rule, context)) {
+  for (const interval of covered(covers, context)) {
     const length = duration(interval);
     if (length !== undefined) {
       total = total.add(length);
@@ -122,33 +129,35 @@ export function elapsed(rule: Rule, context: Context): Temporal.Duration {
 }
 
 /**
- * The next stretch of time a rule covers, at or after the context's start.
+ * The next stretch of time covered, at or after the context's start.
  *
- * `undefined` when there is none within the search. If the rule is covering
- * time already at the context's start, that stretch is returned clipped to
- * begin there — "when does it next open" answers "it is open" rather than
- * skipping to tomorrow.
+ * `undefined` when there is none within the search. If time is being covered
+ * already at the context's start, that stretch is returned clipped to begin
+ * there — "when does it next open" answers "it is open" rather than skipping
+ * to tomorrow.
  */
-export function next(
-  rule: Rule,
+export function next<V>(
+  covers: Covers<V>,
   context: Context,
   search?: Search,
 ): Interval | undefined {
-  const [first] = take(intervals(rule, bounded(context, search)), 1);
+  const [first] = take(covered(covers, bounded(context, search)), 1);
   return first;
 }
 
 /**
- * Where you get to after an amount of time that only counts while a rule holds.
+ * Where you get to after an amount of time that only counts while something
+ * holds.
  *
  * Three operating hours from an order placed at five to five on a Friday is
  * some way into Monday morning, and this is the function that says where.
  * `undefined` when the search runs out before the time does.
  */
-export function advanceBy(
+export function advanceBy<V>(
   from: Temporal.ZonedDateTime,
   amount: Temporal.Duration,
-  options: { readonly during: Rule } & Search & Omit<Context, "from" | "to">,
+  options: { readonly during: Covers<V> } & Search &
+    Omit<Context, "from" | "to">,
 ): Temporal.ZonedDateTime | undefined {
   checkExact(amount);
   if (Temporal.Duration.compare(amount, NOTHING) < 0) {
@@ -164,7 +173,7 @@ export function advanceBy(
   );
 
   let remaining = amount;
-  for (const interval of intervals(during, context)) {
+  for (const interval of covered(during, context)) {
     const length = duration(interval);
 
     // An interval with no end has more than enough of whatever is left.

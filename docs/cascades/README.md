@@ -312,6 +312,118 @@ The caveat is the one from [queries](../queries/#termination): a cascade that
 assigns _nothing_ over an unbounded context has no answer to give and no way to
 discover that, so bound the context when the answer might be nothing.
 
+## Asking a cascade the four questions
+
+[The four queries](../queries/) are about _when_, and a cascade is about _what
+holds when_. Narrowing one to a single value turns it back into the first.
+The times a rota assigns to Alice are a stretch of when, and every question
+worth asking about a rule is worth asking about them.
+
+`assigned` is what does the narrowing, and the four take it in place of a rule:
+
+```ts
+import {
+  activeAt,
+  advanceBy,
+  assigned,
+  cascade,
+  dates,
+  elapsed,
+  layer,
+  next,
+  weekdays,
+  weekends,
+} from "@kensio/quando";
+
+const onCall = cascade(
+  layer(weekdays(), "alice"),
+  layer(weekends(), "bob"),
+  layer(dates("2026-03-11"), "carol"),
+);
+
+const week = {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
+};
+const tuesday = Temporal.ZonedDateTime.from("2026-03-10T20:00[Europe/London]");
+const wednesday = Temporal.ZonedDateTime.from(
+  "2026-03-11T11:00[Europe/London]",
+);
+
+console.log(activeAt(assigned(onCall, "carol"), wednesday));
+console.log(elapsed(assigned(onCall, "alice"), week).toString());
+console.log(
+  next(assigned(onCall, "bob"), { from: tuesday })?.start?.toString(),
+);
+console.log(
+  advanceBy(tuesday, Temporal.Duration.from({ hours: 8 }), {
+    during: assigned(onCall, "alice"),
+  })?.toString(),
+);
+```
+
+```text
+true
+PT96H
+2026-03-14T00:00:00+00:00[Europe/London]
+2026-03-12T04:00:00+00:00[Europe/London]
+```
+
+The last one is the one to look at. Eight hours that only count while Alice is
+on call, started on her Tuesday evening, land on the Thursday morning. The
+Wednesday belongs to the swap and does not count, which is what makes this
+different from adding eight hours to a clock.
+
+An `assigned` is not a rule and is deliberately not made to look like one. A
+rule is a document that stores and travels. This is a question asked at the
+point of asking.
+
+Values match by `Object.is`, the same test that decides whether two touching
+intervals are one.
+
+## What a cascade assigns, rather than whether
+
+Two questions have no version for a rule, because a rule answers yes or no and
+a cascade answers with a value.
+
+```ts
+import {
+  cascade,
+  dates,
+  layer,
+  nextValue,
+  valueAt,
+  weekdays,
+  weekends,
+} from "@kensio/quando";
+
+const onCall = cascade(
+  layer(weekdays(), "alice"),
+  layer(weekends(), "bob"),
+  layer(dates("2026-03-11"), "carol"),
+);
+
+const tuesday = Temporal.ZonedDateTime.from("2026-03-10T20:00[Europe/London]");
+const wednesday = Temporal.ZonedDateTime.from(
+  "2026-03-11T11:00[Europe/London]",
+);
+
+console.log(valueAt(onCall, wednesday));
+
+const shift = nextValue(onCall, { from: tuesday });
+console.log(shift?.value, shift?.start?.toString());
+```
+
+```text
+carol
+alice 2026-03-10T20:00:00+00:00[Europe/London]
+```
+
+`valueAt` is who is on, and `undefined` where nobody is. `nextValue` is what
+happens next, whatever that turns out to be, which is the question a timeline
+asks. Both clip to where they were asked, so a stretch already running comes
+back beginning there.
+
 ## Overlap that adds rather than displaces
 
 Everything above settles an overlap by precedence. A roster wants the other
