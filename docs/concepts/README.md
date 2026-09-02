@@ -148,6 +148,32 @@ them back, and everything in between is your concern. See
 [serialisation](../serialisation/), where the useful detail is that the builder
 produces the document rather than something that has to be converted into one.
 
+## What a rule cannot say
+
+Everything above answers one shape of question: **is this moment permitted?**
+A rule is a set of times, and every query reads that set.
+
+A whole category of real rule sits outside it. These constrain a _pattern of
+occurrences_ rather than the individual moments in one:
+
+- At most four doses a day, at least four hours apart.
+- Ninety days in any rolling period of a hundred and eighty.
+- Nine hours of driving a day, with a break after four and a half.
+- A hundred requests a minute.
+
+Caps per window, minimum spacing and rolling-window totals are constraint
+satisfaction over a schedule, which is a different problem from an interval
+set. The last kind also needs _history_ as an input, and nothing else in the
+design does. Quando has no answer for any of them today, and saying which
+library to reach for is more use than a partial one.
+
+A related gap is worth naming for the same reason. Ask Quando whether a shop is
+open on a Tuesday in 2029 and it says yes, because it is a Tuesday, even where
+nobody has loaded that year's holidays. A rule set that declared how far ahead
+it is valid, and answered _unknown_ past that, would be a better answer for
+forward planning. It changes the return type of every query, so it is a
+question for a later major version rather than a patch.
+
 ## What Quando does not do
 
 It does not fire anything. Quando calculates _when_; it never acts. There are no
