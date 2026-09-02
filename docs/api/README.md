@@ -186,9 +186,10 @@ equal. See [comparing](../comparing/).
 
 ## Schedules and rotas
 
-The domain layer over cascades: a `Schedule` is a `Cascade<boolean>` and a
-`Rota<V>` is a `Cascade<V>`, so everything below reads one. See
-[schedules and rotas](../schedules/).
+The domain layer over cascades: a `Schedule` is a `Cascade<boolean>`, a
+`Rota<V>` is a `Cascade<V>`, and a `Tally` is a `Cascade<number>` that sums, so
+everything below reads one. See [schedules and rotas](../schedules/) and
+[merging](../merging/#tally-for-counting).
 
 |                                                        |                                                           |
 | ------------------------------------------------------ | --------------------------------------------------------- |
@@ -204,6 +205,12 @@ The domain layer over cascades: a `Schedule` is a `Cascade<boolean>` and a
 | `.swap(day: PlainRule, value: W): Rota<V \| W>`        | a swap: this day goes to this one                         |
 | `.whoIsOn(at): V \| undefined`                         | who is on at that moment                                  |
 | `.shifts(from, to?): ValuedStream<V>`                  | each stretch and who has it                               |
+| `tally(): Tally`                                       | an empty tally, nobody on                                 |
+| `.plus(scope: PlainRule, amount: number): Tally`       | that much more, on top of what covers the same time       |
+| `.exactly(scope: PlainRule, amount: number): Tally`    | that many there, in place of what was said above          |
+| `.at(at): number`                                      | how many at that moment, zero where nothing claims it     |
+| `.least(from, to): number`                             | the thinnest cover in a window, counting a gap as zero    |
+| `.counts(from, to?): ValuedStream<number>`             | each stretch and how many are on for it                   |
 
 `assign` and `swap` take a `const` type parameter, so the value type accumulates
 as literals: two names in gives `"alice" | "bob" | undefined` out rather than

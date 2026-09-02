@@ -67,7 +67,7 @@ For opening hours and rotas there is a plainer front door, which builds the same
 thing:
 
 ```ts
-import { rota, schedule, weekdays, weekends } from "@kensio/quando";
+import { rota, schedule, tally, weekdays, weekends } from "@kensio/quando";
 
 const openingHours = schedule()
   .open(weekdays(), "09:00-17:00")
@@ -81,10 +81,17 @@ const onCall = rota().assign(weekdays(), "alice").assign(weekends(), "bob");
 
 onCall.whoIsOn(friday);
 // → "alice"
+
+const staff = tally().plus(weekdays(), 3).plus("2026-03-11", 2);
+
+staff.at(Temporal.ZonedDateTime.from("2026-03-11T11:00[Europe/London]"));
+// → 5
 ```
 
-Each line outranks the ones above it, so exceptions read in the order you would
-say them. See [schedules and rotas](docs/schedules/).
+For a schedule and a rota each line outranks the ones above it, so exceptions
+read in the order you would say them. A tally is the one that adds instead,
+because two teams of three on a Monday are six people. See
+[schedules and rotas](docs/schedules/) and [merging](docs/merging/).
 
 ## Why intervals
 
