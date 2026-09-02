@@ -1,9 +1,6 @@
 # Queries
 
-`intervals` gives you the times a rule covers. These four functions are what you
-usually want instead: where you get to after three working hours, whether
-something is open now, how much time a window holds, and when the next stretch
-begins.
+Quando provides four common queries over the intervals covered by a rule.
 
 |             |                                             |
 | ----------- | ------------------------------------------- |
@@ -12,16 +9,14 @@ begins.
 | `elapsed`   | how much time a rule covers within a window |
 | `next`      | the next stretch a rule covers              |
 
-Durations are exact elapsed time throughout. Three operating hours means three
-real hours of opening, so a stretch spanning a clock change is measured by how
-long it lasted rather than by what the clock said — see
+Durations use exact elapsed time. A three-hour duration always means three
+elapsed hours, including across a clock change. See
 [time zones](../time-zones/).
 
 ## `advanceBy`
 
-The question both of the libraries Quando evolves from were built around, and
-the one that is genuinely hard to do by hand: _an order is placed at five to
-five on a Friday, packing takes three operating hours, when is it packed?_
+`advanceBy` adds time that counts only while a rule applies. This example adds
+three hours of warehouse opening time to an order placed at 16:55 on Friday:
 
 ```ts
 import { advanceBy, dates, timeOfDay, weekdays } from "@kensio/quando";
@@ -43,15 +38,13 @@ console.log(dispatch?.toString());
 2026-03-17T11:55:00+00:00[Europe/London]
 ```
 
-Five minutes on the Friday, the Monday closed for a holiday, the rest on the
-Tuesday morning. Nothing was sampled and nothing was stepped over in increments:
-the answer is a walk along the intervals until the budget runs out.
+The calculation uses five minutes on Friday. Monday is excluded by the holiday
+rule. The remaining time falls on Tuesday morning.
 
-The third argument carries the rule as `during`, and may also carry `within` and
-anything else a [`Context`](../api/#context) takes apart from its window, which
-`from` and `advanceBy`'s own search supply.
+Pass the rule in the `during` property. The options can also contain `within`,
+`location`, and `locale`. The first argument supplies the context start.
 
-### It refuses calendar amounts
+### Elapsed durations only
 
 ```ts
 import { advanceBy, timeOfDay, weekdays } from "@kensio/quando";
@@ -81,16 +74,15 @@ RangeError: advanceBy() measures elapsed time, so P1D is ambiguous: days are cal
 RangeError: advanceBy() cannot go backwards. Asked for -PT1H.
 ```
 
-`P1D` is refused rather than accepted-and-approximated because the two halves of
-the function would disagree about it. The accounting compares durations without
-a reference point, where a day is 24 hours; the final step adds to a
-`ZonedDateTime`, where it is a calendar day. On the mornings a clock changes
-`P1D` and `PT24H` land an hour apart, and neither answer is wrong enough to
-notice. If you mean 24 hours of opening, say `PT24H`.
+`advanceBy` rejects years, months, weeks, and days. These are calendar units, and
+their elapsed length depends on the starting date and time zone. Use hours,
+minutes, seconds, milliseconds, microseconds, or nanoseconds. Use `PT24H` when
+you mean 24 elapsed hours.
 
 ### `within` bounds the search
 
-`advanceBy` returns `undefined` when the search runs out before the time does:
+Set `within` to limit how far `advanceBy` searches. It returns `undefined` when
+the search ends before the requested rule time has elapsed:
 
 ```ts
 import { advanceBy, timeOfDay, weekdays } from "@kensio/quando";
@@ -117,15 +109,14 @@ undefined
 2026-03-16T11:55:00+00:00[Europe/London]
 ```
 
-Twelve hours from Friday teatime contains five minutes of opening, so there is
-no answer to give. A week contains plenty. Note that `within` takes calendar
-units happily — it is a horizon, not an amount of rule-time, so a day being 23
-or 25 hours long changes nothing about what it means.
+The first search contains only five minutes of opening time. The second search
+contains enough opening time. `within` can use calendar units because it defines
+a search horizon from a known starting point.
 
 ## `activeAt`
 
-Whether a rule covers an instant. Intervals are half open, which shows up
-exactly at the boundary:
+`activeAt` reports whether a rule covers an instant. The result follows
+half-open interval boundaries:
 
 ```ts
 import { activeAt, timeOfDay, weekdays } from "@kensio/quando";
@@ -142,19 +133,16 @@ false
 true
 ```
 
-Closing time is when it is shut. That is the only convention under which a day
-ending at 17:00 and one beginning at 17:00 do not both contain the instant
-between them.
+An interval ending at 17:00 excludes 17:00. An interval starting at 17:00
+includes it.
 
-`activeAt` takes an optional third argument for the rest of a context — a
-`locale`, or a `location` for rules about the sun — but not a window: it
-supplies its own, one nanosecond wide. That is also why this is the one query
-that always terminates, whatever rule and whatever context it is given. There is
-nowhere for it to walk.
+The optional third argument accepts a `locale` and `location`. `activeAt`
+creates its own one-nanosecond window around the given instant, so it always
+terminates.
 
 ## `elapsed`
 
-How much time a rule covers within a window:
+`elapsed` returns the total duration covered by a rule within a context:
 
 ```ts
 import { elapsed, timeOfDay, weekdays } from "@kensio/quando";
@@ -181,13 +169,12 @@ PT40H
 RangeError: elapsed() needs a window with an end: give the context a `to`.
 ```
 
-The refusal is the interesting half. Everywhere else an endless context is
-supported and often useful; here the alternative to refusing is a number that
-never finishes being counted, so the error arrives at once instead.
+The context must have a `to`. An unbounded window has no finite total duration,
+so `elapsed` rejects it.
 
 ## `next`
 
-The next stretch of time a rule covers, at or after the context's start:
+`next` returns the next covered interval at or after the context start:
 
 ```ts
 import { next, timeOfDay, weekdays } from "@kensio/quando";
@@ -221,16 +208,13 @@ undefined
 2026-03-16T09:00:00
 ```
 
-Three things there. Asked at eleven on a Friday, `next` answers _now_ — the
-stretch already running, clipped to begin where you asked, because "when does it
-next open" should say "it is open" rather than skipping to tomorrow. Asked on
-Friday evening with a day to look, there is nothing. Asked with no horizon at
-all, Monday.
+When the rule is already active, `next` returns the current interval clipped to
+the context start. The 24-hour search from Friday evening finds no opening. The
+unbounded search finds Monday morning.
 
-That last call has an unbounded context and still returns immediately: a lazy
-stream is pulled exactly as far as the first answer.
+The unbounded search stops after it finds the first interval.
 
-### `within` narrows, and only narrows
+### `within` only narrows a context
 
 A context that already ends before the horizon keeps its own end:
 
@@ -255,27 +239,23 @@ console.log(
 undefined
 ```
 
-Thirty days of horizon does not reach past Saturday morning, because a caller
-who gave a window meant it. `within` is there to stop a search that would
-otherwise run forever, never to extend one.
+The context ends on Saturday morning. A 30-day `within` value does not extend
+that end. It only shortens a context that would otherwise run longer.
 
 ## Termination
 
-Worth understanding once, because it is the one way these functions can
-misbehave. Rules recur, so a stream can be endless; an endless stream is fine as
-long as _something_ stops the pull.
+Recurring rules can produce endless streams. Each query needs a result or a
+bound that stops evaluation.
 
-|                     |                                                       |
-| ------------------- | ----------------------------------------------------- |
-| `activeAt`          | always terminates — its window is one nanosecond wide |
-| `elapsed`           | refuses a window with no end                          |
-| `next`, `advanceBy` | terminate as soon as there is an answer               |
+|                     |                                                             |
+| ------------------- | ----------------------------------------------------------- |
+| `activeAt`          | always terminates because its window is one nanosecond wide |
+| `elapsed`           | refuses a window with no end                                |
+| `next`, `advanceBy` | terminate as soon as there is an answer                     |
 
-The case with no answer is the one to bound. A satisfiable rule yields its first
-interval quickly however far it recurs, but a rule that covers _nothing_ —
-`weekdays().and(weekends())` — has no interval to yield and no way to discover
-that it never will, so an unbounded search for it does not come back. Give the
-context a `to`, or the search a `within`, whenever the answer might be nothing.
+Bound a search when its rule may produce no interval. For example,
+`weekdays().and(weekends())` can search forever in an unbounded context. Set the
+context `to` or the search `within` in this case.
 
 <!-- card
 ```ts

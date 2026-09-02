@@ -1,18 +1,16 @@
 # Rules
 
-A rule says _when_, and nothing else. There are five that select time —
-`always`, `never`, `daysOfWeek`, `timeOfDay`, `dates` — and three that combine
-rules into bigger ones: `all`, `any`, `not`. That is the whole language. Every
-schedule you can express is those eight pieces arranged.
+A rule describes a set of times. Five rule types select time. They are
+`always`, `never`, `daysOfWeek`, `timeOfDay`, and `dates`. The `all`, `any`, and
+`not` rule types combine other rules.
 
-Rules are boolean: a moment is either covered or it is not. Nothing here carries
-a value, which is what keeps `not` meaningful — see
-[concepts](../concepts/#rules-combine).
+Rules are boolean. A moment is either covered or uncovered. Use a
+[cascade](../cascades/) when you need to assign values.
 
 ## Reading a rule
 
-`intervals(rule, context)` is how you see what a rule covers. The context says
-where to start looking and, optionally, where to stop:
+Call `intervals(rule, context)` to read a rule. The context sets the start and
+optional end of the evaluation window:
 
 ```ts
 import { always, intervals, never } from "@kensio/quando";
@@ -33,28 +31,26 @@ console.log([...intervals(never(), week)].length);
 0
 ```
 
-Every example below prints intervals the same way. `start` and `end` are
-`Temporal.ZonedDateTime | undefined`, and `undefined` means unbounded: an absent
-`start` is the unbounded past, an absent `end` the unbounded future.
+The `start` and `end` fields have the type
+`Temporal.ZonedDateTime | undefined`. An undefined `start` means the interval
+extends into the unbounded past. An undefined `end` means it extends into the
+unbounded future.
 
-Intervals are half open — `[start, end)` — so a stretch ending at 17:00 and one
-beginning at 17:00 do not overlap and no instant falls in a crack.
+Intervals are half-open and use the form `[start, end)`. They include the start
+and exclude the end.
 
 ## `always` and `never`
 
-As above: `always()` covers all of time, so within a window it is the window,
-and `never()` covers none, so it is an empty stream.
+`always()` covers all time. Within a bounded context, it returns the context
+window. `never()` returns an empty stream.
 
-They exist because they are the identities — `always` for intersection, `never`
-for union — which is what lets a rule assembled from a list behave when the list
-turns out to be empty. They are also how "closed" and "open all hours" are said,
-which is less exotic than it sounds: a holiday calendar with nothing in it and a
-service that never stops are both ordinary.
+These are the identity rules for intersections and unions. `all()` with no
+arguments produces `always()`. `any()` with no arguments produces `never()`.
 
 ## `daysOfWeek`
 
-Whole days, by their day of the week. `weekdays()` and `weekends()` are the two
-you were going to write anyway:
+`daysOfWeek` covers whole days selected by weekday. `weekdays()` selects Monday
+through Friday. `weekends()` selects Saturday and Sunday.
 
 ```ts
 import { intervals, weekdays } from "@kensio/quando";
@@ -74,26 +70,21 @@ for (const { start, end } of intervals(weekdays(), fortnight)) {
 2026-03-16T00:00:00 → 2026-03-21T00:00:00
 ```
 
-**Two weeks of weekdays is two intervals, not ten.** Consecutive selected days
-coalesce into one stretch running from Monday midnight to Saturday midnight,
-because that is what the days _are_: five intervals touching at midnight and one
-interval covering the same time are the same set of moments, and only one of
-those two is a well-formed stream. Counting intervals is therefore not a way to
-count days.
+Consecutive selected days are coalesced. In this example, each working week is
+one interval from Monday midnight to Saturday midnight. Do not use the number
+of intervals to count days.
 
-`daysOfWeek(...)` takes any of `"monday"` through `"sunday"`. With no days at
-all it covers nothing, and says so immediately rather than walking the calendar
-looking for a day that can never match.
+`daysOfWeek(...)` accepts weekday names from `"monday"` through `"sunday"`. With
+no arguments, it returns a rule that covers no time.
 
 ## `timeOfDay`
 
-A wall-clock window inside each day. Wall clock is the point: across a clock
-change the times you wrote stay put and the real length of the window changes,
-which is what a schedule means by "nine to five". See
-[time zones](../time-zones/) for what that costs in elapsed hours.
+`timeOfDay` covers a wall-clock window on each day. The written start and end
+stay fixed across daylight-saving changes. The elapsed duration can change.
+See [time zones](../time-zones/).
 
-A `to` earlier than `from` **wraps past midnight**, so a night shift is one rule
-rather than two:
+When `to` is earlier than `from`, the interval continues past midnight. A night
+shift can therefore use one rule:
 
 ```ts
 import { intervals, timeOfDay } from "@kensio/quando";
@@ -114,12 +105,11 @@ for (const { start, end } of intervals(timeOfDay("22:00", "06:00"), twoDays)) {
 2026-03-10T22:00:00 → 2026-03-11T00:00:00
 ```
 
-Note the first and last lines: the shift that began the evening before the
-window opened is still running when it does, and the one that starts inside the
-window is cut off by its end. A rule is always shown clipped to the context it
-was asked about.
+The first interval began before the context. The last interval ends after the
+context. `intervals` clips both to the context window.
 
-A window whose ends are equal is refused, at evaluation:
+A window with equal start and end times is invalid. The error occurs when the
+rule is evaluated:
 
 ```ts
 import { intervals, take, timeOfDay } from "@kensio/quando";
@@ -144,17 +134,15 @@ try {
 RangeError: A time-of-day window from 09:00 to 09:00 has the same start and end. Use { type: "always" } for a whole day.
 ```
 
-Twenty-four hours is one reading of `09:00`–`09:00` and nothing at all is
-another, and a rule that has to be guessed at is worse than one that complains.
-`always()` already says the first unambiguously.
+The range `09:00` to `09:00` could mean a full day or an empty interval. Quando
+rejects the range. Use `always()` to cover a full day.
 
-That it throws when read rather than when written is deliberate: constructing a
-rule checks its shape, and evaluating one checks what it means. Keeping the two
-apart is what stops them disagreeing.
+Builders create the rule data. Evaluation checks semantic conditions such as
+equal endpoints.
 
 ## `dates`
 
-Whole days, named:
+`dates` covers whole calendar dates:
 
 ```ts
 import { dates, intervals } from "@kensio/quando";
@@ -175,24 +163,21 @@ for (const { start, end } of intervals(shutdown, march)) {
 2026-03-14T00:00:00 → 2026-03-17T00:00:00
 ```
 
-Sorted and coalesced, as everywhere else: three dates written in the order they
-came to mind are one three-day stretch, ending at midnight on the 17th because
-the 16th is included whole.
+Quando sorts the dates and coalesces consecutive dates. The three dates above
+produce one interval ending at midnight on 17 March.
 
-This is where holidays go. Quando ships no calendar data — that belongs in
-satellite packages, so the core carries none — so a bank holiday list is a
-`dates` rule you got from somewhere else.
+Use `dates` for holidays and other named dates. Quando does not provide calendar
+data. Supply the dates from your application or another package.
 
 ## Combining
 
 |       |                                             |
 | ----- | ------------------------------------------- |
-| `all` | intersection — every rule must hold         |
-| `any` | union — at least one must hold              |
-| `not` | complement — the times a rule does not hold |
+| `all` | intersection. Every rule must apply.        |
+| `any` | union. At least one rule must apply.        |
+| `not` | complement. The source rule must not apply. |
 
-`not` is the one worth seeing, because its answer runs off both ends of the
-context:
+`not` returns the gaps in its source rule:
 
 ```ts
 import { intervals, not, timeOfDay } from "@kensio/quando";
@@ -212,12 +197,11 @@ for (const { start, end } of intervals(not(timeOfDay("09:00", "17:00")), day)) {
 2026-03-09T17:00:00 → 2026-03-10T00:00:00
 ```
 
-Unbounded in principle, clipped to the window in practice — which is what makes
-a composition over recurring rules finish at all.
+The complement extends beyond both ends of this example. The context clips the
+result to one day.
 
-With no arguments each combinator gives its identity: `all()` is all of time,
-`any()` is none. That is not a curiosity, it is what makes building a rule from
-a list you might have filtered to nothing behave.
+With no arguments, `all()` covers all time and `any()` covers no time. This is
+useful when you build a combined rule from an array that may be empty.
 
 ```ts
 import { all, any, intervals } from "@kensio/quando";
@@ -238,8 +222,7 @@ console.log([...intervals(any(), day)].length);
 
 ## The builder
 
-Every rule function returns the rule with three methods on it, so the common
-compositions read left to right rather than inside out.
+Every builder returns a rule with `.and`, `.or`, and `.except` methods.
 
 |              |                          |
 | ------------ | ------------------------ |
@@ -247,8 +230,7 @@ compositions read left to right rather than inside out.
 | `.or(…)`     | `any(this, …)`           |
 | `.except(…)` | `all(this, not(any(…)))` |
 
-`.except` earns its place because opening-hours-minus-exceptions is the
-commonest shape there is, and spelled out it reads like nothing at all:
+Use `.except` to remove exceptions such as holidays from another rule:
 
 ```ts
 import { dates, intervals, timeOfDay, weekdays } from "@kensio/quando";
@@ -276,8 +258,7 @@ for (const { start, end } of intervals(openingHours, week)) {
 
 Wednesday the 11th is gone entirely.
 
-`.or` reaches for the union in the same way. On-call cover of every weekend and
-every evening:
+Use `.or` to form a union. This example covers weekends and each evening:
 
 ```ts
 import { intervals, timeOfDay, weekends } from "@kensio/quando";
@@ -300,19 +281,16 @@ for (const { start, end } of intervals(cover, week)) {
 2026-03-14T00:00:00 → 2026-03-16T00:00:00
 ```
 
-The Saturday and Sunday arrive as one interval, and the Friday evening as its
-own — because 23:00 Friday to midnight Saturday is not covered, so there is
-nothing to join them.
+Saturday and Sunday form one continuous interval. Friday evening remains
+separate because the rule does not cover 23:00 to midnight.
 
-A built rule is an ordinary rule object. There is no `.build()` and nothing to
-unwrap, and `JSON.stringify` gives the document a hand-written rule would give.
-That is [serialisation](../serialisation/).
+A built rule is ready to evaluate and serialise. It needs no `.build()` call.
+See [serialisation](../serialisation/).
 
 ## Rules that recur forever
 
-A context needs no end, and a recurring rule then produces an endless stream.
-This is supported, and it is why the stream is lazy: `take` pulls exactly as far
-as it needs.
+A context can omit its end. A recurring rule then produces a lazy, endless
+stream. `take` reads only the requested number of intervals.
 
 ```ts
 import { intervals, take, timeOfDay } from "@kensio/quando";
@@ -334,19 +312,15 @@ for (const { start } of openings) {
 2026-03-11T09:00:00
 ```
 
-The case to know about is the opposite one: a rule whose answer is _empty_ over
-an unbounded context has nothing to discover that from, and will keep looking.
-`weekdays().and(weekends())` never holds, and asking an endless context when it
-next does will not come back. Give the context a `to` whenever the answer might
-be nothing.
+An impossible recurring rule can search forever in an unbounded context. For
+example, `weekdays().and(weekends())` never produces an interval. Set `to` when
+the rule may produce no result.
 
 ## Zones
 
-`daysOfWeek`, `dates` and `timeOfDay` each take an optional zone, which is what
-lets one rule set describe a London office and a Tokyo one. Without it, a rule
-is read in the zone of the context it is evaluated against. That is
-[time zones](../time-zones/), which is a page of its own because the
-consequences are not obvious.
+`daysOfWeek`, `dates`, and `timeOfDay` accept an optional time zone. A rule with
+no zone uses the zone from the evaluation context. See
+[time zones](../time-zones/) for details.
 
 <!-- card
 ```ts

@@ -1,18 +1,15 @@
 # Time zones
 
-"Nine to five" is a claim about a clock, and which clock is part of the rule.
-Quando therefore never works in bare local time: every moment that goes in or
-comes out is a `Temporal.ZonedDateTime`, and every rule is read in some named
-zone. This page is about which one, and about the two mornings a year when wall
-clock and elapsed time stop agreeing.
+Quando represents every input and output moment as a
+`Temporal.ZonedDateTime`. Each rule uses either its own named time zone or the
+zone from its evaluation context.
 
 ## The zone comes from the context
 
-A context's `from` is a `ZonedDateTime`, so it already carries a zone. That is
-the zone a rule is read in when it does not name one of its own — and there is
-no separate `zone` field on the context that could disagree with it.
+The context `from` value carries a time zone. A rule with no explicit zone uses
+that zone. `Context` has no separate `zone` property.
 
-The same rule, evaluated from two places:
+This example evaluates one rule in London and Tokyo:
 
 ```ts
 import { intervals, timeOfDay, weekdays } from "@kensio/quando";
@@ -41,16 +38,13 @@ for (const { start } of intervals(officeHours, inTokyo)) {
 2026-03-09T09:00:00+09:00[Asia/Tokyo]
 ```
 
-Two different instants, nine hours apart, and both correct. A rule with no zone
-means "nine in the morning, wherever this is being asked about" — which is what
-you want for a rule that describes a local working day, and not at all what you
-want for a rule that describes one particular office.
+Both results start at 09:00 local time. They represent different instants. Use a
+rule without a zone when the rule should follow the context location.
 
 ## A rule may name its own zone
 
-`daysOfWeek`, `dates` and `timeOfDay` each take an optional zone, which is what
-lets one rule set describe a London office and a Tokyo one at the same time.
-`inZone` adds it to a rule that already exists:
+`daysOfWeek`, `dates`, and `timeOfDay` each accept an optional zone. `inZone`
+adds a zone to one of these rules after it has been created:
 
 ```ts
 import { inZone, intervals, timeOfDay, weekdays } from "@kensio/quando";
@@ -74,39 +68,31 @@ for (const { start, end } of intervals(londonOffice, fromTokyo)) {
 2026-03-10T18:00:00+09:00[Asia/Tokyo] → 2026-03-11T00:00:00+09:00[Asia/Tokyo]
 ```
 
-The zone has to go on both halves. `inZone(weekdays(), …)` says which days are
-Monday to Friday, and the zone on `timeOfDay` says whose nine o'clock — they are
-separate questions, and a rule that answered them in different zones would be a
-strange rule rather than an invalid one.
+Set the zone on both parts of this rule. The `weekdays` zone decides which local
+dates are Monday through Friday. The `timeOfDay` zone decides when 09:00 and
+17:00 occur. Quando allows the two rules to use different zones when needed.
 
-Note the second line stopping at midnight: the Tokyo window ran out mid-way
-through London's Tuesday afternoon. Results are always clipped to the context.
+The second result stops at Tokyo midnight because that is the end of the
+context. Results are always clipped to the context window.
 
 ## Answers come back in the context's zone
 
-Both intervals above are reported in Tokyo time, although the rule was written
-about London. That is a deliberate normalisation, and the reason is worth
-knowing.
+The previous results are reported in Tokyo time because the context starts in
+Tokyo. Quando always returns intervals in the zone of `context.from`.
 
-The interval algebra compares instants, and a sweep is free to take one
-interval's start and another's end. Those two may have been written in different
-zones — a rule that intersects a London working day with a Tokyo opening time
-has both. Left alone, the result is an interval whose two halves disagree about
-what time it is, which is not wrong so much as unreadable. So every interval is
-read back in `context.from`'s zone on the way out.
+Combined rules may contain intervals from different zones. Normalising the
+result keeps both ends of each interval in one zone.
 
-This changes no instant. A `ZonedDateTime` is a moment plus a way of reading it,
-and only the reading is being settled here. If you want the answer in another
-zone, `.withTimeZone(…)` it.
+Normalisation does not change the represented instants. Call `.withTimeZone()`
+on a result when you need another display zone.
 
 ## Wall clock against elapsed time
 
-`timeOfDay` is wall clock: the times you wrote stay put across a clock change,
-and the real length of the window moves instead. That is what a schedule means —
-a night shift starting at ten still starts at ten on the morning the clocks go
-forward, and it is an hour shorter.
+`timeOfDay` uses wall-clock time. A night shift from 22:00 to 06:00 keeps those
+local endpoints across a daylight-saving change. Its elapsed duration may
+change.
 
-Both changes, on the same rule:
+This example evaluates the same shift across both UK clock changes:
 
 ```ts
 import { duration, intervals, timeOfDay } from "@kensio/quando";
@@ -137,11 +123,10 @@ for (const context of [springForward, backAgain]) {
 2026-10-24T22:00:00 → 2026-10-25T06:00:00: PT9H
 ```
 
-Ten until six, twice, and once it is seven hours and once it is nine. Both
-numbers are what a payroll would say.
+Both shifts run from 22:00 to 06:00 local time. The spring shift lasts seven
+hours and the autumn shift lasts nine hours.
 
-Every duration in Quando is exact elapsed time, which is why `advanceBy` lands
-where it does:
+Quando measures durations as exact elapsed time. This affects `advanceBy`:
 
 ```ts
 import { advanceBy, timeOfDay } from "@kensio/quando";
@@ -160,17 +145,16 @@ console.log(after?.toString());
 2026-10-25T05:00:00+00:00[Europe/London]
 ```
 
-Eight hours of work, clocking on at ten, and you are done at five in the morning
-rather than six — because the clocks went back at two and one hour was lived
-through twice. Eight hours is eight hours; it is the clock face that moved.
+Eight elapsed hours after 22:00 is 05:00 on the morning when the clocks move
+back. The repeated hour counts twice.
 
-This is also why [`advanceBy`](../queries/#it-refuses-calendar-amounts) refuses
-`P1D`: a day is a calendar unit, and on these two mornings it is not 24 hours.
+For the same reason, [`advanceBy`](../queries/#elapsed-durations-only) rejects
+`P1D`. A calendar day may contain 23, 24, or 25 elapsed hours.
 
-## The hour that does not exist
+## A skipped hour produces no interval
 
-Going the other way, an hour is missing rather than repeated. A rule about it
-simply does not occur:
+When the clocks move forward, some local times do not occur. A rule that covers
+only a skipped range produces no interval for that date:
 
 ```ts
 import { intervals, timeOfDay } from "@kensio/quando";
@@ -192,16 +176,13 @@ for (const { start, end } of intervals(smallHours, overTheChange)) {
 2026-03-30T01:00:00+01:00[Europe/London] → 2026-03-30T02:00:00+01:00[Europe/London]
 ```
 
-The 29th is absent. On that morning both ends of `01:00`–`02:00` resolve to the
-same instant, so the window covers no time at all, and an interval covering no
-time is not a thing the streams may contain. Skipping it is the only answer that
-keeps "the total is the sum of the intervals" true.
+There is no interval on 29 March. The local range from 01:00 to 02:00 has zero
+elapsed duration on that date, and interval streams omit empty intervals.
 
 ## Zone names are checked when a rule is read
 
-A zone in a stored rule is validated by `parseRule`, not left to fail at query
-time — a mistyped zone should be a problem when the document is read, rather
-than hours later when something asks a question of it. See
+`parseRule` validates zone names in stored rules. An unknown zone causes a
+`TypeError` while the document is parsed. See
 [serialisation](../serialisation/).
 
 <!-- card

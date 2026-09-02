@@ -1,18 +1,18 @@
 # API
 
-Everything `@kensio/quando` exports, and nothing else. There is one entry point:
+This page lists the public exports from `@kensio/quando`. The package has one
+entry point:
 
 ```ts
 import { activeAt, timeOfDay, weekdays } from "@kensio/quando";
 ```
 
-Types are exported alongside the functions, so `import type { Rule }` works from
-the same place.
+Types and runtime values use the same entry point.
 
 ## Building rules
 
-Each of these returns a [`Built<R>`](#built): the rule itself, with `and`, `or`
-and `except` on it. See [rules](../rules/).
+Each builder returns a [`Built<R>`](#built). This is a rule with `.and`, `.or`,
+and `.except` methods. See [rules](../rules/).
 
 |                                                                            |                                      |
 | -------------------------------------------------------------------------- | ------------------------------------ |
@@ -28,13 +28,11 @@ and `except` on it. See [rules](../rules/).
 | `not(rule: Rule): Built<NotRule>`                                          | complement                           |
 | `inZone<R>(rule: R, zone: string): Built<R>`                               | the same rule, read in a named zone  |
 
-`inZone` is constrained to the rule types that have a zone —
-`DaysOfWeekRule | DatesRule | TimeOfDayRule` — so applying one to an `all` is a
-compile error rather than a silently ignored field.
+`inZone` accepts `DaysOfWeekRule`, `DatesRule`, and `TimeOfDayRule`. TypeScript
+rejects other rule types because they have no zone field.
 
-Times are `"09:00"`, dates are `"2026-03-14"`, and zones are IANA names like
-`"Europe/London"`. All three are the strings `Temporal` accepts, because that is
-what parses them.
+Times, dates, and zone names use the formats accepted by `Temporal`. Examples
+include `"09:00"`, `"2026-03-14"`, and `"Europe/London"`.
 
 ### `Built`
 
@@ -46,16 +44,16 @@ type Built<R extends Rule> = R & {
 };
 ```
 
-`.except(…)` is `all(this, not(any(…)))`. A `Built<R>` is an `R`, so it can go
-anywhere a `Rule` can and serialises as one.
+`.except(...)` creates `all(this, not(any(...)))`. A `Built<R>` is also an `R`,
+so it can be passed anywhere a `Rule` is accepted and serialises as rule data.
 
 ## Reading rules
 
 ### `intervals(rule: Rule, context: Context): IntervalStream`
 
-The times a rule covers within a context, in ascending order, coalesced, and
-clipped to the context's window. Lazy, and endless if the context has no end and
-the rule recurs. Every interval comes back read in `context.from`'s zone.
+Returns the times covered by a rule within a context. The intervals are ordered,
+coalesced, and clipped to the context window. The stream is lazy and can be
+endless when the context has no end. Results use the zone from `context.from`.
 
 ### `Context`
 
@@ -68,15 +66,12 @@ interface Context {
 }
 ```
 
-`from` is where evaluation begins and — since a `ZonedDateTime` carries one —
-the zone any rule that does not name its own is read in. `to` is optional
-because a recurrence genuinely has no end; see
-[termination](../queries/#termination) for when you need it anyway.
+`from` sets the evaluation start and the default time zone. `to` sets an
+optional end. See [termination](../queries/#termination) for cases that need a
+bounded context.
 
-`location` and `locale` are carried but unused so far. They are declared because
-a rule about sunrise will need coordinates and a rendered description will need
-a locale, and widening a bare parameter into an object later would break every
-caller.
+The current built-in rules do not use `location` or `locale`. They are reserved
+for rules and descriptions that need this context.
 
 ## Queries
 
@@ -89,8 +84,9 @@ See [queries](../queries/).
 | `next(rule, context, search?): Interval \| undefined`                   | the next stretch a rule covers          |
 | `advanceBy(from, amount, options): Temporal.ZonedDateTime \| undefined` | where an amount of that time gets you   |
 
-Each takes a `Covers<V>`, which is a `Rule` or a cascade narrowed to one of its
-values by `assigned`. See [cascades](../cascades/#asking-a-cascade-the-four-questions).
+Each query accepts a `Covers<V>`. This can be a `Rule` or a cascade narrowed to
+one value with `assigned`. See
+[querying cascades](../cascades/#asking-a-cascade-the-four-questions).
 
 ```ts
 type Covers<V> = Rule | Assigned<V>;
@@ -124,16 +120,16 @@ function advanceBy<V>(
 ): Temporal.ZonedDateTime | undefined;
 ```
 
-### Asking what, rather than whether
+### Querying cascade values
 
 |                                                          |                                    |
 | -------------------------------------------------------- | ---------------------------------- |
 | `valueAt<V>(cascade, at, context?): V \| undefined`      | what a cascade assigns at a moment |
 | `nextValue<V>(cascade, context): Valued<V> \| undefined` | the next stretch, and its value    |
 
-`elapsed` throws a `RangeError` on a context with no `to`. `advanceBy` throws a
-`RangeError` on a negative amount, or on one carrying years, months, weeks or
-days.
+`elapsed` throws a `RangeError` when the context has no `to`. `advanceBy` throws
+a `RangeError` for negative amounts and calendar units such as years, months,
+weeks, or days.
 
 ### `Search`
 
@@ -143,28 +139,26 @@ interface Search {
 }
 ```
 
-How far a search runs, from where it starts. Narrows only: a context that
-already ends before the horizon keeps its own end.
+`within` sets a search horizon relative to the start. It can shorten a context
+but cannot extend one.
 
 ## Serialisation
 
 ### `parseRule(value: unknown, path?: string): Rule`
 
-A rule from unknown JSON, or a `TypeError` naming what is wrong and where.
-`path` is the root name used in messages, and defaults to `"rule"`. See
+Validates unknown data and returns a `Rule`. Invalid data causes a `TypeError`
+that includes the failing path. `path` defaults to `"rule"`. See
 [serialisation](../serialisation/).
 
 ### `parseCascade<V>(value, parseValue: ValueParser<V>, path?): Cascade<V>`
 
-A cascade from unknown JSON, on the same terms. `parseValue` reads one stored
-value back at the type you keep it in, because the values in a cascade are
-yours and Quando has nothing to check one against. `path` defaults to
-`"cascade"`.
+Validates unknown data and returns a `Cascade<V>`. `parseValue` validates each
+domain value. `path` defaults to `"cascade"`.
 
 ### `ValueParser<V>`
 
-`(value: unknown, path: string) => V`. Returns the value at its type, or
-throws. Three are exported for writing one:
+The type is `(value: unknown, path: string) => V`. It returns a validated value
+or throws. Quando exports three helpers:
 
 |                                              |                                             |
 | -------------------------------------------- | ------------------------------------------- |
@@ -181,15 +175,15 @@ throws. Three are exported for writing one:
 | `fingerprint<V>(value): string`     | a stable key, equal for equal meanings  |
 | `equals<V>(left, right): boolean`   | whether two say the same thing          |
 
-Syntactic. Two rules that cover the same time by different routes are not
-equal. See [comparing](../comparing/).
+Comparison is syntactic. Rules that cover the same times through different rule
+types can compare as unequal. See [comparing](../comparing/).
 
 ## Schedules and rotas
 
-The domain layer over cascades: a `Schedule` is a `Cascade<boolean>`, a
-`Rota<V>` is a `Cascade<V>`, and a `Tally` is a `Cascade<number>` that sums, so
-everything below reads one. See [schedules and rotas](../schedules/) and
-[merging](../merging/#tally-for-counting).
+These types add domain-specific methods to cascades. A `Schedule` is a
+`Cascade<boolean>`. A `Rota<V>` is a `Cascade<V>`. A `Tally` is a summing
+`Cascade<number>`. See [schedules and rotas](../schedules/) and
+[merging](../merging/#count-with-tally).
 
 |                                                        |                                                           |
 | ------------------------------------------------------ | --------------------------------------------------------- |
@@ -212,24 +206,21 @@ everything below reads one. See [schedules and rotas](../schedules/) and
 | `.least(from, to): number`                             | the thinnest cover in a window, counting a gap as zero    |
 | `.counts(from, to?): ValuedStream<number>`             | each stretch and how many are on for it                   |
 
-`assign` and `swap` take a `const` type parameter, so the value type accumulates
-as literals: two names in gives `"alice" | "bob" | undefined` out rather than
-`string`. Declare it — `rota<string>()` — when the values are not known up
-front.
+`assign` and `swap` use a `const` type parameter. Literal values accumulate in
+the return type. Use `rota<string>()` when values are only known at runtime.
 
 ```ts
 type PlainRule = Rule | string;
 ```
 
-A string is a `"09:00-17:00"` window where hours are expected, and a
-`"2026-03-11"` day where a scope is expected. Both are checked when written,
-unlike the rule layer, which checks when evaluated — these exist to be typed by
-hand. Anywhere a `PlainRule` is accepted, a `Rule` is accepted too.
+Where hours are expected, a string such as `"09:00-17:00"` becomes a time
+window. Where a scope is expected, a string such as `"2026-03-11"` becomes a
+date. These strings are validated when the method is called. A full `Rule` is
+also accepted.
 
 ## Cascades
 
-Ordered layers carrying values, resolved by precedence. What schedules and rotas
-are made of, and what to reach for when their vocabulary runs out. See
+Cascades contain ordered layers that assign values. See
 [cascades](../cascades/).
 
 |                                                                       |                                                                              |
@@ -274,19 +265,16 @@ interface Valued<V> extends Interval {
 type ValuedStream<V> = Iterable<Valued<V>>;
 ```
 
-`Valued<V>` extends `Interval`, so `duration`, `contains` and `isEmpty` read one
-unchanged. A `ValuedStream<V>` keeps the same contract as an `IntervalStream`,
-with one addition: touching intervals carrying the same value are merged, so
-where two intervals do touch, the values on either side of the boundary differ.
+`Valued<V>` extends `Interval`. The `duration`, `contains`, and `isEmpty`
+helpers accept it. A `ValuedStream<V>` follows the `IntervalStream` contract and
+coalesces touching intervals with values that match under `Object.is`.
 
-Overlap between layers is settled by precedence by default, so the last layer
-to claim a moment wins. A cascade that names a [merge
-strategy](../merging/) combines the two values instead.
+By default, the last layer that covers a moment wins. A named
+[merge strategy](../merging/) combines overlapping values.
 
 ## Rule types
 
-The data behind the builders. A `Rule` is one of eight tagged objects, and
-nothing more — no methods, no class, no hidden state.
+A plain `Rule` is one of eight tagged object types:
 
 ```ts
 type Rule =
@@ -311,14 +299,12 @@ type Rule =
 | `AnyRule`        | `{ type: "any", rules: readonly Rule[] }`                         |
 | `NotRule`        | `{ type: "not", rule: Rule }`                                     |
 
-`Weekday` is `"monday" | … | "sunday"`, and `WEEKDAYS` is the same seven as a
-readonly tuple in calendar order, exported so that iterating the days of the
-week does not mean writing them out again.
+`Weekday` is the union of `"monday"` through `"sunday"`. `WEEKDAYS` is a readonly
+tuple containing those values in calendar order.
 
 ## Intervals
 
-The layer everything above is built from, exported because it is useful on its
-own — a stream of intervals from anywhere at all can go through these.
+The package also exports its lower-level interval types and functions.
 
 ### `Interval`
 
@@ -329,9 +315,8 @@ interface Interval {
 }
 ```
 
-Half open: `[start, end)`. Either end may be `undefined`, meaning unbounded —
-position says which, so an absent `start` is the unbounded past and an absent
-`end` the unbounded future.
+Intervals are half-open and use the form `[start, end)`. An undefined `start`
+means the unbounded past. An undefined `end` means the unbounded future.
 
 ### `IntervalStream`
 
@@ -339,14 +324,11 @@ position says which, so an absent `start` is the unbounded past and an absent
 type IntervalStream = Iterable<Interval>;
 ```
 
-**The contract, which every producer must uphold:** intervals arrive in
-_ascending_ order of start, do not overlap, and are already coalesced. The
-operations below are single-pass sweeps and rely on all three; a stream that
-breaks one produces wrong answers rather than errors.
+Every producer must return intervals in ascending start order. The intervals
+must be non-overlapping and coalesced. The operations below rely on this
+contract and do not validate the whole stream.
 
-Ascending is stated rather than implied because a descending stream is a real
-thing to want later — "when did this last open" — and one would satisfy every
-other clause here while being read wrongly by all of it.
+A descending stream does not satisfy the contract.
 
 |                                                    |                                                    |
 | -------------------------------------------------- | -------------------------------------------------- |
@@ -356,10 +338,8 @@ other clause here while being read wrongly by all of it.
 | `clip(source, window: Interval): IntervalStream`   | a stream limited to a window                       |
 | `take<T>(source: Iterable<T>, count: number): T[]` | the first `count` items of any sequence            |
 
-Every one of them is lazy, pulling from its sources only as far as it needs.
-`clip` is intersection with a one-interval stream, which is where its early stop
-comes from: once the window is consumed there is nothing left to intersect
-against, so an infinite source is never drained.
+Each operation is lazy and reads only as much source data as it needs. `clip`
+can therefore stop after its window ends without consuming an infinite source.
 
 ```ts
 import {
@@ -405,8 +385,9 @@ false
 PT3H
 ```
 
-The `undefined`s in the complement are the unbounded past and the unbounded
-future. `contains` is `false` at 12:00 because the interval excludes its end.
+The undefined endpoints in the complement represent the unbounded past and
+future. `contains` returns `false` at 12:00 because the interval excludes its
+end.
 
 ### Interval helpers
 
@@ -420,19 +401,17 @@ future. `contains` is `false` at 12:00 because the interval excludes its end.
 | `startsBeforeEnd(start, end): boolean`               | strictly before: what makes an interval non-empty      |
 | `startsAtOrBeforeEnd(start, end): boolean`           | at or before: what separates touching from overlapping |
 
-There are two comparison functions rather than one because `undefined` means
-opposite things in the two positions, and a single function taking both would
-need telling which it was looking at anyway.
+`compareStarts` sorts an undefined endpoint first. `compareEnds` sorts one
+last. The two functions differ because undefined has a different meaning at
+each end of an interval.
 
-`duration` is exact rather than wall clock: it measures how long an interval
-lasted, which across a clock change is not what the clock says. See
-[time zones](../time-zones/).
+`duration` measures exact elapsed time. See [time zones](../time-zones/) for
+examples across clock changes.
 
-## Not here yet
+## Planned features
 
-Designed, not built, and so deliberately absent from the package: estimates and
-uncertainty, backward search over an unbounded past, custom rule types, rule
-set diffing, and the command line. Nothing above depends on them arriving.
+The package does not yet include estimates, backward search over an unbounded
+past, custom rule types, rule set diffing, or a command-line interface.
 
 <!-- card
 ```ts

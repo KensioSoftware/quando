@@ -1,47 +1,42 @@
 # Quando documentation
 
-The long form of the [README](../README.md). The README is the tour; these pages
-are the same material with room to explain itself, one topic at a time.
+These pages explain how to use Quando. Start with
+[getting started](getting-started/), then use the other pages as guides and
+reference material.
 
-They are also the source for [quandojs.dev](https://quandojs.dev), which copies
-each `docs/<path>/README.md` here to a page there. **Edit them here.** A change
-made on the site is a change that will be overwritten.
+The website at [quandojs.dev](https://quandojs.dev) is built from these files.
+Edit the files in this directory. The website build overwrites direct changes
+to the site.
 
 ## Status
 
-There is a package, and these pages document what is in it: the interval core,
-the rule language and its builder, the JSON boundary, the four queries,
-cascades, merging, and canonical form. Every example on them was run against
-the built package and its output pasted in.
+These pages document the current package. They cover rules, intervals, queries,
+serialisation, cascades, schedules, rotas, merging, and comparison. The example
+output comes from the built package.
 
-Estimates, backward search over an unbounded past and the command line are
-designed and not built. Pages about them are deliberately absent until there is
-something to call. A documented function that does not exist is worse than an
-undocumented one that does.
+Quando does not yet include estimates, backward search over an unbounded past,
+or a command-line interface. The documentation covers implemented features
+only.
 
 ## How these pages work
 
-The site scaffold has a contract, and `pnpm docs:check` enforces it here so that
-a break is found in review rather than at deploy time.
+Run `pnpm docs:check` after editing these files. It checks the structure expected
+by the website.
 
-- **One page per directory.** `docs/<path>/README.md` becomes the page at
-  `<path>` on the site. Directories nest, and a directory can be both a page and
-  a parent.
-- **This file is the exception.** The docs root README is an index for people
-  browsing the repo on GitHub. The site has its own home page, so this one is
-  not copied.
-- **The H1 becomes the page title** and is lifted out of the body.
-- **The description is derived** from the opening paragraph unless the page
-  declares one in frontmatter. Frontmatter is regenerated from this repo on
-  every scaffold run, so this repo is the source of truth.
-- **Link between pages relatively** — `[concepts](../concepts/)` — so the same
-  link resolves both on GitHub and on the site.
-- **Every page ends with a `<!-- card -->` comment** holding the code snippet its
-  social image shows. It renders nowhere, on GitHub or on the site, and the
-  scaffold fails on a page without one. Six lines of about sixty characters is
-  what the image holds.
+- Put each page in `docs/<path>/README.md`. It becomes the website page at
+  `<path>`.
+- Keep this file as the repository index. The website has a separate home page.
+- Start every page with one H1. The website uses it as the page title.
+- Start each page with a useful summary paragraph. The website uses it as the
+  default page description.
+- Use relative links between documentation pages, such as
+  `[concepts](../concepts/)`.
+- End every website page with a `<!-- card -->` comment. The comment contains
+  the code shown on its social image. Aim for six lines of about 60 characters.
 
 The card looks like this:
+
+<!-- prose-check:off -->
 
 ````markdown
 <!-- card
@@ -51,47 +46,39 @@ const hours = weekdays().and(timeOfDay("09:00", "17:00"));
 -->
 ````
 
+<!-- prose-check:on -->
+
 ## The pages
 
-- [Getting started](getting-started/): what you need, how to install it, and a
-  first query. Start here.
-- [Concepts](concepts/): what a rule is, and why it yields intervals rather than
-  answering yes or no. Worth reading once; everything else follows from it.
-- [Rules](rules/): every rule type there is, what each produces, and the two
-  behaviours that surprise people.
-- [Queries](queries/): `advanceBy`, `activeAt`, `elapsed` and `next`, and what
-  each does about a search that could run forever.
-- [Time zones](time-zones/): which zone a rule is read in, and wall clock
-  against elapsed time across a clock change.
-- [Serialisation](serialisation/): the JSON form, and why an unknown field is an
-  error rather than something to ignore.
-- [Schedules and rotas](schedules/): opening hours and who is on, in the words
-  usually used for them. The plainest way in for the common shapes.
-- [Cascades](cascades/): ordered layers carrying values — what schedules and
-  rotas are underneath, and what to reach for when their words run out.
-- [Merging](merging/): overlap that adds rather than displaces, and the four
-  strategies that say which.
-- [Comparing](comparing/): one form for rules that say the same thing, and the
-  equality and cache keys that follow.
-- [API](api/): everything the package exports.
+- [Getting started](getting-started/) covers requirements, installation, and
+  the first queries.
+- [Concepts](concepts/) explains rules, intervals, and cascades.
+- [Rules](rules/) documents every rule type and the rule builder.
+- [Queries](queries/) documents `advanceBy`, `activeAt`, `elapsed`, and `next`.
+- [Time zones](time-zones/) explains how Quando handles local time and clock
+  changes.
+- [Serialisation](serialisation/) explains the JSON format and parsing.
+- [Schedules and rotas](schedules/) provides simpler APIs for opening hours and
+  assignments.
+- [Cascades](cascades/) explains ordered layers that assign values over time.
+- [Merging](merging/) explains how overlapping values can be combined.
+- [Comparing](comparing/) covers canonical form, equality, and fingerprints.
+- [API](api/) lists every package export.
 
 ## Planned
 
-Written when there is something true to say:
+The following features are planned:
 
-- **Estimates** — ranges, distributions, and the questions they answer.
-- **Custom rule types** — the escape hatch, and the registry parsing needs.
-- **Rule set diffing** — what changed when a schedule was updated, and which
-  bookings it affects.
-- **The command line** — every `quando` command.
+- Estimates and uncertainty.
+- Custom rule types.
+- Rule set diffing.
+- A command-line interface.
 
-Two of the open questions change the shape of the API rather than adding to it,
-so they belong to a later major version:
+Two planned features would change the existing API and therefore require a
+later major version:
 
-- **Constraints on a set of occurrences** — caps per window, minimum spacing,
-  and rolling-window totals. A different problem from an interval set, and the
-  largest thing Quando cannot express. See
+- Constraints on a set of occurrences, such as caps per window, minimum
+  spacing, and rolling-window totals. See
   [what a rule cannot say](concepts/#what-a-rule-cannot-say).
-- **Validity horizons** — answering _unknown_ beyond the point a rule set is
-  known to be complete, rather than answering confidently and wrongly. It
-  changes the return type of every query.
+- Validity horizons, which would let a query return an unknown result beyond
+  the date covered by its data.

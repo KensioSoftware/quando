@@ -1,39 +1,26 @@
 # Concepts
 
-Quando answers one question: **given these rules about time, when does something
-happen?**
+Quando calculates when something happens under a set of time rules.
 
-That is a different question from the one a date library answers. `Temporal`
-tells you what a moment _is_ — what day it falls on, what it looks like in
-Tokyo, how far it is from another moment. Quando tells you _when something
-occurs_, given rules like "weekdays, nine to five, except bank holidays, and we
-close early on the eleventh".
+`Temporal` represents dates, times, durations, and time zones. Quando uses those
+values to evaluate rules such as "weekdays from 09:00 to 17:00, except bank
+holidays".
 
-This page is the model rather than the API. [Rules](../rules/) and
-[queries](../queries/) are the API, and [getting started](../getting-started/)
-is the shortest way into it. Read this one when you want to know why any of that
-is shaped the way it is.
+This page explains the model. See [getting started](../getting-started/) for a
+short example, or go to [rules](../rules/) and [queries](../queries/) for the
+API.
 
-## A rule produces intervals, not answers
+## A rule produces intervals
 
-The obvious way to model "is the warehouse open?" is a function from a moment to
-a yes or no. It is also the wrong way, and the reason is worth understanding
-because everything else follows from it.
+A rule produces the intervals during which it applies. For example, a warehouse
+rule might produce one interval for each period when the warehouse is open.
 
-A function that can only be asked about one instant can only be _sampled_. Ask
-it how much working time falls between Friday afternoon and Tuesday morning and
-there is nothing it can do but step forward in small increments, testing as it
-goes. Every derived question — how long until the next opening, what is three
-working days from now, when is the next cut-off — becomes the same loop.
+This is more useful than testing one instant at a time. Sampling requires a step
+size. A large step can miss a boundary, while a small step can make a long
+search slow.
 
-That has consequences you feel as a user. The step size becomes a setting you
-have to choose, trading correctness against speed: too coarse and a half past
-nine opening does not exist, too fine and a year takes half a million tests.
-Answers land on the wrong side of boundaries. A rule that can never be satisfied
-does not report a problem, it simply never finishes.
-
-So a Quando rule does not answer about an instant. It produces the **intervals**
-over which it holds:
+Intervals preserve exact boundaries. They also support the main calculations
+directly:
 
 ```text
 weekdays 09:00–17:00, for the week of 2026-03-09:
@@ -42,41 +29,33 @@ weekdays 09:00–17:00, for the week of 2026-03-09:
   Thu ▓▓▓▓▓▓▓▓        Fri ▓▓▓▓▓▓▓▓        Sat                 Sun
 ```
 
-Now the derived questions stop being loops and start being arithmetic. Working
-time between two moments is the total length of the intervals between them.
-Three working days from now is a walk along the intervals until the budget runs
-out. The next opening is the next interval. A rule that can never be satisfied
-produces nothing, which is an answer rather than a hang.
+Working time in a window is the sum of the interval durations. Advancing by
+working time means moving through the intervals until the duration is used.
+The next opening is the next interval.
 
-There is no step size, because nothing is being sampled. Intervals are half
-open — they include their start and exclude their end — so a day that ends at
-17:00 and one that begins at 17:00 do not overlap and nothing falls in a crack.
+Intervals are half-open. They include the start and exclude the end, written as
+`[start, end)`. Two intervals can meet at 17:00 without overlapping.
 
 ## Rules combine
 
-Rules compose with the operations you would expect, and because a rule is a set
-of intervals, these really are set operations:
+Rules combine with three set operations:
 
 |       |                                             |
 | ----- | ------------------------------------------- |
-| `all` | intersection — every rule must hold         |
-| `any` | union — at least one must hold              |
-| `not` | complement — the times a rule does not hold |
+| `all` | intersection. Every rule must apply.        |
+| `any` | union. At least one rule must apply.        |
+| `not` | complement. The source rule must not apply. |
 
-"Weekdays and nine to five" is an intersection. "Saturdays or bank holidays" is
-a union. "Not during the shutdown" is a complement. Those three, plus the rules
-that select time in the first place, are the whole language — see
-[rules](../rules/).
+For example, "weekdays and 09:00 to 17:00" is an intersection. "Saturdays or
+bank holidays" is a union. See [rules](../rules/) for every rule type.
 
-## Overrides, and where the set operations strain
+## Overrides need layers
 
-Set operations express a great deal, and exceptions are the shape you reach for
-most: opening hours _except_ holidays is `all(hours, not(holidays))`, common
-enough that `.except(…)` exists for it.
+Set operations work well for exceptions. Opening hours excluding holidays can
+be written as `all(hours, not(holidays))` or `hours.except(holidays)`.
 
-The strain shows with an override rather than an exception. Consider: weekdays
-nine to five, but on the eleventh we close at three. Said as sets, you have to
-carve the day out of the base rule and add it back with different hours:
+Overrides are harder to express as sets. The following rule defines normal
+weekday hours and replaces the hours on 11 March:
 
 ```ts
 import { dates, intervals, timeOfDay, weekdays } from "@kensio/quando";
@@ -106,15 +85,13 @@ for (const { start, end } of intervals(openingHours, week)) {
 2026-03-13T09:00:00 → 2026-03-13T17:00:00
 ```
 
-That is the right answer, and it names the eleventh twice — once to remove it,
-once to put it back. What you meant was simpler: _on the eleventh, ignore the
-usual hours and use these instead._
+The rule must name 11 March twice. It first removes the date from the normal
+hours, then adds the shorter hours.
 
-## Layers, which are the answer to that
+## Cascades apply layers in order
 
-The answer is **layers**, ordered like the rules in a stylesheet: each says
-where it applies and what applies there, and the last one to claim a moment
-wins.
+A cascade expresses the same override as an ordered list of layers. Each layer
+has a scope and a value. By default, the last layer that covers a moment wins.
 
 ```text
   1. weekdays 09:00–17:00         ← the usual hours
@@ -122,66 +99,49 @@ wins.
   3. the 11th: 09:00–15:00        ← an override, wins inside its own day
 ```
 
-Because a layer carries a value rather than merely open or closed, the same
-machinery answers questions that are not yes-or-no — who is on call this week,
-what the electricity tariff is at three in the morning, how many staff are
-rostered — with a plain schedule being the case where the value is _open_.
+A value can be a boolean, a name, a price, or another domain value. Schedules
+use boolean values. Rotas use values such as names.
 
-This is what a [cascade](../cascades/) is, and it is why rules deliberately have
-no value of their own: a rule that carried one would make `not` meaningless, and
-the set algebra with it. Values belong to assignment, which is a separate
-concept sitting on top of the same intervals.
+Rules remain boolean and cascades carry values. This keeps operations such as
+`not` well-defined. See [cascades](../cascades/) for the full API.
 
-What overlap means is still only half answered. A cascade settles it by
-precedence, which is what a rota and a schedule need. Quantities that should
-_add_ rather than displace — three staff plus two — need a merge function, and
-that is the open question.
+Cascades use precedence by default. They can also merge overlapping values with
+`sum`, `max`, `min`, or `concat`. See [merging](../merging/).
 
 ## Rules are data
 
-A rule is a JSON document. That means you can store rules in a database, ship
-them over an API, keep them in a config file, or let people edit them in a form —
-and Quando has no opinion about which.
+A rule is a JSON-compatible object. You can store it in a database, send it
+through an API, or keep it in a configuration file.
 
-Quando does not read or write storage. It parses rules from JSON, and serialises
-them back, and everything in between is your concern. See
-[serialisation](../serialisation/), where the useful detail is that the builder
-produces the document rather than something that has to be converted into one.
+Quando provides builders and parsers. Your application handles storage. See
+[serialisation](../serialisation/) for the JSON format and validation.
 
 ## What a rule cannot say
 
-Everything above answers one shape of question: **is this moment permitted?**
-A rule is a set of times, and every query reads that set.
+Every rule describes a set of times. This model cannot express constraints on a
+series of separate occurrences.
 
-A whole category of real rule sits outside it. These constrain a _pattern of
-occurrences_ rather than the individual moments in one:
+Examples include:
 
 - At most four doses a day, at least four hours apart.
 - Ninety days in any rolling period of a hundred and eighty.
 - Nine hours of driving a day, with a break after four and a half.
 - A hundred requests a minute.
 
-Caps per window, minimum spacing and rolling-window totals are constraint
-satisfaction over a schedule, which is a different problem from an interval
-set. The last kind also needs _history_ as an input, and nothing else in the
-design does. Quando has no answer for any of them today, and saying which
-library to reach for is more use than a partial one.
+These constraints require information about previous occurrences. Quando does
+not support them.
 
-A related gap is worth naming for the same reason. Ask Quando whether a shop is
-open on a Tuesday in 2029 and it says yes, because it is a Tuesday, even where
-nobody has loaded that year's holidays. A rule set that declared how far ahead
-it is valid, and answered _unknown_ past that, would be a better answer for
-forward planning. It changes the return type of every query, so it is a
-question for a later major version rather than a patch.
+Quando also has no validity horizon. A weekday rule continues into the future,
+even if its holiday data stops earlier. Applications must track how far their
+data is valid.
 
-## What Quando does not do
+## Scope
 
-It does not fire anything. Quando calculates _when_; it never acts. There are no
-timers and no event loop. If something needs to happen at the time Quando
-calculates, that is your scheduler's job, and Quando's answer is its input.
+Quando calculates times. A separate scheduler can use the results to run timers
+or trigger events.
 
-It is also not a date library. `Temporal` is, and Quando is built on it rather
-than replacing it. Times that go in and come out are `Temporal` values.
+`Temporal` provides the date and time operations. Quando uses `Temporal` values
+for its inputs and outputs.
 
 <!-- card
 ```ts
