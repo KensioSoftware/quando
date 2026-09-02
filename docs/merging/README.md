@@ -37,7 +37,95 @@ for (const { start, end, value } of resolve(staff, week)) {
 Two on the Wednesday, because the second layer displaced the first. That is
 almost certainly wrong for a roster, and it is the right answer for a rota.
 
-## `sum`
+## `tally`, for counting
+
+The plain way in, and the one to reach for. A `Tally` is a `Cascade<number>`
+that sums, said in the words somebody staffing a warehouse would use:
+
+```ts
+import { tally, weekdays, weekends } from "@kensio/quando";
+
+const staff = tally()
+  .plus(weekdays(), 3)
+  .plus(weekends(), 1)
+  .plus("2026-03-11", 2); // two extra that Wednesday
+
+const wednesday = Temporal.ZonedDateTime.from(
+  "2026-03-11T11:00[Europe/London]",
+);
+const saturday = Temporal.ZonedDateTime.from("2026-03-14T11:00[Europe/London]");
+const from = Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]");
+const to = Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]");
+
+console.log(staff.at(wednesday));
+console.log(staff.at(saturday));
+console.log(staff.least(from, to));
+```
+
+```text
+5
+1
+1
+```
+
+`at` is how many at a moment. `least` is the thinnest cover anywhere in a
+window. That second one is the question a capacity check is really asking.
+`counts` gives each stretch and its figure:
+
+```ts
+for (const { start, value } of staff.counts(from, to)) {
+  console.log(`${start?.toPlainDate()}: ${value}`);
+}
+```
+
+```text
+2026-03-09: 3
+2026-03-11: 5
+2026-03-12: 3
+2026-03-14: 1
+```
+
+### `exactly`, for a figure that replaces
+
+`plus` adds to whatever else covers the same time. `exactly` is the figure
+there instead. A skeleton crew is exactly that:
+
+```ts
+import { tally, weekdays } from "@kensio/quando";
+
+const staff = tally().plus(weekdays(), 3).exactly("2026-03-11", 1);
+
+console.log(staff.at(wednesday));
+```
+
+```text
+1
+```
+
+Said as a `plus` that would have been four, and the author would have had to
+know what they were adding to. Lines written _after_ an `of` still add to it,
+because it outranks only what is under it.
+
+### Nobody is zero
+
+```ts
+console.log(tally().plus(weekdays(), 3).least(from, to));
+```
+
+```text
+0
+```
+
+Only the weekdays have a line covering them. The thinnest cover across the week
+is therefore nobody. A cascade leaves an unclaimed moment out of its stream, and
+`at` and `least` both read that absence as the figure it is.
+
+## `sum`, underneath
+
+`tally` is `merged("sum", …)` with domain words on it, in the same way a
+[schedule](../schedules/) is a cascade with domain words on it. Reach for
+`merged` directly for values other than counts, or where `max`, `min` or
+`concat` is what the overlap means.
 
 `merged` builds the same cascade with a strategy on it:
 

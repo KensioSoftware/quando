@@ -108,6 +108,9 @@ export { schedule } from "./schedule.js";
 export type { Rota } from "./rota.js";
 export { rota } from "./rota.js";
 
+export type { Tally } from "./tally.js";
+export { tally } from "./tally.js";
+
 export type { Assigned, Covers } from "./assigned.js";
 export { assigned, nextValue, valueAt } from "./assigned.js";
 
