@@ -1,25 +1,21 @@
 # Cascades
 
-A rule says _when_. A cascade says _what holds when_: an ordered list of layers,
-each pairing a scope with what applies inside it, resolved the way a stylesheet
-is — the last layer to claim a moment wins.
+A rule describes when something applies. A cascade assigns values during those
+times. It contains an ordered list of layers, and the last layer that covers a
+moment wins by default.
 
-That is what answers the questions a boolean schedule cannot. Who is on call.
-What the tariff is at three in the morning. Which hours apply on the one day
-they are different.
+Cascades can represent an on-call rota, a tariff, or opening hours with
+overrides.
 
-> For the common shapes there is a plainer way to say all of this:
-> [schedules and rotas](../schedules/) puts domain words in front of everything
-> on this page. What it builds _is_ a cascade, so nothing here stops being true
-> — read this page when you need more than the words it gives you.
+> Start with [schedules and rotas](../schedules/) for opening hours and simple
+> assignments. Those APIs build cascades and can be used with the functions on
+> this page.
 
-## Values live here, not on rules
+## Rules stay boolean
 
-A rule stays boolean on purpose. If rules carried values then every combinator
-would be generic in the value, and `not` would have to answer what the
-complement of a rota is — a question with no sensible answer. Keeping values in
-a separate concept is what lets the [set algebra](../rules/#combining) stay
-simple, and it puts values exactly where they are needed, which is assignment.
+A rule only describes covered and uncovered time. This keeps operations such as
+`not` well-defined. A cascade adds values on top of rules without changing the
+[rule operations](../rules/#combining).
 
 ## A rota
 
@@ -49,15 +45,14 @@ for (const { start, end, value } of resolve(onCall, week)) {
 2026-03-12T00:00:00 → 2026-03-14T00:00:00: alice
 ```
 
-`resolve` is to a cascade what [`intervals`](../rules/#reading-a-rule) is to a
-rule, and what comes back is the same kind of stream with a `value` on each
-interval — ascending, non-overlapping, coalesced, lazy, and read in the
-context's zone.
+`resolve` returns the intervals assigned by a cascade. Each interval has a
+`value`. The stream is lazy, ordered, non-overlapping, coalesced, and reported
+in the context zone.
 
 ## Order is the meaning
 
-Precedence is decided by position, not by how specific a scope looks. The same
-two layers the other way round:
+Array order sets precedence. The specificity of a scope has no effect. This
+example reverses the two layers:
 
 ```ts
 import { cascade, dates, layer, resolve, weekdays } from "@kensio/quando";
@@ -83,16 +78,13 @@ for (const { start, end, value } of resolve(swapped, week)) {
 2026-03-09T00:00:00 → 2026-03-14T00:00:00: alice
 ```
 
-Bob has vanished: the broad layer is above the narrow one and claims the
-Wednesday too. A CSS author will find this familiar, and anyone expecting
-"most specific wins" will not — so the JSON is an array, and reordering it
-changes the answer.
+The weekday layer comes last and therefore assigns Alice on Wednesday. Reordering
+the layer array changes the result.
 
-## Unassigned time is absent, not empty
+## Unassigned time is omitted
 
-A cascade does not have to cover everything. Where no layer claims a moment,
-there is no value, and `resolve` yields nothing at all rather than an interval
-carrying some empty value:
+A cascade can leave time unassigned. `resolve` omits periods that no layer
+covers:
 
 ```ts
 import { cascade, layer, resolve, weekdays } from "@kensio/quando";
@@ -111,21 +103,19 @@ console.log([...resolve(onCall, weekend)].length);
 0
 ```
 
-Same reasoning as a rule yielding only the time it covers: there is no such
-thing as the value of an unassigned moment. If "nobody" is a meaningful answer
-in your domain, say so with a layer that assigns it.
+Add a layer with an explicit value such as `"nobody"` when your domain needs to
+represent that state.
 
-## Overrides, which a plain value cannot express
+## Replace earlier layers within a scope
 
-Here is the case cascades exist for. _On the eleventh we close at three._
+Use `replace` when an exception must replace the lower layers within a scope.
+For example, an office may close at 15:00 on 11 March.
 
-Writing that as `layer(dates("2026-03-11"), false)` shuts the whole day.
-Writing it as a value over 15:00–17:00 forces you to know the hours you are
-overriding, and to change the exception whenever the base changes — the very
-thing the cascade is meant to avoid.
+Assigning `false` on that date would close the whole day. Assigning a value only
+from 15:00 to 17:00 would depend on the normal opening hours.
 
-What you mean is: _within this scope, ignore the layers below and use this
-instead._ That is `replace`:
+`replace` claims the whole date and supplies a nested cascade for the hours
+inside it:
 
 ```ts
 import {
@@ -164,15 +154,12 @@ for (const { start, end, value } of resolve(openingHours, week)) {
 2026-03-13T09:00:00 → 2026-03-13T17:00:00: true
 ```
 
-Three things follow from that layer claiming its whole scope. The base hours do
-not show through the part the replacement left out — 15:00 to 17:00 on the
-eleventh is unassigned, not open. The replacement cannot reach outside the
-scope, however wide its own rule is. And what a layer replaces with is an
-ordinary cascade, so overrides nest as deeply as the schedule does.
+The replacement claims its whole scope. The normal hours do not reappear after
+15:00 on 11 March. The replacement cannot assign a value outside 11 March.
+Because the replacement is another cascade, replacements can be nested.
 
-The bare rule above is sugar: `replace` stores the cascade that rule stands
-for, so a stored document never needs a reader to know which form was written.
-For anything other than a schedule, hand it a cascade.
+When the second argument is a rule, `replace` converts it to a boolean cascade.
+Pass a cascade when you need another value type.
 
 ## Touching intervals with one value are one interval
 
@@ -202,15 +189,13 @@ for (const { start, end, value } of resolve(rota, week)) {
 2026-03-12T00:00:00 → 2026-03-13T00:00:00: bob
 ```
 
-Alice's two layers come back as one stretch, because the seam between them is
-not a boundary in the answer. Sameness is `Object.is`, so strings, numbers and
-shared references merge while two structurally-equal objects do not — the
-conservative way round, since splitting an interval that could have merged is
-recoverable and merging two the caller meant to keep apart is not.
+Alice's adjacent intervals are coalesced into one. Values are compared with
+`Object.is`. Equal strings, equal numbers, and the same object reference can be
+coalesced. Separate object instances remain separate.
 
-## A cascade is data
+## Cascades are JSON-compatible data
 
-Like a rule, and by the same trick:
+`cascade`, `layer`, and `replace` return plain JSON-compatible objects:
 
 ```ts
 import {
@@ -272,15 +257,13 @@ console.log(JSON.stringify(openingHours, null, 2));
 }
 ```
 
-`value` and `replace` are separate fields rather than one field holding either,
-and that is a runtime decision rather than a stylistic one: with a single field
-the resolver would have to work out which meaning a value carries by inspecting
-the shape of your own domain type, and for a cascade whose values _are_ rules
-the two would be indistinguishable.
+Constant and replacing layers use separate `value` and `replace` fields. This
+lets a cascade safely use another cascade or a rule as a domain value.
 
 ## Endless cascades
 
-The same contract rules keep: lazy, and endless when the context has no end.
+`resolve` is lazy. A recurring cascade produces an endless stream when the
+context has no end.
 
 ```ts
 import {
@@ -308,18 +291,16 @@ for (const { start, value } of take(resolve(onCall, endless), 2)) {
 2026-03-16T00:00:00: alice
 ```
 
-The caveat is the one from [queries](../queries/#termination): a cascade that
-assigns _nothing_ over an unbounded context has no answer to give and no way to
-discover that, so bound the context when the answer might be nothing.
+A cascade that never assigns a value can search forever in an unbounded
+context. Set `to` when the cascade may produce no result. See
+[query termination](../queries/#termination).
 
 ## Asking a cascade the four questions
 
-[The four queries](../queries/) are about _when_, and a cascade is about _what
-holds when_. Narrowing one to a single value turns it back into the first.
-The times a rota assigns to Alice are a stretch of when, and every question
-worth asking about a rule is worth asking about them.
+Use `assigned(cascade, value)` to select the times when a cascade has one value.
+The result can be passed to the four [rule queries](../queries/).
 
-`assigned` is what does the narrowing, and the four take it in place of a rule:
+This example queries the times assigned to individual people:
 
 ```ts
 import {
@@ -369,22 +350,16 @@ PT96H
 2026-03-12T04:00:00+00:00[Europe/London]
 ```
 
-The last one is the one to look at. Eight hours that only count while Alice is
-on call, started on her Tuesday evening, land on the Thursday morning. The
-Wednesday belongs to the swap and does not count, which is what makes this
-different from adding eight hours to a clock.
+The final query adds eight hours that count only while Alice is assigned. The
+Wednesday assignment to Carol is excluded, so the result falls on Thursday.
 
-An `assigned` is not a rule and is deliberately not made to look like one. A
-rule is a document that stores and travels. This is a question asked at the
-point of asking.
+An `Assigned<V>` is a query input. It is not a serialisable `Rule`.
 
-Values match by `Object.is`, the same test that decides whether two touching
-intervals are one.
+Values are matched with `Object.is`.
 
-## What a cascade assigns, rather than whether
+## Query the assigned value
 
-Two questions have no version for a rule, because a rule answers yes or no and
-a cascade answers with a value.
+`valueAt` and `nextValue` return the value assigned by a cascade.
 
 ```ts
 import {
@@ -419,15 +394,15 @@ carol
 alice 2026-03-10T20:00:00+00:00[Europe/London]
 ```
 
-`valueAt` is who is on, and `undefined` where nobody is. `nextValue` is what
-happens next, whatever that turns out to be, which is the question a timeline
-asks. Both clip to where they were asked, so a stretch already running comes
-back beginning there.
+`valueAt` returns the value at one moment, or `undefined` when the moment is
+unassigned. `nextValue` returns the next assigned interval with its value. If
+an interval is already active, it is clipped to the context start.
 
-## Overlap that adds rather than displaces
+## Merge overlapping values
 
-Everything above settles an overlap by precedence. A roster wants the other
-answer, and [merging](../merging/) is how a cascade asks for it.
+By default, a later value replaces an earlier value. Use a merged cascade when
+overlapping values should be added or otherwise combined. See
+[merging](../merging/).
 
 <!-- card
 ```ts

@@ -1,12 +1,10 @@
 # Schedules and rotas
 
-Two ways of saying the common things in the words they are usually said in: a
-`schedule` for when something is open, and a `rota` for who or what holds when.
+Use a `Schedule` for opening hours and a `Rota` for assigning values such as
+people or prices to times.
 
-Both are [cascades](../cascades/) underneath, and that is not an implementation
-detail you are being asked to ignore — it is the escape hatch. Anything these
-cannot say, the cascade underneath can, and getting to it means calling a
-different function on the same object rather than starting again.
+Both types extend [cascades](../cascades/). You can pass them directly to
+cascade functions such as `resolve` for lower-level operations.
 
 ## A schedule
 
@@ -41,17 +39,14 @@ false
 false
 ```
 
-Read that top to bottom and it is the sentence you would say: open weekdays nine
-to five, closed on the tenth, and on the eleventh we close at three.
+The schedule is open from 09:00 to 17:00 on weekdays. It is closed on 10 March
+and closes at 15:00 on 11 March.
 
-**The order you say it in is the precedence.** Each line outranks the ones above
-it, which is why "closed on the tenth" beats "open weekdays" without having to
-say so. That is the same rule cascades follow, arrived at by writing the
-sentence in the obvious order rather than by knowing anything about layers.
+Method order sets precedence. Each new line overrides earlier lines within its
+scope. The closure on 10 March therefore overrides the weekday opening hours.
 
-The third answer is the one worth pausing on. Half past three on the eleventh is
-**shut**, because `.hoursOn(…)` says _these hours instead_ rather than _these
-hours as well_. The usual five o'clock does not show through underneath it.
+`.hoursOn()` replaces the normal hours for its scope. The schedule is closed at
+15:30 on 11 March.
 
 ## Asking a schedule things
 
@@ -85,26 +80,21 @@ PT40H
 | `.opensNext(at, within?)` | the next stretch it is open, or the one it is in |
 | `.openBetween(from, to)`  | how long it is open between two moments          |
 
-`opensNext` gives back the stretch it is already in when you ask during opening
-hours, rather than skipping to tomorrow — "when does it next open" should
-answer "it is open".
+When the schedule is already open, `opensNext` returns the current opening. The
+returned interval starts at the requested time.
 
-A schedule that is _never_ open has no answer to give and no way to discover
-that, so pass `within` when that is a possibility. It is the same caveat as
-[termination](../queries/#termination) elsewhere.
+A schedule that never opens can search forever. Pass `within` when this is
+possible. See [query termination](../queries/#termination).
 
-`within` bounds how far to look, not what is found. Ask at eight in the morning
-with two hours to look and you get the nine o'clock opening ending at five —
-its real closing time — rather than one ending at ten where the search stopped.
-That is a deliberate difference from [`next`](../queries/#next) on a rule, which
-clips its answer to the window it was given like everything else in the core:
-here the horizon is a search bound, and reporting it as a closing time would be
-a wrong answer rather than a partial one.
+`within` limits the search for the start of an opening. The returned interval
+keeps its full end. A search from 08:00 with a two-hour bound can return the full
+09:00 to 17:00 opening. The lower-level [`next`](../queries/#next) query clips
+its result to the context window.
 
 ## A rota
 
-The same shape with the value left open: a rota assigns a person, a tariff
-assigns a rate, a roster assigns how many are working.
+A rota assigns a value over time. The value might be a person, a tariff, or
+another domain value.
 
 ```ts
 import { rota, weekdays, weekends } from "@kensio/quando";
@@ -151,20 +141,19 @@ carol
 | `.whoIsOn(at)`          | who is on at that moment, or `undefined` if nobody is |
 | `.shifts(from, to?)`    | each stretch and who has it; endless without a `to`   |
 
-`whoIsOn` here is typed `"alice" | "bob" | "carol" | undefined`, not `string` —
-the names accumulate as they are assigned, so a `switch` over who is on call can
-be exhaustive. Ask for `rota<string>()` when the names are not known up front,
-or `rota<number>()` for a tariff.
+In this example, `whoIsOn` returns
+`"alice" | "bob" | "carol" | undefined`. The literal types accumulate as values
+are assigned. Use `rota<string>()` when the names are only known at runtime, or
+`rota<number>()` for numeric values.
 
-Nobody being on is `undefined` rather than an error: a rota need not cover every
-moment, and an unassigned moment has no value. Say so with a layer if "nobody"
-is meaningful in your domain.
+`whoIsOn` returns `undefined` for an unassigned moment. Assign an explicit value
+if your domain needs to distinguish an unassigned moment from a value such as
+`"nobody"`.
 
-## It really is a cascade
+## Schedules and rotas are cascades
 
-This is the part that makes the friendly layer safe to start with. A `Schedule`
-_is_ a `Cascade<boolean>` and a `Rota<V>` _is_ a `Cascade<V>` — the same trick
-that makes a built rule an ordinary rule. So the core reads one directly:
+A `Schedule` is a `Cascade<boolean>`. A `Rota<V>` is a `Cascade<V>`. Cascade
+functions can read both directly:
 
 ```ts
 import { resolve, schedule, weekdays } from "@kensio/quando";
@@ -196,13 +185,10 @@ cascade
 2
 ```
 
-It serialises to exactly the document the hand-written cascade would. There is
-no conversion step and no second format.
+A schedule serialises to the same JSON format as a hand-written cascade.
 
-Coming back is where this needs saying carefully, because the same trick that
-makes it work is what limits it. `JSON.stringify` omits methods — that is why a
-schedule serialises as clean data — so what `JSON.parse` hands back is the
-cascade, without `.isOpen` or anything else on it:
+`JSON.stringify` omits methods. After `JSON.parse`, the value is a plain cascade
+without schedule methods such as `.isOpen`:
 
 ```ts
 import { type Cascade, resolve, schedule, weekdays } from "@kensio/quando";
@@ -233,27 +219,22 @@ true
 false
 ```
 
-So a stored schedule is read by `resolve` and by everything else that takes a
-cascade, and that is the whole of what it can be read by today. Two things
-follow, and neither is hidden anywhere else:
+A stored schedule can be parsed and used as a cascade:
 
-- **Check it on the way in.** The `as` in that example is a promise you are
-  making, and [`parseCascade`](../serialisation/#parsecascade-when-the-document-carries-values)
-  is the one the library keeps. Pass it `asBoolean` for a schedule, and a
-  `TypeError` names anything wrong.
-- **There is no reviving it.** Nothing turns a cascade back into a `Schedule`,
-  so the methods are gone for good on that value. Keep the building code as the
-  source of truth if you want them, and treat the JSON as what you store and
-  resolve.
+- Validate stored data with
+  [`parseCascade`](../serialisation/#parse-values-with-parsecascade).
+  Pass `asBoolean` for a stored schedule.
+- A parsed cascade has no `Schedule` methods. Use cascade functions such as
+  `resolve` with the parsed value.
 
 ## The plain forms
 
-`"09:00-17:00"` stands for `timeOfDay("09:00", "17:00")`, and `"2026-03-11"` for
-`dates("2026-03-11")`. Anywhere either is accepted a rule is accepted too, so
-`.open(weekdays(), timeOfDay("22:00", "06:00"))` gives you a night shift that no
-compact string would express as clearly.
+The string `"09:00-17:00"` represents `timeOfDay("09:00", "17:00")`. The string
+`"2026-03-11"` represents `dates("2026-03-11")`. You can pass a full rule in the
+same positions. For example, use `timeOfDay("22:00", "06:00")` for a night
+shift.
 
-Unlike the rule layer, these check what they are given straight away:
+The plain string forms are validated when the method is called:
 
 ```ts
 import { schedule, weekdays } from "@kensio/quando";
@@ -276,25 +257,21 @@ RangeError: "9 til 5" is not a range of times: it has 0 dashes rather than one. 
 RangeError: "Christmas" is not a date. Expected something like "2026-03-11", or a rule such as weekdays().
 ```
 
-That is a deliberate difference from [`timeOfDay`](../rules/#timeofday), which
-takes any string and complains when the rule is evaluated. These forms exist to
-be typed by hand, and a hand-typed mistake is worth catching where it was typed.
+The lower-level [`timeOfDay`](../rules/#timeofday) builder checks semantic errors
+when the rule is evaluated.
 
-## When to drop to the core
+## When to use the lower-level APIs
 
-Reach past these when you need something they do not say:
+Use the lower-level APIs for the following cases:
 
-- **A value that is not "open" or a single assignment per moment** — anything
-  needing a nested override inside an override, which is
-  [`replace`](../cascades/#overrides-which-a-plain-value-cannot-express) with a
-  cascade rather than a rule.
-- **The set algebra** — `all`, `any`, `not`, and `.except(…)` for
-  opening-hours-minus-holidays. See [rules](../rules/).
-- **The other queries** — `advanceBy` in particular, which answers "three
-  working hours from now" and takes a rule. See [queries](../queries/).
+- Nested overrides and values beyond the vocabulary of schedules and rotas. Use
+  [`replace`](../cascades/#replace-earlier-layers-within-a-scope) with a
+  cascade.
+- Rule set operations such as `all`, `any`, `not`, and `.except()`. See
+  [rules](../rules/).
+- Queries such as `advanceBy`. See [queries](../queries/).
 
-Nothing is lost by starting here and moving down later; it is the same document
-either way.
+The same schedule or rota value can be passed to cascade functions later.
 
 <!-- card
 ```ts

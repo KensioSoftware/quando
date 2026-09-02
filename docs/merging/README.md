@@ -1,17 +1,14 @@
 # Merging values
 
-A [cascade](../cascades/) settles an overlap by precedence. The later layer
-wins and the earlier one is displaced, which is what a rota and a schedule
-want. One person is on call, and a shop is open or it is shut.
+A [cascade](../cascades/) normally resolves overlaps by precedence. The later
+layer replaces the earlier layer.
 
-Some domains want the other answer. Two teams each putting three people on a
-Monday have six people on that Monday. A tariff built from a standing charge
-and a peak rate is the sum of the two. Asking whether an order can be taken
-needs the capacity, and capacity adds.
+Some values need to be combined. Two teams with three people each produce a
+total of six. A base tariff and a peak charge can be added together.
 
-A cascade says which it means by naming a merge strategy.
+Use a merge strategy to define how overlapping values combine.
 
-## The default, spelled out
+## Default override behaviour
 
 ```ts
 import { cascade, dates, layer, resolve, weekdays } from "@kensio/quando";
@@ -34,13 +31,12 @@ for (const { start, end, value } of resolve(staff, week)) {
 2026-03-12 → 2026-03-14: 3
 ```
 
-Two on the Wednesday, because the second layer displaced the first. That is
-almost certainly wrong for a roster, and it is the right answer for a rota.
+The second layer replaces the first on Wednesday, so the result is two.
 
-## `tally`, for counting
+## Count with `tally`
 
-The plain way in, and the one to reach for. A `Tally` is a `Cascade<number>`
-that sums, said in the words somebody staffing a warehouse would use:
+A `Tally` is a `Cascade<number>` that adds overlapping values. Its methods use
+terms suited to counts:
 
 ```ts
 import { tally, weekdays, weekends } from "@kensio/quando";
@@ -68,9 +64,8 @@ console.log(staff.least(from, to));
 1
 ```
 
-`at` is how many at a moment. `least` is the thinnest cover anywhere in a
-window. That second one is the question a capacity check is really asking.
-`counts` gives each stretch and its figure:
+`at` returns the count at one moment. `least` returns the lowest count in a
+window. `counts` returns each interval with its count:
 
 ```ts
 for (const { start, value } of staff.counts(from, to)) {
@@ -85,10 +80,10 @@ for (const { start, value } of staff.counts(from, to)) {
 2026-03-14: 1
 ```
 
-### `exactly`, for a figure that replaces
+### Replace a count with `exactly`
 
-`plus` adds to whatever else covers the same time. `exactly` is the figure
-there instead. A skeleton crew is exactly that:
+`plus` adds to other values that cover the same time. `exactly` replaces lower
+values within its scope:
 
 ```ts
 import { tally, weekdays } from "@kensio/quando";
@@ -102,11 +97,10 @@ console.log(staff.at(wednesday));
 1
 ```
 
-Said as a `plus` that would have been four, and the author would have had to
-know what they were adding to. Lines written _after_ an `of` still add to it,
-because it outranks only what is under it.
+Using `plus` for the final line would produce four. Layers added after
+`exactly` still add to its value.
 
-### Nobody is zero
+### Unassigned time counts as zero
 
 ```ts
 console.log(tally().plus(weekdays(), 3).least(from, to));
@@ -116,18 +110,15 @@ console.log(tally().plus(weekdays(), 3).least(from, to));
 0
 ```
 
-Only the weekdays have a line covering them. The thinnest cover across the week
-is therefore nobody. A cascade leaves an unclaimed moment out of its stream, and
-`at` and `least` both read that absence as the figure it is.
+Only weekdays have a count. The weekend is unassigned, and `least` treats it as
+zero. `at` also returns zero for an unassigned moment.
 
-## `sum`, underneath
+## Use `sum` directly
 
-`tally` is `merged("sum", …)` with domain words on it, in the same way a
-[schedule](../schedules/) is a cascade with domain words on it. Reach for
-`merged` directly for values other than counts, or where `max`, `min` or
-`concat` is what the overlap means.
+`tally` builds a cascade with the `sum` strategy. Use `merged` directly when you
+need `sum`, `max`, `min`, or `concat` without the `Tally` methods.
 
-`merged` builds the same cascade with a strategy on it:
+Pass the strategy name as the first argument to `merged`:
 
 ```ts
 import { dates, layer, merged, resolve, weekdays } from "@kensio/quando";
@@ -154,9 +145,9 @@ for (const { start, end, value } of resolve(staff, week)) {
 2026-03-12 → 2026-03-14: 3
 ```
 
-Five on the Wednesday. Everything else about a cascade is unchanged. Order
-still decides which value is which side of the merge, a day no layer claims is
-still absent from the answer, and the stream is still lazy.
+The overlapping values produce five on Wednesday. Layer order still controls
+the argument order passed to the strategy. Unassigned time remains absent, and
+the stream remains lazy.
 
 ## `max` and `min`
 
@@ -185,12 +176,11 @@ for (const { start, end, value } of resolve(tariff, week)) {
 2026-03-12 → 2026-03-14: 12
 ```
 
-`min` is the same the other way, and is the discount question rather than the
-peak one.
+Use `max` to keep the larger number and `min` to keep the smaller number.
 
 ## `concat`
 
-Where more than one answer can hold at once, carry lists and join them:
+Use `concat` to join overlapping arrays:
 
 ```ts
 import { dates, layer, merged, resolve, weekdays } from "@kensio/quando";
@@ -217,37 +207,29 @@ for (const { start, end, value } of resolve(onCall, week)) {
 2026-03-12 → 2026-03-14: alice
 ```
 
-Both names on the Wednesday, in layer order. This is what a rota that allows
-two people on shift looks like.
+Wednesday contains both names in layer order.
 
 ## Why the strategy is a name
 
-A merge function passed to `resolve` would be more flexible and would break the
-thing the library is built on. A cascade is a JSON document, and a function
-cannot be stored. A cascade carrying one would be a document that no longer
-says what it means, and two readers of the same stored cascade could reach
-different answers from it.
+Merge strategies are stored in cascade JSON. A JavaScript function cannot be
+stored in JSON, so cascades use strategy names.
 
-So the strategy is a name, the vocabulary is closed, and
-[`parseCascade`](../serialisation/#parsecascade-when-the-document-carries-values)
-refuses one it has not heard of. The same trade the rule language already
-makes.
+The strategy names form a fixed set. Therefore,
+[`parseCascade`](../serialisation/#parse-values-with-parsecascade)
+rejects unknown strategies.
 
-## Replacing layers still replace
+## Merge around replacement layers
 
-A [replacing layer](../cascades/#overrides-which-a-plain-value-cannot-express)
-claims its whole scope, and a merge does not change that. What sits below it is
-kept out of the scope entirely rather than merged into it, which is what "use
-this instead" has to mean.
+A [replacing layer](../cascades/#replace-earlier-layers-within-a-scope) claims
+its whole scope. Values from lower layers are not merged inside that scope.
 
-Layers _above_ a replacement merge with it as usual. A replacement outranks
-what is under it and nothing more.
+Layers above the replacement still merge with it.
 
-## The values have to be ones the strategy can combine
+## Merge strategies validate their values
 
-The strategy is checked when a document is parsed. What the values turn out to
-be is only known when the cascade is resolved, so a `sum` over names fails
-there:
+`parseCascade` validates the strategy name. `resolve` validates the values when
+two layers overlap. A `sum` strategy over strings therefore fails during
+resolution:
 
 ```ts
 import { dates, layer, merged, resolve, weekdays } from "@kensio/quando";
@@ -274,10 +256,8 @@ try {
 TypeError: A cascade merging by "sum" carries numbers, and this one holds string. Give it values it can combine, or merge by "override".
 ```
 
-The same split the rule language keeps. Parsing checks shape and vocabulary,
-and meaning is settled where the thing is evaluated. It throws only where two
-layers actually meet, so a `sum` whose scopes never overlap resolves without
-complaint.
+The error occurs only where incompatible values overlap. A `sum` cascade with
+non-overlapping string values can resolve without an error.
 
 <!-- card
 ```ts

@@ -1,26 +1,18 @@
 # Getting started
 
-Install Quando, write a rule, and ask it something. This page is the shortest
-path from nothing to a real answer; the pages it links to at the end explain
-each piece properly.
+Install Quando, create a rule, and run the four main queries.
 
 ## What you need
 
-Quando is built on [`Temporal`](https://tc39.es/proposal-temporal/docs/), and
-reads it from the global rather than importing a polyfill of its own. That is
-deliberate: the polyfill is large, and a library that bundled one would push it
-on every consumer whose runtime already has the real thing. So Quando has no
-runtime dependencies at all, and defers entirely to what it is running on.
+Quando uses the global
+[`Temporal`](https://tc39.es/proposal-temporal/docs/) API. It has no runtime
+dependencies and does not include a polyfill.
 
-The cost is that the runtime has to have `Temporal`:
+Use one of these runtimes:
 
-- **Node 26 or later**, where it is a global. The package says so in `engines`,
-  which most package managers warn about at install — and refuse outright under
-  a strict engine setting — rather than leaving it to surface as a missing
-  `Temporal` at the first call.
-- **A browser that implements it.** Where one does not — Safari, at the time of
-  writing — install a polyfill yourself and load it first. Quando neither ships
-  nor imports one, so this is a dependency of yours rather than of Quando's:
+- Node 26 or later.
+- A browser with native `Temporal` support.
+- A browser with a `Temporal` polyfill loaded before Quando is used.
 
   ```bash
   npm install temporal-polyfill
@@ -31,13 +23,11 @@ The cost is that the runtime has to have `Temporal`:
   import { weekdays } from "@kensio/quando";
   ```
 
-  What matters is that the global exists before anything in Quando is called,
-  which a bare side-effect import at the top of your entry point guarantees.
+  Put the side-effect import at the top of your entry point. This creates the
+  global before your application calls Quando.
 
-If you use TypeScript, you also need `"lib": ["ESNext"]` in your `tsconfig.json`.
-TypeScript ships `Temporal`'s declarations in that library and nowhere else, and
-only from version 6 — under 5.x, `Temporal` is an undeclared name whatever the
-lib setting says.
+With TypeScript 6 or later, include `"lib": ["ESNext"]` in `tsconfig.json` to
+load the `Temporal` declarations. TypeScript 5 does not include them.
 
 ## Install
 
@@ -47,8 +37,7 @@ npm install @kensio/quando
 
 ## A rule
 
-A rule says _when_. It is built from small pieces that combine, and the pieces
-are the ones you would name out loud:
+A rule describes a set of times. Build a rule from smaller rules:
 
 ```ts
 import { timeOfDay, weekdays } from "@kensio/quando";
@@ -56,13 +45,13 @@ import { timeOfDay, weekdays } from "@kensio/quando";
 const openingHours = weekdays().and(timeOfDay("09:00", "17:00"));
 ```
 
-That is not a builder that has to be finished and unwrapped. It is already the
-rule — a plain object with a `type` tag, which happens to have `.and` hanging
-off it. See [serialisation](../serialisation/) for what that buys you.
+`openingHours` is ready to use. It is a plain object with a `type` field and
+builder methods such as `.and`. See [serialisation](../serialisation/) for its
+JSON form.
 
 ## Is it open?
 
-The simplest question. `activeAt` takes a rule and a moment:
+`activeAt` reports whether a rule covers a given moment:
 
 ```ts
 import { activeAt, timeOfDay, weekdays } from "@kensio/quando";
@@ -81,9 +70,8 @@ true
 false
 ```
 
-Note the zone on those timestamps. Quando works in `Temporal.ZonedDateTime`
-throughout, because a schedule without a zone is not a schedule — see
-[time zones](../time-zones/).
+Quando uses `Temporal.ZonedDateTime` for moments. See
+[time zones](../time-zones/) for zone selection and clock changes.
 
 ## When does it open next?
 
@@ -105,12 +93,11 @@ console.log(opening?.end?.toString());
 2026-03-16T17:00:00+00:00[Europe/London]
 ```
 
-Friday evening, so the answer is Monday morning — and it is a _stretch_ of time
-rather than an instant, because that is what a rule produces.
+The next interval starts on Monday morning and ends on Monday afternoon.
 
-The second argument is a **context**: where evaluation starts, and optionally
-where it stops. Here there is no `to` at all, and the search still terminates
-immediately, because the answer arrives long before the calendar runs out.
+The second argument is a context. `from` sets the start of the search. An
+optional `to` sets its end. This search has no end because it finds an interval
+on the following Monday.
 
 ## How much of it is there?
 
@@ -135,9 +122,8 @@ PT40H
 
 ## Where do three working hours land?
 
-The one that is hardest to do by hand, and the reason the library exists. An
-order placed at five to five on a Friday, with three hours of packing that only
-count while the warehouse is open:
+`advanceBy` moves through the time covered by a rule. This example starts an
+order at 16:55 on Friday and adds three hours of warehouse opening time:
 
 ```ts
 import { advanceBy, timeOfDay, weekdays } from "@kensio/quando";
@@ -156,20 +142,17 @@ console.log(packed?.toString());
 2026-03-16T11:55:00+00:00[Europe/London]
 ```
 
-Five minutes on the Friday, then two hours fifty-five into Monday.
+The calculation uses five minutes on Friday and the remaining two hours and 55
+minutes on Monday.
 
 ## Where to go next
 
-- [Concepts](../concepts/) — why a rule produces intervals rather than answering
-  yes or no. Worth reading once; everything else follows from it.
-- [Rules](../rules/) — every rule type there is, and what each one produces.
-- [Queries](../queries/) — the four questions, and what each does about a search
-  that could run forever.
-- [Time zones](../time-zones/) — which zone a rule is read in, and what happens
-  on the two mornings a year the clocks change.
-- [Serialisation](../serialisation/) — storing rules, and reading back what a
-  database or a form actually held.
-- [API](../api/) — everything the package exports.
+- [Concepts](../concepts/) explains the data model.
+- [Rules](../rules/) documents every rule type.
+- [Queries](../queries/) documents the four main queries and search bounds.
+- [Time zones](../time-zones/) explains zone selection and clock changes.
+- [Serialisation](../serialisation/) covers storing and parsing rules.
+- [API](../api/) lists every package export.
 
 <!-- card
 ```ts

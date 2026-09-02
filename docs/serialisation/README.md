@@ -1,19 +1,16 @@
 # Serialisation
 
-A rule is a JSON document. Not a document it can be exported to — one it _is_,
-from the moment you build it. That is what makes storing a rule in a database,
-sending it over an API, keeping it in a config file, or letting someone edit it
-in a form cost nothing at all.
+A rule is a JSON-compatible object. You can store it in a database, send it
+through an API, or keep it in a configuration file.
 
-Quando reads and writes no storage. It gives you a rule from JSON and JSON from
-a rule, and everything in between is yours.
+Quando builds and parses rule data. Your application is responsible for storage
+and transport.
 
 ## The builder is the document
 
-`weekdays().and(timeOfDay("09:00", "17:00"))` is an ordinary rule object with
-three methods hanging off it. `JSON.stringify` omits function-valued properties,
-so what comes out is exactly the document a hand-written rule would be — no
-`.build()` step, nothing to unwrap, and no builder type to convert out of:
+Builder functions return ordinary rule objects with `.and`, `.or`, and
+`.except` methods. `JSON.stringify` omits these methods and returns the rule
+data. No `.build()` call or conversion is needed:
 
 ```ts
 import { dates, timeOfDay, weekdays } from "@kensio/quando";
@@ -67,19 +64,14 @@ console.log(JSON.stringify(openingHours, null, 2));
 }
 ```
 
-Two things are worth reading off that. `.except(…)` really is
-`all(this, not(any(…)))`, spelled out — the nesting is the method's definition
-rather than an artefact. And an `all` has landed inside an `all`, which is
-harmless and means what it says. Two rules that say the same thing can be two
-different documents like this, which is what
-[`canonical`](../comparing/) is for: put a rule through it before comparing
-two, or before using one as a cache key.
+`.except()` creates `all(this, not(any(...)))`. The resulting JSON can contain
+nested `all` rules. Use [`canonical`](../comparing/) before comparing rules or
+creating a cache key.
 
 ## `parseRule` is the boundary
 
-What comes back from storage is not a `Rule`, it is whatever a database row, an
-API body or a form actually held. `parseRule` is the one place that turns the
-second into the first:
+Treat data from storage, APIs, and forms as `unknown`. Pass it to `parseRule` to
+validate it and return a `Rule`:
 
 ```ts
 import { activeAt, parseRule } from "@kensio/quando";
@@ -104,13 +96,10 @@ all
 true
 ```
 
-`parseRule` takes `unknown` and returns `Rule`, which is the shape a validating
-boundary should have: everything downstream of it can be written against a type
-that is known to hold, and nothing downstream has to check again.
+After `parseRule` succeeds, downstream code can use the value as a `Rule`.
 
-What comes back is a plain rule, without the builder's methods — they are added
-by the builder functions, and JSON has no way to carry them. Compose a parsed
-rule with `all`, `any` and `not` instead:
+`parseRule` returns a plain rule without builder methods. Combine parsed rules
+with the `all`, `any`, and `not` functions:
 
 ```ts
 import { all, not, parseRule, timeOfDay } from "@kensio/quando";
@@ -136,13 +125,12 @@ console.log(JSON.stringify(roundTripped) === JSON.stringify(openingHours));
 true
 ```
 
-A rule survives the round trip intact, which is the property everything else
-here depends on.
+The parsed rule contains the same data as the serialised rule.
 
-## `parseCascade`, when the document carries values
+## Parse values with `parseCascade`
 
-A [schedule and a rota](../schedules/) are both [cascades](../cascades/), and a
-cascade is JSON in the same way a rule is:
+[Schedules and rotas](../schedules/) are [cascades](../cascades/). Cascades are
+also JSON-compatible objects:
 
 ```ts
 import { daysOfWeek, rota } from "@kensio/quando";
@@ -181,10 +169,8 @@ console.log(JSON.stringify(onCall, null, 2));
 }
 ```
 
-Reading one back takes an argument `parseRule` has no need of. The rule
-vocabulary is closed, and Quando knows every rule there is. The values in a
-cascade are yours (a name, a tariff, a headcount), and Quando has never seen
-one. So the second argument is the function that reads a value:
+Quando can validate every rule type itself. Cascade values belong to your
+application, so `parseCascade` takes a value parser as its second argument:
 
 ```ts
 import { asString, parseCascade, resolve } from "@kensio/quando";
@@ -216,9 +202,9 @@ for (const shift of resolve(onCall, week)) {
 2026-03-10 carol
 ```
 
-`asString` and `asBoolean` cover the two commonest cases (a rota of names, and
-a schedule of open and closed). Anything else is a function of your own, and
-`fail` writes its message in the form the rest of parsing uses:
+Use `asString` for string values and `asBoolean` for boolean values. Write a
+custom parser for other value types. The `fail` helper throws a consistent
+`TypeError`:
 
 ```ts
 import { fail } from "@kensio/quando";
@@ -229,17 +215,14 @@ const asHeadcount = (value: unknown, path: string): number =>
     : fail(path, `expected a whole number of staff, found ${typeof value}`);
 ```
 
-What comes back is a plain `Cascade`, without the `.assign` and `.whoIsOn` that
-a rota carries. The same thing `parseRule` does, and for the same reason. JSON
-has no way to hold a method. `resolve` reads a parsed cascade unchanged, and
-that is the whole of what a schedule and a rota do underneath.
+`parseCascade` returns a plain `Cascade` without methods such as `.assign` or
+`.whoIsOn`. Pass the result to cascade functions such as `resolve`.
 
-A layer holds a `value` or a `replace`, and holding both is an error. So is
-holding neither. That last one is how a layer built with `undefined` arrives.
-`JSON.stringify` drops the field rather than writing it, and what reaches
-storage is a scope with nothing inside it.
+A layer must contain exactly one of `value` or `replace`. A layer created with
+an undefined value loses its `value` field during `JSON.stringify` and fails
+when parsed.
 
-## Bad documents fail loudly, and say where
+## Parsing errors include a path
 
 ```ts
 import { parseRule } from "@kensio/quando";
@@ -271,12 +254,10 @@ TypeError: rule.zone: "Europe/Lundon" is not a known time zone
 TypeError: rule.rules[1].rule: expected a rule object, found number
 ```
 
-Every message carries a path, so a rule nested six deep reports as
-`rule.rules[2].rules[0].days[3]` rather than as a puzzle. Pass your own root
-name as the second argument if `rule` is not what you call it.
+Every error includes the path to the invalid value. Pass a custom root name as
+the second argument when `"rule"` does not match your input name.
 
-`parseCascade` reports the same way, through the layers and on into the rules
-that scope them:
+`parseCascade` reports paths through layers and their scope rules:
 
 ```ts
 import { asString, parseCascade } from "@kensio/quando";
@@ -306,35 +287,27 @@ TypeError: cascade.layers[0].value: expected a string, found number
 TypeError: cascade.layers[0].scope.type: "weekdays" is not a rule type. Expected one of always, never, daysOfWeek, timeOfDay, dates, all, any, not
 ```
 
-The first is the mix-up worth naming. A rule and a cascade are both stored the
-same way and both carry a type. A column holding one where the other was
-expected is an ordinary mistake, and the message says which arrived.
+The first error shows what happens when a rule is passed where a cascade is
+expected.
 
-## Why an unknown field is an error
+## Unknown fields are rejected
 
-The first of those is the one that matters. `zonee` could have been dropped
-quietly, and the document would have parsed as a perfectly valid rule with _no_
-zone — which is a different schedule, read in whatever zone the query happened
-to use, with nothing said about it. A field exists to change what a rule means,
-so ignoring one you do not recognise is agreeing to get the answer wrong
-quietly.
+An unknown field may be a typing mistake. If `zonee` were ignored, the rule
+would use the context zone and could produce the wrong schedule. `parseRule`
+therefore rejects unknown fields.
 
-The cost is real and taken deliberately: a document written by a _later_ version
-of Quando, carrying a field this one has not heard of, is rejected rather than
-tolerated. That is the right way round for a library whose whole job is being
-precise about time, but it does mean rolling a schema forward needs the readers
-updated before the writers.
+This also means an older Quando version rejects documents that contain fields
+introduced by a newer version. Update readers before writers when changing a
+stored rule schema.
 
-## What parsing does not check
+## Evaluation checks rule meaning
 
-Shape and vocabulary only: is it an object, is the type one that exists, are
-those really days of the week, does that parse as a time, is that a zone the
-runtime knows.
+Parsing checks object shapes, rule types, field names, weekdays, date and time
+syntax, and zone names.
 
-What a rule _means_ is checked when it is evaluated. A `timeOfDay` whose ends
-are equal parses happily and throws when read, and that is on purpose — saying
-it in both places would give the two places somewhere to disagree, and the
-parser is not the thing that knows what a rule does.
+Evaluation checks semantic conditions. For example, `parseRule` accepts a
+`timeOfDay` rule with equal endpoints, but evaluating that rule throws a
+`RangeError`.
 
 ```ts
 import { parseRule } from "@kensio/quando";
