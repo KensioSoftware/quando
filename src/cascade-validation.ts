@@ -1,4 +1,5 @@
 import type { Cascade, Layer } from "./cascade.js";
+import { assertJsonValue } from "./json.js";
 import { MERGE_STRATEGIES, type MergeStrategy } from "./merge.js";
 import { fail, shapeOf } from "./parse-shape.js";
 
@@ -23,27 +24,38 @@ export function parseMerge(
   return { merge: merge as MergeStrategy };
 }
 
-/** Checks that a parsed cascade's values match its declared merge strategy. */
-export function checkMergeValues<V>(cascade: Cascade<V>, path: string): void {
-  const check = (layer: Layer<V>, layerPath: string): void => {
+/** Checks every constant value in a cascade, including replacements. */
+export function checkCascadeValues<V>(cascade: Cascade<V>, path: string): void {
+  cascade.layers.forEach((layer, index) => {
+    const layerPath = `${path}.layers[${index}]`;
     if ("replace" in layer) {
-      layer.replace.layers.forEach((replacement, index) => {
-        check(replacement, `${layerPath}.replace.layers[${index}]`);
-      });
-      return;
+      checkCascadeValues(layer.replace, `${layerPath}.replace`);
+    } else {
+      assertJsonValue(layer.value, `${layerPath}.value`);
     }
+  });
+}
 
-    const valuePath = `${layerPath}.value`;
-    const needsNumbers = ["sum", "max", "min"].includes(cascade.merge ?? "");
-    if (needsNumbers && typeof layer.value !== "number") {
-      throw new TypeError(`${valuePath}: ${cascade.merge} needs numbers.`);
-    }
-    if (cascade.merge === "concat" && !Array.isArray(layer.value)) {
-      throw new TypeError(`${valuePath}: concat needs arrays.`);
-    }
+/** Checks that each cascade's values match its own merge strategy. */
+export function checkMergeValues<V>(cascade: Cascade<V>, path: string): void {
+  const check = (current: Cascade<V>, currentPath: string): void => {
+    current.layers.forEach((layer: Layer<V>, index) => {
+      const layerPath = `${currentPath}.layers[${index}]`;
+      if ("replace" in layer) {
+        check(layer.replace, `${layerPath}.replace`);
+        return;
+      }
+
+      const valuePath = `${layerPath}.value`;
+      const needsNumbers = ["sum", "max", "min"].includes(current.merge ?? "");
+      if (needsNumbers && typeof layer.value !== "number") {
+        throw new TypeError(`${valuePath}: ${current.merge} needs numbers.`);
+      }
+      if (current.merge === "concat" && !Array.isArray(layer.value)) {
+        throw new TypeError(`${valuePath}: concat needs arrays.`);
+      }
+    });
   };
 
-  cascade.layers.forEach((layer, index) => {
-    check(layer, `${path}.layers[${index}]`);
-  });
+  check(cascade, path);
 }

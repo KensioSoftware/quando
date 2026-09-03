@@ -5,6 +5,7 @@ import {
   type ReplacingLayer,
   isCascade,
 } from "./cascade-types.js";
+import { checkCascadeValues } from "./cascade-validation.js";
 import { assertJsonValue, type JsonCompatible } from "./json.js";
 import type { MergeStrategy } from "./merge.js";
 import type { Rule } from "./rule.js";
@@ -22,7 +23,9 @@ export { asCascade, isCascade } from "./cascade-types.js";
 
 /** Creates an override cascade from layers in ascending priority. */
 export function cascade<V>(...layers: readonly Layer<V>[]): Cascade<V> {
-  return { type: "cascade", layers };
+  const result: Cascade<V> = { type: "cascade", layers };
+  checkCascadeValues(result, "cascade");
+  return result;
 }
 
 export function merged(
@@ -42,7 +45,9 @@ export function merged(
   strategy: MergeStrategy,
   ...layers: readonly Layer<unknown>[]
 ): Cascade<unknown> {
-  return { type: "cascade", merge: strategy, layers };
+  const result: Cascade<unknown> = { type: "cascade", merge: strategy, layers };
+  checkCascadeValues(result, "cascade");
+  return result;
 }
 
 /** Assigns one JSON-compatible value throughout a rule's scope. */
@@ -72,8 +77,10 @@ export function replace(
   scope: Rule,
   replacement: Rule | Cascade<unknown>,
 ): ReplacingLayer<unknown> {
+  const nested = isCascade(replacement) ? replacement : whenever(replacement);
+  checkCascadeValues(nested, "replacement");
   return {
     scope,
-    replace: isCascade(replacement) ? replacement : whenever(replacement),
+    replace: nested,
   };
 }

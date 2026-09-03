@@ -14,8 +14,11 @@
  */
 
 import type { Cascade, Layer } from "./cascade.js";
-import { checkMergeValues, parseMerge } from "./cascade-validation.js";
-import { assertJsonValue } from "./json.js";
+import {
+  checkCascadeValues,
+  checkMergeValues,
+  parseMerge,
+} from "./cascade-validation.js";
 import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
 import { parseRule } from "./parse.js";
 
@@ -76,6 +79,7 @@ export function parseCascade<V>(
       parseLayer(layer, parseValue, `${path}.layers[${index}]`),
     ),
   };
+  checkCascadeValues(cascade, path);
   checkMergeValues(cascade, path);
   return cascade;
 }
@@ -128,7 +132,6 @@ function parseLayer<V>(
 
   if (holds[0] === "value") {
     const parsed = parseValue(node["value"], `${path}.value`);
-    assertJsonValue(parsed, `${path}.value`);
     return { scope, value: parsed };
   }
 

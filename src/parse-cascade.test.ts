@@ -170,6 +170,47 @@ describe("parsing a cascade from JSON", () => {
       );
     });
 
+    it("checks a replacement with its own merge strategy", () => {
+      // Given a numeric sum containing a replacement that concatenates lists.
+      const document = {
+        type: "cascade",
+        merge: "sum",
+        layers: [
+          { scope: { type: "always" }, value: 1 },
+          {
+            scope: { type: "always" },
+            replace: {
+              type: "cascade",
+              merge: "concat",
+              layers: [{ scope: { type: "always" }, value: ["alice"] }],
+            },
+          },
+        ],
+      };
+      const asNumberOrNames = (
+        value: unknown,
+        path: string,
+      ): number | readonly string[] => {
+        if (typeof value === "number") {
+          return value;
+        }
+        if (
+          Array.isArray(value) &&
+          value.every((item) => typeof item === "string")
+        ) {
+          return value;
+        }
+        return fail(path, "expected a number or a list of names");
+      };
+
+      // When the outer cascade is parsed.
+      // Then the replacement values are checked against concat.
+      assertIdentical(
+        JSON.stringify(parseCascade(document, asNumberOrNames)),
+        JSON.stringify(document),
+      );
+    });
+
     it("leaves an absent strategy absent rather than undefined", () => {
       // Given a cascade that says nothing about merging.
       // When it is parsed and serialised.

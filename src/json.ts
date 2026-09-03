@@ -50,6 +50,17 @@ export function assertJsonValue(
     }
     seen.add(current);
 
+    for (const key of Reflect.ownKeys(current)) {
+      if (typeof key === "symbol") {
+        throw new TypeError(`${currentPath} has a symbol-keyed property.`);
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(current, key);
+      const isArrayLength = Array.isArray(current) && key === "length";
+      if (descriptor?.enumerable === false && !isArrayLength) {
+        throw new TypeError(`${currentPath}.${key} is non-enumerable.`);
+      }
+    }
+
     if (Array.isArray(current)) {
       current.forEach((item, index) => {
         visit(item, `${currentPath}[${index}]`);

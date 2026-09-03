@@ -5,11 +5,14 @@ import type {
   TimeOfDayRule,
   Weekday,
 } from "./rule.js";
-import { asDate, asTime, asZone } from "./validation.js";
+import { asDate, asTime, asWeekday, asZone } from "./validation.js";
 
 /** Whole days, by day of the week. */
 export function daysOfWeek(...days: readonly Weekday[]): Built<DaysOfWeekRule> {
-  return build({ type: "daysOfWeek", days });
+  return build({
+    type: "daysOfWeek",
+    days: days.map((day, index) => asWeekday(day, `days[${index}]`)),
+  });
 }
 
 /** Monday to Friday. */

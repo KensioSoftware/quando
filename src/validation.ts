@@ -1,3 +1,15 @@
+import { WEEKDAYS, type Weekday } from "./rule.js";
+
+/** Reads and validates a day of the week. */
+export function asWeekday(value: string, path: string): Weekday {
+  if (!WEEKDAYS.includes(value as Weekday)) {
+    throw new RangeError(
+      `${path} is not a weekday: "${value}". Expected one of ${WEEKDAYS.join(", ")}.`,
+    );
+  }
+  return value as Weekday;
+}
+
 /** Reads and normalises a wall-clock time. */
 export function asTime(value: string, path: string): string {
   try {

@@ -22,7 +22,7 @@ import {
 } from "./build.js";
 import { intervals } from "./interpret.js";
 import { parseRule } from "./parse.js";
-import type { Rule } from "./rule.js";
+import type { Rule, Weekday } from "./rule.js";
 
 describe("the builder", () => {
   /** Monday 2026-03-09 to the Monday after it. */
@@ -121,6 +121,7 @@ describe("the builder", () => {
       assertThrowsError(() => timeOfDay("breakfast", "17:00"));
       assertThrowsError(() => timeOfDay("09:00", "09:00"));
       assertThrowsError(() => dates("Christmas"));
+      assertThrowsError(() => daysOfWeek("monday", "funday" as Weekday));
       assertThrowsError(() => inZone("Mars/Olympus", weekdays()));
     });
 

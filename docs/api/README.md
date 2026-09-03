@@ -145,6 +145,7 @@ function replace<V>(
   scope: Rule,
   replacement: Cascade<V & JsonCompatible<V>>,
 ): ReplacingLayer<V>;
+function replace(scope: Rule, replacement: Rule): ReplacingLayer<boolean>;
 function resolve<V>(cascade: CascadeLike<V>, context: Context): ValuedStream<V>;
 ```
 

@@ -25,8 +25,10 @@ merged("sum", layer(weekdays(), "alice"));
 // @ts-expect-error Concat accepts array layers.
 merged("concat", layer(weekdays(), "alice"));
 
+const undefinedValue = undefined;
+
 // @ts-expect-error Cascade values must survive JSON storage.
-layer(weekdays());
+layer(weekdays(), undefinedValue);
 
 // @ts-expect-error Rota values must survive JSON storage.
 rota().assign(weekdays(), 1n);
