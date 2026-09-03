@@ -1,267 +1,155 @@
 # Queries
 
-Quando provides four common queries over the intervals covered by a rule.
+Queries answer common questions about the time a rule or boolean cascade
+covers.
 
-|             |                                             |
-| ----------- | ------------------------------------------- |
-| `advanceBy` | where an amount of rule-time gets you       |
-| `activeAt`  | whether a rule covers an instant            |
-| `elapsed`   | how much time a rule covers within a window |
-| `next`      | the next stretch a rule covers              |
+| Function              | Question                                      |
+| --------------------- | --------------------------------------------- |
+| `activeAt`            | Does this cover an instant?                   |
+| `nextCoveredInterval` | What is the current or next covered interval? |
+| `coveredDuration`     | How much covered time falls inside a window?  |
+| `advanceBy`           | Where does an amount of covered time finish?  |
 
-Durations use exact elapsed time. A three-hour duration always means three
-elapsed hours, including across a clock change. See
-[time zones](../time-zones/).
+Schedules expose the same operations as `isOpen`, `opensNext`, `openDuration`,
+and `addOpenTime`.
 
-## `advanceBy`
-
-`advanceBy` adds time that counts only while a rule applies. This example adds
-three hours of warehouse opening time to an order placed at 16:55 on Friday:
+## Check an instant
 
 ```ts
-import { advanceBy, dates, timeOfDay, weekdays } from "@kensio/quando";
+import { activeAt, timeOfDay, weekdays } from "@kensio/quando";
 
-const openingHours = weekdays()
-  .and(timeOfDay("09:00", "17:00"))
-  .except(dates("2026-03-16"));
+const office = weekdays().and(timeOfDay("09:00", "17:00"));
+const monday = Temporal.ZonedDateTime.from("2026-03-09T10:00[Europe/London]");
+
+console.log(activeAt(office, monday));
+```
+
+```text
+true
+```
+
+`activeAt` uses half-open interval bounds. Opening time is covered and closing
+time is excluded.
+
+## Find the current or next interval
+
+```ts
+import { nextCoveredInterval } from "@kensio/quando";
+
+const fridayEvening = {
+  from: Temporal.ZonedDateTime.from("2026-03-13T18:00[Europe/London]"),
+};
+
+const opening = nextCoveredInterval(office, fridayEvening);
+console.log(opening?.start?.toString());
+```
+
+```text
+2026-03-16T09:00:00+00:00[Europe/London]
+```
+
+When the start lies inside a covered interval, the returned interval starts at
+that instant. Pass `complete: true` to return its real end when a finite search
+window would clip it.
+
+## Measure covered time
+
+```ts
+import { coveredDuration } from "@kensio/quando";
+
+const week = coveredDuration(office, {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
+});
+
+console.log(week.toString());
+```
+
+```text
+PT40H
+```
+
+`coveredDuration` requires a `to`. It rejects a reversed window.
+
+## Advance through covered time
+
+```ts
+import { advanceBy } from "@kensio/quando";
 
 const placed = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
 
 const dispatch = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
-  during: openingHours,
+  during: office,
 });
 
 console.log(dispatch?.toString());
 ```
 
 ```text
-2026-03-17T11:55:00+00:00[Europe/London]
-```
-
-The calculation uses five minutes on Friday. Monday is excluded by the holiday
-rule. The remaining time falls on Tuesday morning.
-
-Pass the rule in the `during` property. The options can also contain `within`,
-`location`, and `locale`. The first argument supplies the context start.
-
-### Elapsed durations only
-
-```ts
-import { advanceBy, timeOfDay, weekdays } from "@kensio/quando";
-
-const openingHours = weekdays().and(timeOfDay("09:00", "17:00"));
-const placed = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
-
-try {
-  advanceBy(placed, Temporal.Duration.from({ days: 1 }), {
-    during: openingHours,
-  });
-} catch (error) {
-  console.log(String(error));
-}
-
-try {
-  advanceBy(placed, Temporal.Duration.from({ hours: -1 }), {
-    during: openingHours,
-  });
-} catch (error) {
-  console.log(String(error));
-}
-```
-
-```text
-RangeError: advanceBy() measures elapsed time, so P1D is ambiguous: days are calendar units, and a day is not 24 hours on the mornings a clock changes. Give hours, minutes or seconds.
-RangeError: advanceBy() cannot go backwards. Asked for -PT1H.
-```
-
-`advanceBy` rejects years, months, weeks, and days. These are calendar units, and
-their elapsed length depends on the starting date and time zone. Use hours,
-minutes, seconds, milliseconds, microseconds, or nanoseconds. Use `PT24H` when
-you mean 24 elapsed hours.
-
-### `within` bounds the search
-
-Set `within` to limit how far `advanceBy` searches. It returns `undefined` when
-the search ends before the requested rule time has elapsed:
-
-```ts
-import { advanceBy, timeOfDay, weekdays } from "@kensio/quando";
-
-const openingHours = weekdays().and(timeOfDay("09:00", "17:00"));
-const placed = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
-
-console.log(
-  advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
-    during: openingHours,
-    within: Temporal.Duration.from({ hours: 12 }),
-  }),
-);
-console.log(
-  advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
-    during: openingHours,
-    within: Temporal.Duration.from({ days: 7 }),
-  })?.toString(),
-);
-```
-
-```text
-undefined
 2026-03-16T11:55:00+00:00[Europe/London]
 ```
 
-The first search contains only five minutes of opening time. The second search
-contains enough opening time. `within` can use calendar units because it defines
-a search horizon from a known starting point.
+`advanceBy` accepts exact elapsed units from hours down to nanoseconds. It
+rejects years, months, weeks, days, and negative durations. A zero duration
+returns the input instant.
 
-## `activeAt`
-
-`activeAt` reports whether a rule covers an instant. The result follows
-half-open interval boundaries:
+Schedules pass directly as `during`:
 
 ```ts
-import { activeAt, timeOfDay, weekdays } from "@kensio/quando";
+import { schedule, weekdays } from "@kensio/quando";
 
-const openingHours = weekdays().and(timeOfDay("09:00", "17:00"));
-const closing = Temporal.ZonedDateTime.from("2026-03-13T17:00[Europe/London]");
-
-console.log(activeAt(openingHours, closing));
-console.log(activeAt(openingHours, closing.subtract({ nanoseconds: 1 })));
-```
-
-```text
-false
-true
-```
-
-An interval ending at 17:00 excludes 17:00. An interval starting at 17:00
-includes it.
-
-The optional third argument accepts a `locale` and `location`. `activeAt`
-creates its own one-nanosecond window around the given instant, so it always
-terminates.
-
-## `elapsed`
-
-`elapsed` returns the total duration covered by a rule within a context:
-
-```ts
-import { elapsed, timeOfDay, weekdays } from "@kensio/quando";
-
-const openingHours = weekdays().and(timeOfDay("09:00", "17:00"));
-const from = Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]");
-
-console.log(
-  elapsed(openingHours, {
-    from,
-    to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-  }).toString(),
-);
-
-try {
-  elapsed(openingHours, { from });
-} catch (error) {
-  console.log(String(error));
-}
-```
-
-```text
-PT40H
-RangeError: elapsed() needs a window with an end: give the context a `to`.
-```
-
-The context must have a `to`. An unbounded window has no finite total duration,
-so `elapsed` rejects it.
-
-## `next`
-
-`next` returns the next covered interval at or after the context start:
-
-```ts
-import { next, timeOfDay, weekdays } from "@kensio/quando";
-
-const openingHours = weekdays().and(timeOfDay("09:00", "17:00"));
-
-const open = next(openingHours, {
-  from: Temporal.ZonedDateTime.from("2026-03-13T11:00[Europe/London]"),
+const openingHours = schedule().open(weekdays(), "09:00-17:00");
+const dispatch = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
+  during: openingHours,
 });
-console.log(
-  `${open?.start?.toPlainDateTime()} → ${open?.end?.toPlainDateTime()}`,
-);
-
-const fridayEvening = {
-  from: Temporal.ZonedDateTime.from("2026-03-13T18:00[Europe/London]"),
-};
-
-console.log(
-  next(openingHours, fridayEvening, {
-    within: Temporal.Duration.from({ hours: 24 }),
-  }),
-);
-console.log(
-  next(openingHours, fridayEvening)?.start?.toPlainDateTime().toString(),
-);
 ```
 
-```text
-2026-03-13T11:00:00 → 2026-03-13T17:00:00
-undefined
-2026-03-16T09:00:00
-```
+## Search limits
 
-When the rule is already active, `next` returns the current interval clipped to
-the context start. The 24-hour search from Friday evening finds no opening. The
-unbounded search finds Monday morning.
+`nextCoveredInterval` and `advanceBy` apply a 100-year safety limit when the
+context has no end and the caller supplies no `within`. They throw
+`SearchLimitExceededError` if the limit expires.
 
-The unbounded search stops after it finds the first interval.
-
-### `within` only narrows a context
-
-A context that already ends before the horizon keeps its own end:
+Use `within` when an empty result is expected:
 
 ```ts
-import { next, timeOfDay, weekdays } from "@kensio/quando";
+const opening = nextCoveredInterval(office, fridayEvening, {
+  within: Temporal.Duration.from({ hours: 2 }),
+});
+```
 
-const openingHours = weekdays().and(timeOfDay("09:00", "17:00"));
+The result is `undefined` after the explicit range has been searched. An
+existing `context.to` also defines an explicit range. `within` narrows that
+range and never widens it.
 
-const untilSaturday = {
-  from: Temporal.ZonedDateTime.from("2026-03-13T18:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-14T00:00[Europe/London]"),
+The low-level `intervals` and `resolve` streams remain lazy. An unbounded stream
+is suitable when the caller controls how many values it pulls. Those functions
+live in `@kensio/quando/core`.
+
+## Cascade values
+
+Use `assigned` from the core entry point to query one value in a cascade:
+
+```ts
+import { coveredDuration, rota, weekdays } from "@kensio/quando";
+import { assigned } from "@kensio/quando/core";
+
+const onCall = rota().assign(weekdays(), "alice");
+const weekContext = {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 };
-
-console.log(
-  next(openingHours, untilSaturday, {
-    within: Temporal.Duration.from({ days: 30 }),
-  }),
-);
+const aliceHours = coveredDuration(assigned(onCall, "alice"), weekContext);
 ```
 
-```text
-undefined
-```
-
-The context ends on Saturday morning. A 30-day `within` value does not extend
-that end. It only shortens a context that would otherwise run longer.
-
-## Termination
-
-Recurring rules can produce endless streams. Each query needs a result or a
-bound that stops evaluation.
-
-|                     |                                                             |
-| ------------------- | ----------------------------------------------------------- |
-| `activeAt`          | always terminates because its window is one nanosecond wide |
-| `elapsed`           | refuses a window with no end                                |
-| `next`, `advanceBy` | terminate as soon as there is an answer                     |
-
-Bound a search when its rule may produce no interval. For example,
-`weekdays().and(weekends())` can search forever in an unbounded context. Set the
-context `to` or the search `within` in this case.
+`activeAt`, `nextCoveredInterval`, `coveredDuration`, and `advanceBy` accept a
+rule, a boolean cascade or façade, or an assigned cascade value.
 
 <!-- card
 ```ts
-const packed = advanceBy(placed, Temporal.Duration.from({
-  hours: 3,
-}), { during: openingHours });
-// → 2026-03-17T11:55:00+00:00[Europe/London]
+const dispatch = openingHours.addOpenTime(
+  placed,
+  Temporal.Duration.from({ hours: 3 }),
+);
 ```
 -->

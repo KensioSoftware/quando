@@ -184,7 +184,11 @@ describe("putting a rule in canonical form", () => {
       // Given a rule holding a time that will not parse, as a bad database
       // row would. Canonical form is used for cache keys, so it has to be
       // total. `parseRule` is the place that refuses a document.
-      const broken = timeOfDay("half five", "17:00");
+      const broken: Rule = {
+        type: "timeOfDay",
+        from: "half five",
+        to: "17:00",
+      };
 
       // When it is canonicalised.
       // Then the unreadable value comes back untouched, with the readable one
@@ -200,15 +204,15 @@ describe("putting a rule in canonical form", () => {
     it("keeps a zone, and keeps two zones apart", () => {
       // Given the same days read in two places.
       const days = daysOfWeek("monday", "tuesday");
-      const london = inZone(days, "Europe/London");
-      const tokyo = inZone(days, "Asia/Tokyo");
+      const london = inZone("Europe/London", days);
+      const tokyo = inZone("Asia/Tokyo", days);
 
       // When both are canonicalised.
       // Then the zone survives, and the two rules stay different. They are
       // different schedules.
       assertIdentical(
         formOf(london),
-        '{"type":"daysOfWeek","days":["monday","tuesday"],"zone":"Europe/London"}',
+        '{"type":"inZone","zone":"Europe/London","rule":{"type":"daysOfWeek","days":["monday","tuesday"]}}',
       );
       assertFalse(equals(london, tokyo));
     });

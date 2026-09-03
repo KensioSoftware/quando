@@ -11,7 +11,13 @@ import { assigned, nextValue, valueAt } from "./assigned.js";
 import { all, dates, timeOfDay, weekdays, weekends } from "./build.js";
 import { cascade, layer } from "./cascade.js";
 import type { Context } from "./context.js";
-import { activeAt, advanceBy, elapsed, next } from "./query.js";
+import {
+  activeAt,
+  advanceBy,
+  coveredDuration,
+  nextCoveredInterval,
+} from "./query.js";
+import { schedule } from "./schedule.js";
 
 describe("asking the four questions of a cascade", () => {
   /** An on-call rota with a swap in the middle of it. */
@@ -70,7 +76,7 @@ describe("asking the four questions of a cascade", () => {
       const shift = nextValue(onCall, { from: tuesday });
 
       // Then it is the stretch in progress, clipped to begin where the
-      // question was asked, which is what `next` does for a rule.
+      // question was asked, which is what `nextCoveredInterval` does for a rule.
       assertIdentical(shift?.value, alice);
       assertIdentical(shift.start?.toString(), tuesday.toString());
     });
@@ -94,14 +100,17 @@ describe("asking the four questions of a cascade", () => {
       // When each name is measured over it.
       // Then the days add up, and the swap has come out of Alice's total.
       assertIdentical(
-        elapsed(assigned(onCall, alice), week).total("hours"),
+        coveredDuration(assigned(onCall, alice), week).total("hours"),
         96,
       );
       assertIdentical(
-        elapsed(assigned(onCall, carol), week).total("hours"),
+        coveredDuration(assigned(onCall, carol), week).total("hours"),
         24,
       );
-      assertIdentical(elapsed(assigned(onCall, bob), week).total("hours"), 48);
+      assertIdentical(
+        coveredDuration(assigned(onCall, bob), week).total("hours"),
+        48,
+      );
     });
 
     it("finds when a value next holds", () => {
@@ -111,7 +120,9 @@ describe("asking the four questions of a cascade", () => {
       );
 
       // When the rota is narrowed to that name and asked for the next stretch.
-      const shift = next(assigned(onCall, bob), { from: monday });
+      const shift = nextCoveredInterval(assigned(onCall, bob), {
+        from: monday,
+      });
 
       // Then the search skips the days somebody else has.
       assertIdentical(shift?.start?.toPlainDate().toString(), "2026-03-14");
@@ -139,6 +150,20 @@ describe("asking the four questions of a cascade", () => {
   });
 
   describe("a schedule read the same way", () => {
+    it("answers a root query directly", () => {
+      // Given a schedule façade and a Monday inside its opening hours.
+      const office = schedule().open(weekdays(), "09:00-17:00");
+      const monday = Temporal.ZonedDateTime.from(
+        "2026-03-09T11:00[Europe/London]",
+      );
+
+      // When the generic active-at query reads the façade.
+      const open = activeAt(office, monday);
+
+      // Then it reads the schedule's boolean cascade.
+      assertTrue(open);
+    });
+
     it("advances through opening hours held in a cascade", () => {
       // Given opening hours as a cascade of `true`, which is what a schedule
       // is underneath.

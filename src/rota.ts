@@ -1,81 +1,85 @@
-/**
- * Who is on, in the words people use for that.
- *
- * The same machinery as a [schedule](./schedule.ts) with the value left open:
- * a rota assigns a person, a tariff assigns a rate, a roster assigns how many
- * are working. A `Rota<V>` is a `Cascade<V>`, so the core reads it unchanged.
- *
- * The value type accumulates as layers are added, so a rota of two names
- * answers `"alice" | "bob" | undefined` rather than `string` — which is what
- * makes an exhaustive switch over who is on call actually exhaustive. Ask for
- * `rota<string>()` when the names are not known up front.
- */
-
 import { valueAt } from "./assigned.js";
-import { type Cascade, type Layer, layer } from "./cascade.js";
+import { type Cascade, cascade, layer } from "./cascade.js";
+import { withMethods } from "./fluent.js";
+import type { JsonCompatible } from "./json.js";
+import { parseCascade, type ValueParser } from "./parse-cascade.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
 import { resolve } from "./resolve.js";
 import type { ValuedStream } from "./valued-stream.js";
 
-/** Who or what holds when, and the questions worth asking about that. */
-export interface Rota<V> extends Cascade<V> {
-  /** These times belong to this one, unless something later says otherwise. */
-  readonly assign: <const W>(scope: PlainRule, value: W) => Rota<V | W>;
+/** The stored form of a rota. */
+export interface RotaData<V> {
+  readonly type: "rota";
+  readonly cascade: Cascade<V>;
+}
 
-  /**
-   * A swap: this day goes to this one instead.
-   *
-   * The same thing as an `assign` naming a single day — it exists because
-   * "Carol is swapping the eleventh" is what happened, and a rota reads better
-   * when the exceptions say they are exceptions.
-   */
-  readonly swap: <const W>(day: PlainRule, value: W) => Rota<V | W>;
-
-  /** Who is on at that moment, or `undefined` if nobody is. */
+/** Assignments over time with methods for rota questions. */
+export interface Rota<V> extends RotaData<V> {
+  readonly assign: <const W>(
+    scope: PlainRule,
+    value: W & JsonCompatible<W>,
+  ) => Rota<V | W>;
+  readonly swap: <const W>(
+    day: PlainRule,
+    value: W & JsonCompatible<W>,
+  ) => Rota<V | W>;
   readonly whoIsOn: (at: Temporal.ZonedDateTime) => V | undefined;
-
-  /**
-   * Each stretch between two moments, and who has it.
-   *
-   * Leave `to` out for an endless run of them, which is lazy and safe to stop
-   * pulling from whenever you have enough.
-   */
   readonly shifts: (
     from: Temporal.ZonedDateTime,
     to?: Temporal.ZonedDateTime,
   ) => ValuedStream<V>;
+  readonly toJSON: () => RotaData<V>;
 }
 
-function build<V>(layers: readonly Layer<V>[]): Rota<V> {
-  const self: Rota<V> = {
-    type: "cascade",
-    layers,
-
-    assign: <W>(scope: PlainRule, value: W) =>
-      build<V | W>([...layers, layer<V | W>(asDays(scope), value)]),
-
-    swap: <W>(day: PlainRule, value: W) =>
-      build<V | W>([...layers, layer<V | W>(asDays(day), value)]),
-
-    whoIsOn: (at) => valueAt(self, at),
-
-    shifts: (from, to) =>
-      resolve(self, to === undefined ? { from } : { from, to }),
+function build<V>(data: RotaData<V>): Rota<V> {
+  const append = <W>(
+    scope: PlainRule,
+    value: W & JsonCompatible<W>,
+  ): Rota<V | W> => {
+    const next = layer(asDays(scope), value);
+    const document = cascade<V | W>(...data.cascade.layers, next);
+    return build({ type: "rota", cascade: document });
   };
 
-  return self;
+  return withMethods(data, {
+    assign: <W>(scope: PlainRule, value: W & JsonCompatible<W>) =>
+      append(scope, value),
+    swap: <W>(day: PlainRule, value: W & JsonCompatible<W>) =>
+      append(day, value),
+    whoIsOn: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at),
+    shifts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>
+      resolve(data.cascade, to === undefined ? { from } : { from, to }),
+    toJSON: () => ({ ...data }),
+  });
 }
 
-/**
- * An empty rota: nobody is on until something says they are.
- *
- * ```ts
- * const onCall = rota()
- *   .assign(weekdays(), "alice")
- *   .assign(weekends(), "bob")
- *   .swap("2026-03-11", "carol");
- * ```
- */
+/** Creates an empty rota. */
 export function rota<V = never>(): Rota<V> {
-  return build<V>([]);
+  return build({ type: "rota", cascade: cascade<V>() });
+}
+
+/** Reads a stored rota and restores its methods. */
+export function parseRota<V>(
+  value: unknown,
+  parseValue: ValueParser<V>,
+  path = "rota",
+): Rota<V> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError(`${path}: expected a rota object.`);
+  }
+  const node = value as Record<string, unknown>;
+  if (node["type"] !== "rota") {
+    throw new TypeError(`${path}.type: expected "rota".`);
+  }
+  const unknown = Object.keys(node).find(
+    (field) => !["type", "cascade"].includes(field),
+  );
+  if (unknown !== undefined) {
+    throw new TypeError(`${path}.${unknown}: unknown rota field.`);
+  }
+  const document = parseCascade(node["cascade"], parseValue, `${path}.cascade`);
+  if (document.merge !== undefined && document.merge !== "override") {
+    throw new TypeError(`${path}.cascade.merge: a rota uses override.`);
+  }
+  return build({ type: "rota", cascade: document });
 }

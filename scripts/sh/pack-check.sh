@@ -29,6 +29,10 @@ expected=(
   package/LICENSE
   package/dist/index.js
   package/dist/index.d.ts
+  package/dist/core.js
+  package/dist/core.d.ts
+  package/dist/parsing.js
+  package/dist/parsing.d.ts
 )
 
 missing=()
@@ -54,6 +58,61 @@ if grep --quiet --extended-regexp 'package/dist/.*\.(test|spec)\.' <<<"$contents
   grep --extended-regexp 'package/dist/.*\.(test|spec)\.' <<<"$contents" >&2
   exit 1
 fi
+
+# Install the tarball into an empty project. This catches export paths that
+# exist in the repository but fail through Node's package resolver.
+consumer="$tmp/consumer"
+mkdir "$consumer"
+npm install \
+  --prefix "$consumer" \
+  --ignore-scripts \
+  --no-package-lock \
+  "$tarball" >/dev/null
+
+# Resolve declarations from the installed tarball rather than from src/. This
+# catches exports whose JavaScript works while their public types do not.
+cp test/package-consumer.ts.txt "$consumer/consumer.ts"
+node_modules/.bin/tsc \
+  --ignoreConfig \
+  --noEmit \
+  --strict \
+  --exactOptionalPropertyTypes \
+  --module NodeNext \
+  --moduleResolution NodeNext \
+  --target ES2023 \
+  --lib ESNext \
+  --skipLibCheck \
+  "$consumer/consumer.ts"
+
+(
+  cd "$consumer"
+  node --input-type=module --eval '
+    const root = await import("@kensio/quando");
+    const core = await import("@kensio/quando/core");
+    const parsing = await import("@kensio/quando/parsing");
+    if (typeof root.schedule !== "function") throw new Error("root export failed");
+    if (typeof core.resolve !== "function") throw new Error("core export failed");
+    if (typeof parsing.parseSchedule !== "function") throw new Error("parsing export failed");
+
+    const monday = Temporal.ZonedDateTime.from("2026-03-16T10:00[Europe/London]");
+    const office = root.schedule({ zone: "Europe/London" }).open(
+      root.weekdays(),
+      "09:00-17:00",
+    );
+    if (!office.isOpen(monday)) throw new Error("schedule example failed");
+
+    const restored = root.parseSchedule(JSON.parse(JSON.stringify(office)));
+    if (!restored.isOpen(monday)) throw new Error("schedule round trip failed");
+  '
+)
+
+# Published maps carry their source text. Debuggers do not need files outside
+# the tarball to display a source location.
+tar --extract --to-stdout --file "$tarball" package/dist/index.js.map |
+  grep --quiet --fixed-strings '"sourcesContent":[' || {
+    echo "dist/index.js.map has no embedded source." >&2
+    exit 1
+  }
 
 echo "Tarball looks right:"
 sed 's/^/  /' <<<"$contents" | sort

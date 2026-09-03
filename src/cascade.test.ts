@@ -27,6 +27,24 @@ describe("cascades as data", () => {
   };
 
   describe("a built cascade", () => {
+    it("refuses values JSON cannot preserve", () => {
+      // Given values that JSON drops, rejects, or changes.
+      const cyclic: Record<string, unknown> = {};
+      cyclic["self"] = cyclic;
+      class Assignment {
+        public readonly person = "alice";
+      }
+
+      // When each is assigned to a layer.
+      // Then the authoring boundary refuses it.
+      assertThrowsError(() => layer(weekdays(), undefined as never));
+      assertThrowsError(() => layer(weekdays(), 1n as never));
+      assertThrowsError(() => layer(weekdays(), Number.NaN as never));
+      assertThrowsError(() => layer(weekdays(), Number.POSITIVE_INFINITY));
+      assertThrowsError(() => layer(weekdays(), new Assignment() as never));
+      assertThrowsError(() => layer(weekdays(), cyclic as never));
+    });
+
     it("is the document it stands for, with the builders' methods left out", () => {
       // Given a rota built through the builders, whose methods are functions
       // hanging off ordinary objects.

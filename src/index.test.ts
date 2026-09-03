@@ -15,13 +15,25 @@ import {
   intervals,
   type Rule,
   union,
-} from "./index.js";
+} from "./core.js";
+import { schedule, weekdays } from "./index.js";
 
 /**
  * A smoke test of the public surface. Everything a consumer needs is reachable
  * from the entry point, and composes once it gets there.
  */
 describe("the public entry point", () => {
+  it("puts the schedule front door on the root entry point", () => {
+    // Given opening hours built from the root entry point.
+    const office = schedule().open(weekdays(), "09:00-17:00");
+
+    // When a Monday morning is checked.
+    const open = office.isOpen(when("2026-03-16T10:00"));
+
+    // Then the schedule answers through its own vocabulary.
+    assertTrue(open);
+  });
+
   it("composes the algebra into an answer", () => {
     // Given two days of office hours with lunch closed in the middle of each,
     // and a visitor in the building from Monday lunchtime to Tuesday morning.

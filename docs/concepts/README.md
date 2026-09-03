@@ -58,7 +58,7 @@ Overrides are harder to express as sets. The following rule defines normal
 weekday hours and replaces the hours on 11 March:
 
 ```ts
-import { dates, intervals, timeOfDay, weekdays } from "@kensio/quando";
+import { dates, intervals, timeOfDay, weekdays } from "@kensio/quando/core";
 
 const closesEarly = dates("2026-03-11");
 

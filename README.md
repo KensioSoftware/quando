@@ -1,139 +1,126 @@
 # Quando
 
-Declarative temporal rules for schedules, deadlines, constraints, and exceptions.
+Declarative temporal rules for schedules, deadlines, and exceptions.
 
-Quando answers one question: **given these rules about time, when does something
-happen?** `Temporal` tells you what a moment _is_; Quando tells you when
-something _occurs_ — "weekdays nine to five, except bank holidays", and then
-what that implies about now, about a window, and about three working hours from
-here.
+Quando calculates when something happens. It uses `Temporal` for dates, times,
+durations, and time zones.
 
 ```bash
 npm install @kensio/quando
 ```
 
-Requires a runtime with `Temporal`: **Node 26 or later**, or a browser that
-implements it. Quando reads the global rather than importing a polyfill, so it
-has no runtime dependencies; anywhere without `Temporal` natively can load
-`temporal-polyfill` first and everything here works untouched.
+Quando requires Node 26 or another runtime with global `Temporal`.
 
-## A rule
+## Opening hours
 
 ```ts
-import { timeOfDay, weekdays } from "@kensio/quando";
+import { schedule, weekdays } from "@kensio/quando";
 
-const openingHours = weekdays().and(timeOfDay("09:00", "17:00"));
-```
-
-There is no build step to that: it is already the rule, a plain JSON-shaped
-object with methods hanging off it. `JSON.stringify` gives you a document you
-can store, and `parseRule` gives you the rule back.
-
-## Four questions
-
-```ts
-import { activeAt, advanceBy, elapsed, next } from "@kensio/quando";
-
-const friday = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
-
-// Is it open?
-activeAt(openingHours, friday);
-// → true
-
-// When does it next open?
-next(openingHours, { from: friday.add({ hours: 2 }) })?.start?.toString();
-// → 2026-03-16T09:00:00+00:00[Europe/London]
-
-// How much opening is there this week?
-elapsed(openingHours, {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-}).toString();
-// → PT40H
-
-// Three hours of packing that only count while it is open — when is it done?
-advanceBy(friday, Temporal.Duration.from({ hours: 3 }), {
-  during: openingHours,
-})?.toString();
-// → 2026-03-16T11:55:00+00:00[Europe/London]
-```
-
-That last one is why the library exists, and it is the one that is genuinely
-awkward to do by hand.
-
-## Or say it the way you would say it
-
-For opening hours and rotas there is a plainer front door, which builds the same
-thing:
-
-```ts
-import { rota, schedule, tally, weekdays, weekends } from "@kensio/quando";
-
-const openingHours = schedule()
+const openingHours = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00")
   .closed("2026-12-25")
-  .hoursOn("2026-03-11", "09:00-15:00"); // close early, just that day
+  .hoursOn("2026-12-24", "09:00-15:00");
 
-openingHours.isOpen(friday);
-// → true
+const placed = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
 
-const onCall = rota().assign(weekdays(), "alice").assign(weekends(), "bob");
+openingHours.isOpen(placed);
+// true
 
-onCall.whoIsOn(friday);
-// → "alice"
+openingHours.opensNext(placed.add({ hours: 2 }))?.start?.toString();
+// 2026-03-16T09:00:00+00:00[Europe/London]
+
+openingHours
+  .addOpenTime(placed, Temporal.Duration.from({ hours: 3 }))
+  ?.toString();
+// 2026-03-16T11:55:00+00:00[Europe/London]
+```
+
+Method order sets precedence. The Christmas closure overrides the ordinary
+weekday hours. `hoursOn` replaces the hours for its date.
+
+## Rotas and tallies
+
+```ts
+import { rota, tally, weekdays, weekends } from "@kensio/quando";
+
+const onCall = rota()
+  .assign(weekdays(), "alice")
+  .assign(weekends(), "bob")
+  .swap("2026-03-11", "carol");
+
+onCall.whoIsOn(placed);
+// "alice"
 
 const staff = tally().plus(weekdays(), 3).plus("2026-03-11", 2);
 
 staff.at(Temporal.ZonedDateTime.from("2026-03-11T11:00[Europe/London]"));
-// → 5
+// 5
 ```
 
-For a schedule and a rota each line outranks the ones above it, so exceptions
-read in the order you would say them. A tally is the one that adds instead,
-because two teams of three on a Monday are six people. See
-[schedules and rotas](docs/schedules/) and [merging](docs/merging/).
+A rota uses precedence. A tally adds values where its layers overlap.
 
-## Why intervals
+## Rules
 
-A rule does not answer about an instant — it produces the intervals over which
-it holds. Anything that samples has to choose a step size, trading correctness
-against speed, and every derived question becomes the same loop. Producing
-intervals turns those loops into arithmetic: working time in a window is a sum,
-three working days from now is a walk, and a rule that can never be satisfied
-yields nothing instead of never finishing.
+Rules handle cases outside the domain façades.
 
-[Concepts](docs/concepts/) has the long version.
+```ts
+import { dates, timeOfDay, weekdays } from "@kensio/quando";
+
+const dispatchHours = weekdays()
+  .and(timeOfDay("09:00", "17:00"))
+  .except(dates("2026-12-25"));
+```
+
+Rules are JSON-shaped data with non-enumerable fluent methods. `parseRule`
+validates stored data and restores those methods.
+
+## Storage
+
+The domain façades keep their type and configuration in JSON.
+
+```ts
+import { parseSchedule } from "@kensio/quando";
+
+const stored = JSON.stringify(openingHours);
+const restored = parseSchedule(JSON.parse(stored));
+
+restored.isOpen(placed);
+```
+
+Cascade and rota values must be JSON-compatible. TypeScript rejects
+`undefined`, `bigint`, functions, and symbols. Runtime validation rejects
+non-finite numbers, class instances, and circular objects.
+
+## Advanced APIs
+
+The root entry point contains the common rule and domain APIs. Low-level
+interval, cascade, and resolution functions live under `@kensio/quando/core`.
+Storage parsers are also available from `@kensio/quando/parsing`.
+
+```ts
+import { cascade, layer, resolve } from "@kensio/quando/core";
+```
 
 ## Documentation
 
-[quandojs.dev](https://quandojs.dev), which is built from [`docs/`](docs/) in
-this repository:
+- [Getting started](docs/getting-started/)
+- [Schedules and rotas](docs/schedules/)
+- [Rules](docs/rules/)
+- [Queries](docs/queries/)
+- [Time zones](docs/time-zones/)
+- [Serialisation](docs/serialisation/)
+- [Cascades](docs/cascades/)
+- [Merging](docs/merging/)
+- [Comparing](docs/comparing/)
+- [API](docs/api/)
 
-- [Getting started](docs/getting-started/) — requirements, install, first query
-- [Concepts](docs/concepts/) — the model, and why it is that shape
-- [Rules](docs/rules/) — every rule type, and what each produces
-- [Queries](docs/queries/) — the four questions, and termination
-- [Time zones](docs/time-zones/) — wall clock against elapsed time
-- [Serialisation](docs/serialisation/) — the JSON form and its boundary
-- [Schedules and rotas](docs/schedules/) — opening hours and who is on, plainly
-- [Cascades](docs/cascades/) — layers carrying values, resolved by precedence
-- [Merging](docs/merging/) — overlap that adds rather than displaces
-- [Comparing](docs/comparing/) — canonical form, equality and cache keys
-- [API](docs/api/) — everything the package exports
+The documentation is published at [quandojs.dev](https://quandojs.dev).
 
-## What it is not
+## Scope
 
-Not a date library — `Temporal` is that, and Quando is built on it. Not a
-scheduler: Quando calculates _when_ and never fires anything, so its answer is
-your scheduler's input. Not storage, and not a holiday data provider; calendar
-data belongs in satellite packages so that the core carries none.
-
-Not a constraint solver either. Caps per window, minimum spacing and
-rolling-window totals ("ninety days in any hundred and eighty") constrain a
-pattern of occurrences rather than the moments in one, which is a different
-problem. See [what a rule cannot say](docs/concepts/#what-a-rule-cannot-say).
-
-Estimates, rule set diffing and a command line are designed and not yet built.
+Quando calculates times and intervals. It does not run jobs, store data, or
+provide holiday datasets. Occurrence constraints such as minimum spacing and
+rolling-window totals require a separate constraint solver.
 
 ## Licence
 

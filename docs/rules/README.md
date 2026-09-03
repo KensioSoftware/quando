@@ -2,7 +2,8 @@
 
 A rule describes a set of times. Five rule types select time. They are
 `always`, `never`, `daysOfWeek`, `timeOfDay`, and `dates`. The `all`, `any`, and
-`not` rule types combine other rules.
+`not` rule types combine other rules. `inZone` evaluates a rule subtree in a
+named time zone.
 
 Rules are boolean. A moment is either covered or uncovered. Use a
 [cascade](../cascades/) when you need to assign values.
@@ -13,7 +14,7 @@ Call `intervals(rule, context)` to read a rule. The context sets the start and
 optional end of the evaluation window:
 
 ```ts
-import { always, intervals, never } from "@kensio/quando";
+import { always, intervals, never } from "@kensio/quando/core";
 
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -53,7 +54,7 @@ arguments produces `always()`. `any()` with no arguments produces `never()`.
 through Friday. `weekends()` selects Saturday and Sunday.
 
 ```ts
-import { intervals, weekdays } from "@kensio/quando";
+import { intervals, weekdays } from "@kensio/quando/core";
 
 const fortnight = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -87,7 +88,7 @@ When `to` is earlier than `from`, the interval continues past midnight. A night
 shift can therefore use one rule:
 
 ```ts
-import { intervals, timeOfDay } from "@kensio/quando";
+import { intervals, timeOfDay } from "@kensio/quando/core";
 
 const twoDays = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -108,44 +109,32 @@ for (const { start, end } of intervals(timeOfDay("22:00", "06:00"), twoDays)) {
 The first interval began before the context. The last interval ends after the
 context. `intervals` clips both to the context window.
 
-A window with equal start and end times is invalid. The error occurs when the
-rule is evaluated:
+A window with equal start and end times is invalid. The builder rejects it
+immediately:
 
 ```ts
-import { intervals, take, timeOfDay } from "@kensio/quando";
-
-const wholeDay = timeOfDay("09:00", "09:00");
-console.log(JSON.stringify(wholeDay));
-
 try {
-  take(
-    intervals(wholeDay, {
-      from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-    }),
-    1,
-  );
+  timeOfDay("09:00", "09:00");
 } catch (error) {
   console.log(String(error));
 }
 ```
 
 ```text
-{"type":"timeOfDay","from":"09:00","to":"09:00"}
-RangeError: A time-of-day window from 09:00 to 09:00 has the same start and end. Use { type: "always" } for a whole day.
+RangeError: A time-of-day window must have different endpoints.
 ```
 
 The range `09:00` to `09:00` could mean a full day or an empty interval. Quando
 rejects the range. Use `always()` to cover a full day.
 
-Builders create the rule data. Evaluation checks semantic conditions such as
-equal endpoints.
+Builders and parsers validate time syntax and equal endpoints.
 
 ## `dates`
 
 `dates` covers whole calendar dates:
 
 ```ts
-import { dates, intervals } from "@kensio/quando";
+import { dates, intervals } from "@kensio/quando/core";
 
 const march = {
   from: Temporal.ZonedDateTime.from("2026-03-01T00:00[Europe/London]"),
@@ -180,7 +169,7 @@ data. Supply the dates from your application or another package.
 `not` returns the gaps in its source rule:
 
 ```ts
-import { intervals, not, timeOfDay } from "@kensio/quando";
+import { intervals, not, timeOfDay } from "@kensio/quando/core";
 
 const day = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -204,7 +193,7 @@ With no arguments, `all()` covers all time and `any()` covers no time. This is
 useful when you build a combined rule from an array that may be empty.
 
 ```ts
-import { all, any, intervals } from "@kensio/quando";
+import { all, any, intervals } from "@kensio/quando/core";
 
 const day = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -222,7 +211,8 @@ console.log([...intervals(any(), day)].length);
 
 ## The builder
 
-Every builder returns a rule with `.and`, `.or`, and `.except` methods.
+Every builder returns a rule with non-enumerable `.and`, `.or`, and `.except`
+methods. `parseRule` restores the same methods after storage.
 
 |              |                          |
 | ------------ | ------------------------ |
@@ -233,7 +223,7 @@ Every builder returns a rule with `.and`, `.or`, and `.except` methods.
 Use `.except` to remove exceptions such as holidays from another rule:
 
 ```ts
-import { dates, intervals, timeOfDay, weekdays } from "@kensio/quando";
+import { dates, intervals, timeOfDay, weekdays } from "@kensio/quando/core";
 
 const openingHours = weekdays()
   .and(timeOfDay("09:00", "17:00"))
@@ -261,7 +251,7 @@ Wednesday the 11th is gone entirely.
 Use `.or` to form a union. This example covers weekends and each evening:
 
 ```ts
-import { intervals, timeOfDay, weekends } from "@kensio/quando";
+import { intervals, timeOfDay, weekends } from "@kensio/quando/core";
 
 const cover = weekends().or(timeOfDay("18:00", "23:00"));
 
@@ -293,7 +283,7 @@ A context can omit its end. A recurring rule then produces a lazy, endless
 stream. `take` reads only the requested number of intervals.
 
 ```ts
-import { intervals, take, timeOfDay } from "@kensio/quando";
+import { intervals, take, timeOfDay } from "@kensio/quando/core";
 
 const forever = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -318,8 +308,8 @@ the rule may produce no result.
 
 ## Zones
 
-`daysOfWeek`, `dates`, and `timeOfDay` accept an optional time zone. A rule with
-no zone uses the zone from the evaluation context. See
+`inZone(zone, rule)` applies a time zone to a rule subtree. A rule with no zone
+uses the zone from the evaluation context. See
 [time zones](../time-zones/) for details.
 
 <!-- card

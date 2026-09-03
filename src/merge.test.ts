@@ -24,7 +24,11 @@ describe("merging values that overlap", () => {
   const assigned = <V>(of: Cascade<V>): string[] =>
     [...resolve(of, week)].map((span) => {
       const day = span.start?.toPlainDate().toString() ?? "";
-      return `${day} ${String(span.value)}`;
+      const value =
+        typeof span.value === "string"
+          ? span.value
+          : JSON.stringify(span.value);
+      return `${day} ${value}`;
     });
 
   describe("sum", () => {
@@ -130,9 +134,9 @@ describe("merging values that overlap", () => {
       // When the week is resolved.
       // Then the Wednesday has both of them, in layer order.
       assertArrayEquals(assigned(onCall), [
-        `2026-03-09 ${alice}`,
-        `2026-03-11 ${alice},${bob}`,
-        `2026-03-12 ${alice}`,
+        `2026-03-09 ${JSON.stringify([alice])}`,
+        `2026-03-11 ${JSON.stringify([alice, bob])}`,
+        `2026-03-12 ${JSON.stringify([alice])}`,
       ]);
     });
   });
@@ -216,11 +220,11 @@ describe("merging values that overlap", () => {
     it("says so when a sum is handed names", () => {
       // Given a cascade merging by sum whose layers carry names, which the
       // document's vocabulary alone cannot rule out.
-      const onCall = merged(
-        "sum",
-        layer(weekdays(), "alice"),
-        layer(dates("2026-03-11"), "bob"),
-      );
+      const onCall: Cascade<string> = {
+        type: "cascade",
+        merge: "sum",
+        layers: [layer(weekdays(), "alice"), layer(dates("2026-03-11"), "bob")],
+      };
 
       // When it is resolved.
       const error = assertThrowsError(() => [...resolve(onCall, week)]);
@@ -237,11 +241,11 @@ describe("merging values that overlap", () => {
 
     it("says so when concat is handed something that is not a list", () => {
       // Given layers carrying bare names where `concat` needs lists.
-      const onCall = merged(
-        "concat",
-        layer(weekdays(), "alice"),
-        layer(dates("2026-03-11"), "bob"),
-      );
+      const onCall: Cascade<string> = {
+        type: "cascade",
+        merge: "concat",
+        layers: [layer(weekdays(), "alice"), layer(dates("2026-03-11"), "bob")],
+      };
 
       // When it is resolved.
       const error = assertThrowsError(() => [...resolve(onCall, week)]);
@@ -257,11 +261,11 @@ describe("merging values that overlap", () => {
     it("names a null the way the parser would", () => {
       // Given a stored roster where one layer's value came back as null,
       // which is what an empty column in a database gives.
-      const staff = merged<number | null>(
-        "sum",
-        layer(weekdays(), 3),
-        layer(dates("2026-03-11"), null),
-      );
+      const staff: Cascade<number | null> = {
+        type: "cascade",
+        merge: "sum",
+        layers: [layer(weekdays(), 3), layer(dates("2026-03-11"), null)],
+      };
 
       // When it is resolved.
       const error = assertThrowsError(() => [...resolve(staff, week)]);
@@ -278,11 +282,14 @@ describe("merging values that overlap", () => {
     it("says nothing while the layers never meet", () => {
       // Given a sum over names whose scopes do not overlap. The merge is never
       // called, so there is nothing to complain about.
-      const onCall = merged(
-        "sum",
-        layer(daysOfWeek("monday"), "alice"),
-        layer(daysOfWeek("tuesday"), "bob"),
-      );
+      const onCall: Cascade<string> = {
+        type: "cascade",
+        merge: "sum",
+        layers: [
+          layer(daysOfWeek("monday"), "alice"),
+          layer(daysOfWeek("tuesday"), "bob"),
+        ],
+      };
 
       // When the week is resolved.
       // Then both layers come through untouched.

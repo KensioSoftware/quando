@@ -34,6 +34,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "inlineSources": true,
     "removeComments": false
   },
   "include": ["src/**/*", "test/**/*"]

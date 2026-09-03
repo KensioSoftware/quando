@@ -19,13 +19,14 @@
  * no such thing as the value of an unassigned moment.
  */
 
-import type { Cascade, Layer } from "./cascade.js";
+import { asCascade, type CascadeLike, type Layer } from "./cascade.js";
 import type { Context } from "./context.js";
 import type { Interval } from "./interval.js";
 import { intervals } from "./interpret.js";
 import { mergeBy } from "./merge.js";
 import type { Rule } from "./rule.js";
 import { coalesce, overlay, type ValuedStream } from "./valued-stream.js";
+import { checkWindow } from "./validation.js";
 
 /**
  * The values a cascade assigns within a context, in order and coalesced.
@@ -34,9 +35,11 @@ import { coalesce, overlay, type ValuedStream } from "./valued-stream.js";
  * the same contract `intervals` keeps because this is built out of it.
  */
 export function resolve<V>(
-  cascade: Cascade<V>,
+  source: CascadeLike<V>,
   context: Context,
 ): ValuedStream<V> {
+  checkWindow(context.from, context.to);
+  const cascade = asCascade(source);
   const merge = mergeBy<V>(cascade.merge);
 
   let stack: ValuedStream<V> = [];

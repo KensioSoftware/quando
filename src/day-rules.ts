@@ -14,8 +14,11 @@ import { WEEKDAYS, type Weekday } from "./rule.js";
 function startOfDay(
   date: Temporal.PlainDate,
   zone: string,
+  disambiguation: Context["disambiguation"],
 ): Temporal.ZonedDateTime {
-  return date.toZonedDateTime({ timeZone: zone, plainTime: "00:00" });
+  return date.toPlainDateTime("00:00").toZonedDateTime(zone, {
+    disambiguation: disambiguation ?? "compatible",
+  });
 }
 
 function weekdayOf(date: Temporal.PlainDate): Weekday | undefined {
@@ -40,14 +43,17 @@ function* matchingDays(
   let runStart: Temporal.PlainDate | undefined;
 
   for (;;) {
-    const dayStart = startOfDay(date, zone);
+    const dayStart = startOfDay(date, zone, context.disambiguation);
 
     if (
       stop !== undefined &&
       Temporal.ZonedDateTime.compare(dayStart, stop) >= 0
     ) {
       if (runStart !== undefined) {
-        yield { start: startOfDay(runStart, zone), end: dayStart };
+        yield {
+          start: startOfDay(runStart, zone, context.disambiguation),
+          end: dayStart,
+        };
       }
       return;
     }
@@ -55,7 +61,10 @@ function* matchingDays(
     if (matches(date)) {
       runStart ??= date;
     } else if (runStart !== undefined) {
-      yield { start: startOfDay(runStart, zone), end: dayStart };
+      yield {
+        start: startOfDay(runStart, zone, context.disambiguation),
+        end: dayStart,
+      };
       runStart = undefined;
     }
 
@@ -116,8 +125,8 @@ export function* dateIntervals(
     }
     if (runStart !== undefined && runEnd !== undefined) {
       yield {
-        start: startOfDay(runStart, inZone),
-        end: startOfDay(runEnd, inZone),
+        start: startOfDay(runStart, inZone, context.disambiguation),
+        end: startOfDay(runEnd, inZone, context.disambiguation),
       };
     }
     runStart = day;
@@ -126,8 +135,8 @@ export function* dateIntervals(
 
   if (runStart !== undefined && runEnd !== undefined) {
     yield {
-      start: startOfDay(runStart, inZone),
-      end: startOfDay(runEnd, inZone),
+      start: startOfDay(runStart, inZone, context.disambiguation),
+      end: startOfDay(runEnd, inZone, context.disambiguation),
     };
   }
 }

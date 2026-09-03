@@ -2,6 +2,9 @@ import {
   assertArrayEquals,
   assertArrayLength,
   assertIdentical,
+  assertInstanceOf,
+  assertStringIncludes,
+  assertThrowsError,
   assertTrue,
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
@@ -9,7 +12,7 @@ import { describe, it } from "vitest";
 import { weekdays, weekends } from "./build.js";
 import { equals } from "./canonical.js";
 import { cascade, layer, merged } from "./cascade.js";
-import { tally } from "./tally.js";
+import { parseTally, tally } from "./tally.js";
 
 describe("counting how many are on", () => {
   const monday = Temporal.ZonedDateTime.from("2026-03-09T11:00[Europe/London]");
@@ -26,6 +29,74 @@ describe("counting how many are on", () => {
   const weekEnd = Temporal.ZonedDateTime.from(
     "2026-03-16T00:00[Europe/London]",
   );
+
+  it("restores its methods after storage", () => {
+    // Given a tally that has passed through JSON storage.
+    const stored = JSON.stringify(tally().plus(weekdays(), 3));
+
+    // When the stored tally is parsed and extended.
+    const restored = parseTally(JSON.parse(stored)).plus("2026-03-11", 2);
+
+    // Then both figures contribute to the result.
+    assertIdentical(restored.at(wednesday), 5);
+  });
+
+  describe("stored forms it refuses", () => {
+    const rejected = (value: unknown): string => {
+      const error = assertThrowsError(() => parseTally(value));
+      assertInstanceOf(error, TypeError);
+      return error.message;
+    };
+
+    it("validates the stored envelope", () => {
+      // Given invalid outer values, a wrong tag, and an unknown field.
+      const values: readonly unknown[] = [
+        null,
+        [],
+        "tally",
+        { type: "rota", cascade: merged("sum") },
+        { type: "tally", cascade: merged("sum"), counter: 3 },
+      ];
+
+      // When each is parsed.
+      // Then each is rejected by the tally parser.
+      for (const value of values) {
+        assertThrowsError(() => parseTally(value));
+      }
+    });
+
+    it("requires finite numbers and sum semantics", () => {
+      // Given a tally carrying a string and one using override semantics.
+      const stringValue = {
+        type: "tally",
+        cascade: {
+          type: "cascade",
+          merge: "sum",
+          layers: [{ scope: { type: "always" }, value: "three" }],
+        },
+      };
+      const overriding = {
+        type: "tally",
+        cascade: cascade<number>(),
+      };
+
+      // When each is parsed.
+      // Then its domain error is reported.
+      assertStringIncludes(rejected(stringValue), "expected a finite number");
+      assertStringIncludes(rejected(overriding), "a tally uses sum");
+    });
+
+    it("requires finite amounts while authoring", () => {
+      // Given an amount that JSON would change.
+      // When it is added.
+      const error = assertThrowsError(() =>
+        tally().plus(weekdays(), Number.POSITIVE_INFINITY),
+      );
+
+      // Then it is rejected at the authoring boundary.
+      assertInstanceOf(error, RangeError);
+    });
+  });
 
   describe("plus", () => {
     it("adds where two lines cover the same day", () => {
@@ -144,18 +215,18 @@ describe("counting how many are on", () => {
       // When the two are compared.
       // Then they are the same document. The words are a way of saying the
       // cascade, rather than a second thing to keep in step with it.
-      assertTrue(equals(plainly, built));
+      assertTrue(equals(plainly.cascade, built));
     });
 
     it("resolves as any other cascade does", () => {
       // Given a tally handed to `resolve` directly, without its own methods.
       const staff = tally().plus(weekdays(), 3);
-      const plain = cascade(...staff.layers);
+      const plain = cascade(...staff.cascade.layers);
 
       // When both are read over the same week.
       // Then a `Tally` is a `Cascade<number>` and reads as one, which is what
       // makes everything that takes a cascade take one of these.
-      assertIdentical(staff.merge, "sum");
+      assertIdentical(staff.cascade.merge, "sum");
       assertArrayLength(plain.layers, 1);
     });
   });

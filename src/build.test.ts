@@ -3,6 +3,7 @@ import {
   assertArrayLength,
   assertIdentical,
   assertStringIncludes,
+  assertThrowsError,
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
@@ -32,6 +33,31 @@ describe("the builder", () => {
     render(intervals(rule, context));
 
   describe("a built rule", () => {
+    it("keeps methods out of its data properties", () => {
+      // Given a fluent weekday rule.
+      const rule = weekdays();
+
+      // When ordinary data operations inspect and clone it.
+      const keys = Object.keys(rule);
+      const cloned = structuredClone(rule);
+
+      // Then only rule data is present and the clone succeeds.
+      assertIdentical(keys.join(" "), "type days");
+      assertIdentical(JSON.stringify(cloned), JSON.stringify(rule));
+    });
+
+    it("restores fluent methods after parsing", () => {
+      // Given a rule that has passed through JSON storage.
+      const stored = structuredClone(weekdays());
+      const parsed = parseRule(stored);
+
+      // When the restored rule is extended with opening hours.
+      const office = parsed.and(timeOfDay("09:00", "17:00"));
+
+      // Then it retains the fluent API and covers the expected week.
+      assertArrayLength(read(office).split(" "), 5);
+    });
+
     it("is the document it stands for, with the methods left out", () => {
       // Given office hours built through the fluent form.
       const rule = weekdays().and(timeOfDay("09:00", "17:00"));
@@ -88,6 +114,16 @@ describe("the builder", () => {
   });
 
   describe("combining", () => {
+    it("refuses invalid authoring inputs immediately", () => {
+      // Given malformed times, equal endpoints, dates, and zones.
+      // When each is passed to a builder.
+      // Then each fails before a query starts.
+      assertThrowsError(() => timeOfDay("breakfast", "17:00"));
+      assertThrowsError(() => timeOfDay("09:00", "09:00"));
+      assertThrowsError(() => dates("Christmas"));
+      assertThrowsError(() => inZone("Mars/Olympus", weekdays()));
+    });
+
     it("ands", () => {
       // Given weekdays intersected with office hours.
       // When the week is read.
@@ -172,7 +208,7 @@ describe("the builder", () => {
         "2026-03-10T00:00",
         "Asia/Tokyo",
       );
-      const london = inZone(timeOfDay("09:00", "17:00"), "Europe/London");
+      const london = inZone("Europe/London", timeOfDay("09:00", "17:00"));
 
       // When the rule is serialised, and read over that day.
       // Then the zone is in the document, and the Tokyo day catches the tail of
@@ -218,6 +254,25 @@ describe("the builder", () => {
       // When it is read.
       // Then only the Wednesday morning survives all three steps.
       assertIdentical(read(rule), "[2026-03-11T09:00:00,2026-03-11T12:00:00)");
+    });
+
+    it("applies a zone to a whole subtree", () => {
+      // Given London office hours grouped under one zone.
+      const london = inZone(
+        "Europe/London",
+        weekdays().and(timeOfDay("09:00", "17:00")),
+      );
+      const tokyo = inWindow(
+        "2026-03-09T00:00",
+        "2026-03-10T00:00",
+        "Asia/Tokyo",
+      );
+
+      // When a Tokyo day is read.
+      const result = read(london, tokyo);
+
+      // Then both leaves use London time.
+      assertIdentical(result, "[2026-03-09T18:00:00,2026-03-10T00:00:00)");
     });
   });
 });

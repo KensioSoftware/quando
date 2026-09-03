@@ -1,0 +1,22 @@
+import { rota, schedule, weekdays } from "@kensio/quando";
+import { layer, merged } from "@kensio/quando/core";
+
+interface Duty {
+  readonly person: string;
+  readonly level: number;
+}
+
+const office = schedule({ zone: "Europe/London" }).open(
+  weekdays(),
+  "09:00-17:00",
+);
+const staffing = merged("sum", layer(weekdays(), 2));
+const rotaWithInterface = rota<Duty>().assign(weekdays(), {
+  person: "alice",
+  level: 2,
+});
+
+// @ts-expect-error The sum strategy only accepts numeric layer values.
+merged("sum", layer(weekdays(), "two"));
+
+void [office, staffing, rotaWithInterface];

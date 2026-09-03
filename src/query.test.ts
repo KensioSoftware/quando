@@ -11,7 +11,13 @@ import {
 import { describe, it } from "vitest";
 
 import { dates, timeOfDay, weekdays } from "./build.js";
-import { activeAt, advanceBy, elapsed, next } from "./query.js";
+import {
+  activeAt,
+  advanceBy,
+  coveredDuration,
+  nextCoveredInterval,
+  SearchLimitExceededError,
+} from "./query.js";
 import type { Rule } from "./rule.js";
 
 describe("asking a rule questions", () => {
@@ -62,19 +68,22 @@ describe("asking a rule questions", () => {
     });
   });
 
-  describe("elapsed", () => {
+  describe("coveredDuration", () => {
     it("adds up the time a rule covers", () => {
       // Given a week of opening hours.
       // When it is measured.
       // Then five days of eight hours come to forty.
-      assertIdentical(elapsed(open(), WEEK).toString(), "PT40H");
+      assertIdentical(coveredDuration(open(), WEEK).toString(), "PT40H");
     });
 
     it("counts nothing for a rule that covers nothing", () => {
       // Given a rule covering no time and a bounded week.
       // When it is measured.
       // Then the total is zero, which is an answer.
-      assertIdentical(elapsed({ type: "never" }, WEEK).toString(), "PT0S");
+      assertIdentical(
+        coveredDuration({ type: "never" }, WEEK).toString(),
+        "PT0S",
+      );
     });
 
     it("measures real elapsed time across a clock change", () => {
@@ -85,7 +94,7 @@ describe("asking a rule questions", () => {
       // Then the day is 23 hours long. This is elapsed time and the calendar
       // day is shorter than the clock suggests.
       assertIdentical(
-        elapsed({ type: "always" }, springForward).toString(),
+        coveredDuration({ type: "always" }, springForward).toString(),
         "PT23H",
       );
     });
@@ -96,18 +105,55 @@ describe("asking a rule questions", () => {
       // Then it is refused. The alternative is a number that never finishes
       // being counted.
       const error = assertThrowsError(() =>
-        elapsed(open(), inWindow("2026-03-09T00:00")),
+        coveredDuration(open(), inWindow("2026-03-09T00:00")),
       );
 
       assertInstanceOf(error, RangeError);
     });
   });
 
-  describe("next", () => {
+  describe("nextCoveredInterval", () => {
+    it("rejects a negative search horizon", () => {
+      // Given a horizon that ends before the search begins.
+      const within = Temporal.Duration.from({ hours: -1 });
+
+      // When it is used for an interval search.
+      const error = assertThrowsError(() =>
+        nextCoveredInterval(open(), inWindow("2026-03-09T10:00"), { within }),
+      );
+
+      // Then the invalid range is rejected before evaluation.
+      assertInstanceOf(error, RangeError);
+    });
+
+    it("fails safely when an unbounded search has no answer", () => {
+      // Given a rule that can never produce an interval.
+      // When an unbounded interval search is attempted.
+      const error = assertThrowsError(() =>
+        nextCoveredInterval({ type: "never" }, inWindow("2026-03-09T10:00")),
+      );
+
+      // Then the default safety limit is reported.
+      assertInstanceOf(error, SearchLimitExceededError);
+    });
+
+    it("returns undefined after an explicit finite search", () => {
+      // Given a rule with no intervals and a one-day search.
+      // When the finite range is searched.
+      const found = nextCoveredInterval(
+        { type: "never" },
+        inWindow("2026-03-09T10:00"),
+        { within: Temporal.Duration.from({ days: 1 }) },
+      );
+
+      // Then the exhausted range has no result.
+      assertUndefined(found);
+    });
+
     it("finds the next opening", () => {
       // Given six in the morning, before the day starts.
       // When the next opening is asked for.
-      const found = next(open(), inWindow("2026-03-09T06:00"));
+      const found = nextCoveredInterval(open(), inWindow("2026-03-09T06:00"));
 
       // Then it is nine that same morning.
       assertIdentical(
@@ -119,7 +165,7 @@ describe("asking a rule questions", () => {
     it("says it is open now, rather than skipping to tomorrow", () => {
       // Given a moment inside opening hours.
       // When the next opening is asked for.
-      const found = next(open(), inWindow("2026-03-09T10:00"));
+      const found = nextCoveredInterval(open(), inWindow("2026-03-09T10:00"));
 
       // Then the answer begins where the asking did.
       assertIdentical(
@@ -131,7 +177,7 @@ describe("asking a rule questions", () => {
     it("crosses the weekend", () => {
       // Given a Saturday morning.
       // When the next opening is asked for.
-      const found = next(open(), inWindow("2026-03-14T10:00"));
+      const found = nextCoveredInterval(open(), inWindow("2026-03-14T10:00"));
 
       // Then it is Monday, two days of nothing later.
       assertIdentical(
@@ -143,7 +189,7 @@ describe("asking a rule questions", () => {
     it("finds nothing within a search that is too short", () => {
       // Given a Saturday morning and twelve hours to look in.
       // When the next opening is asked for.
-      const found = next(open(), inWindow("2026-03-14T10:00"), {
+      const found = nextCoveredInterval(open(), inWindow("2026-03-14T10:00"), {
         within: Temporal.Duration.from({ hours: 12 }),
       });
 
@@ -157,7 +203,7 @@ describe("asking a rule questions", () => {
       const saturdayMorning = inWindow("2026-03-14T10:00", "2026-03-14T12:00");
 
       // When a week of horizon is offered on top of it.
-      const found = next(open(), saturdayMorning, {
+      const found = nextCoveredInterval(open(), saturdayMorning, {
         within: Temporal.Duration.from({ days: 7 }),
       });
 
@@ -169,7 +215,7 @@ describe("asking a rule questions", () => {
     it("finds it once the search is long enough", () => {
       // Given the same Saturday morning and three days to look in.
       // When the next opening is asked for.
-      const found = next(open(), inWindow("2026-03-14T10:00"), {
+      const found = nextCoveredInterval(open(), inWindow("2026-03-14T10:00"), {
         within: Temporal.Duration.from({ days: 3 }),
       });
 
@@ -258,17 +304,17 @@ describe("asking a rule questions", () => {
       );
     });
 
-    it("moves to the next opening when nothing is asked for and it is shut", () => {
+    it("stays put when nothing is asked for and it is shut", () => {
       // Given no work at all, asked on a Saturday.
       // When it is advanced through.
-      // Then the answer is the next moment that counts at all.
+      // Then zero keeps its identity and the answer is where it started.
       const reached = advanceBy(when("2026-03-14T10:00"), hours(0), {
         during: open(),
       });
 
       assertIdentical(
         reached?.toPlainDateTime().toString(),
-        "2026-03-16T09:00:00",
+        "2026-03-14T10:00:00",
       );
     });
 

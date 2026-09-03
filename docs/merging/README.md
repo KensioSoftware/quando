@@ -11,7 +11,7 @@ Use a merge strategy to define how overlapping values combine.
 ## Default override behaviour
 
 ```ts
-import { cascade, dates, layer, resolve, weekdays } from "@kensio/quando";
+import { cascade, dates, layer, resolve, weekdays } from "@kensio/quando/core";
 
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -35,8 +35,8 @@ The second layer replaces the first on Wednesday, so the result is two.
 
 ## Count with `tally`
 
-A `Tally` is a `Cascade<number>` that adds overlapping values. Its methods use
-terms suited to counts:
+A `Tally` is a façade over a summing `Cascade<number>`. Its methods use terms
+suited to counts:
 
 ```ts
 import { tally, weekdays, weekends } from "@kensio/quando";
@@ -121,7 +121,7 @@ need `sum`, `max`, `min`, or `concat` without the `Tally` methods.
 Pass the strategy name as the first argument to `merged`:
 
 ```ts
-import { dates, layer, merged, resolve, weekdays } from "@kensio/quando";
+import { dates, layer, merged, resolve, weekdays } from "@kensio/quando/core";
 
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -152,7 +152,7 @@ the stream remains lazy.
 ## `max` and `min`
 
 ```ts
-import { dates, layer, merged, resolve, weekdays } from "@kensio/quando";
+import { dates, layer, merged, resolve, weekdays } from "@kensio/quando/core";
 
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -183,7 +183,7 @@ Use `max` to keep the larger number and `min` to keep the smaller number.
 Use `concat` to join overlapping arrays:
 
 ```ts
-import { dates, layer, merged, resolve, weekdays } from "@kensio/quando";
+import { dates, layer, merged, resolve, weekdays } from "@kensio/quando/core";
 
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -215,7 +215,7 @@ Merge strategies are stored in cascade JSON. A JavaScript function cannot be
 stored in JSON, so cascades use strategy names.
 
 The strategy names form a fixed set. Therefore,
-[`parseCascade`](../serialisation/#parse-values-with-parsecascade)
+[`parseCascade`](../serialisation/#cascades)
 rejects unknown strategies.
 
 ## Merge around replacement layers
@@ -227,37 +227,27 @@ Layers above the replacement still merge with it.
 
 ## Merge strategies validate their values
 
-`parseCascade` validates the strategy name. `resolve` validates the values when
-two layers overlap. A `sum` strategy over strings therefore fails during
-resolution:
+The `merged` overloads connect each strategy to its value type. TypeScript
+rejects string layers passed to `sum` and scalar layers passed to `concat`.
+
+`parseCascade` applies the same check to stored documents before resolution:
 
 ```ts
-import { dates, layer, merged, resolve, weekdays } from "@kensio/quando";
+import { asString, parseCascade } from "@kensio/quando/parsing";
 
-const week = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-};
-
-const onCall = merged(
-  "sum",
-  layer(weekdays(), "alice"),
-  layer(dates("2026-03-11"), "bob"),
+parseCascade(
+  {
+    type: "cascade",
+    merge: "sum",
+    layers: [{ scope: { type: "always" }, value: "alice" }],
+  },
+  asString,
 );
-
-try {
-  [...resolve(onCall, week)];
-} catch (error) {
-  console.log(String(error));
-}
 ```
 
 ```text
-TypeError: A cascade merging by "sum" carries numbers, and this one holds string. Give it values it can combine, or merge by "override".
+TypeError: cascade.layers[0].value: sum needs numbers.
 ```
-
-The error occurs only where incompatible values overlap. A `sum` cascade with
-non-overlapping string values can resolve without an error.
 
 <!-- card
 ```ts

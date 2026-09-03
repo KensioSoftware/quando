@@ -14,6 +14,7 @@
 
 import { asDates, asDays, asTime, zonePart } from "./parse-fields.js";
 import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
+import { build, type Built } from "./build.js";
 import type { Rule } from "./rule.js";
 
 /**
@@ -26,6 +27,7 @@ const FIELDS = new Map<string, readonly string[]>([
   ["daysOfWeek", ["days", "zone"]],
   ["timeOfDay", ["from", "to", "zone"]],
   ["dates", ["dates", "zone"]],
+  ["inZone", ["zone", "rule"]],
   ["all", ["rules"]],
   ["any", ["rules"]],
   ["not", ["rule"]],
@@ -35,7 +37,7 @@ function asRules(value: unknown, path: string): Rule[] {
   if (!Array.isArray(value)) {
     return fail(path, `expected an array of rules, found ${shapeOf(value)}`);
   }
-  return value.map((rule, index) => parseRule(rule, `${path}[${index}]`));
+  return value.map((rule, index) => parseRuleData(rule, `${path}[${index}]`));
 }
 
 /**
@@ -44,7 +46,7 @@ function asRules(value: unknown, path: string): Rule[] {
  * The `path` is what appears in front of every message, so a rule nested six
  * deep reports as `rule.rules[2].rules[0].days[3]` rather than as a puzzle.
  */
-export function parseRule(value: unknown, path = "rule"): Rule {
+function parseRuleData(value: unknown, path: string): Rule {
   const node = asRecord(value, path, "a rule object");
   const type = node["type"];
 
@@ -87,11 +89,28 @@ export function parseRule(value: unknown, path = "rule"): Rule {
     }
 
     case "timeOfDay": {
+      const from = asTime(node["from"], `${path}.from`);
+      const to = asTime(node["to"], `${path}.to`);
+      if (Temporal.PlainTime.compare(from, to) === 0) {
+        return fail(path, "a time-of-day window must have different endpoints");
+      }
       return {
         type: "timeOfDay",
-        from: asTime(node["from"], `${path}.from`),
-        to: asTime(node["to"], `${path}.to`),
+        from,
+        to,
         ...zonePart(node, path),
+      };
+    }
+
+    case "inZone": {
+      const part = zonePart(node, path);
+      if (part.zone === undefined) {
+        return fail(`${path}.zone`, "expected a time zone");
+      }
+      return {
+        type: "inZone",
+        zone: part.zone,
+        rule: parseRuleData(node["rule"], `${path}.rule`),
       };
     }
 
@@ -104,7 +123,15 @@ export function parseRule(value: unknown, path = "rule"): Rule {
     }
 
     default: {
-      return { type: "not", rule: parseRule(node["rule"], `${path}.rule`) };
+      return {
+        type: "not",
+        rule: parseRuleData(node["rule"], `${path}.rule`),
+      };
     }
   }
+}
+
+/** A validated rule with fluent composition methods restored. */
+export function parseRule(value: unknown, path = "rule"): Built<Rule> {
+  return build(parseRuleData(value, path));
 }

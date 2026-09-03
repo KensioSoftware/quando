@@ -138,6 +138,24 @@ describe("parsing a cascade from JSON", () => {
   });
 
   describe("the merge strategy", () => {
+    it("checks strategy values while parsing", () => {
+      // Given a stored sum whose value is a name.
+      const document = {
+        type: "cascade",
+        merge: "sum",
+        layers: [{ scope: { type: "always" }, value: "alice" }],
+      };
+
+      // When it is parsed.
+      const error = assertThrowsError(() => parseCascade(document, asString));
+
+      // Then the mismatch is reported before resolution.
+      assertIdentical(
+        error.message,
+        "cascade.layers[0].value: sum needs numbers.",
+      );
+    });
+
     it("round trips a cascade that names one", () => {
       // Given a roster of headcounts whose overlaps add.
       const staff = merged("sum", layer(weekdays(), 3), layer(weekends(), 1));
@@ -260,8 +278,10 @@ describe("parsing a cascade from JSON", () => {
       // Given a layer built with `undefined` as its value. `JSON.stringify`
       // drops the field rather than writing it, so what is stored has a scope
       // and nothing else.
-      const unassigned = cascade(layer(weekdays(), undefined));
-      const document = stored(unassigned);
+      const document = {
+        type: "cascade",
+        layers: [{ scope: weekdays() }],
+      };
 
       // When it is parsed.
       // Then it is refused, and the message names the cause rather than
@@ -315,8 +335,8 @@ describe("parsing a cascade from JSON", () => {
           layers: [{ scope: { type: "weekdays" }, value: "alice" }],
         }),
         'cascade.layers[0].scope.type: "weekdays" is not a rule type. ' +
-          "Expected one of always, never, daysOfWeek, timeOfDay, dates, all, " +
-          "any, not",
+          "Expected one of always, never, daysOfWeek, timeOfDay, dates, inZone, " +
+          "all, any, not",
       );
     });
 

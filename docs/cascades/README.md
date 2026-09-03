@@ -20,7 +20,7 @@ A rule only describes covered and uncovered time. This keeps operations such as
 ## A rota
 
 ```ts
-import { cascade, dates, layer, resolve, weekdays } from "@kensio/quando";
+import { cascade, dates, layer, resolve, weekdays } from "@kensio/quando/core";
 
 const onCall = cascade(
   layer(weekdays(), "alice"),
@@ -55,7 +55,7 @@ Array order sets precedence. The specificity of a scope has no effect. This
 example reverses the two layers:
 
 ```ts
-import { cascade, dates, layer, resolve, weekdays } from "@kensio/quando";
+import { cascade, dates, layer, resolve, weekdays } from "@kensio/quando/core";
 
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -87,7 +87,7 @@ A cascade can leave time unassigned. `resolve` omits periods that no layer
 covers:
 
 ```ts
-import { cascade, layer, resolve, weekdays } from "@kensio/quando";
+import { cascade, layer, resolve, weekdays } from "@kensio/quando/core";
 
 const onCall = cascade(layer(weekdays(), "alice"));
 
@@ -127,7 +127,7 @@ import {
   resolve,
   timeOfDay,
   weekdays,
-} from "@kensio/quando";
+} from "@kensio/quando/core";
 
 const openingHours = cascade(
   layer(all(weekdays(), timeOfDay("09:00", "17:00")), true),
@@ -164,7 +164,7 @@ Pass a cascade when you need another value type.
 ## Touching intervals with one value are one interval
 
 ```ts
-import { cascade, daysOfWeek, layer, resolve } from "@kensio/quando";
+import { cascade, daysOfWeek, layer, resolve } from "@kensio/quando/core";
 
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -205,7 +205,7 @@ import {
   replace,
   timeOfDay,
   weekdays,
-} from "@kensio/quando";
+} from "@kensio/quando/core";
 
 const openingHours = cascade(
   layer(weekdays(), true),
@@ -257,8 +257,8 @@ console.log(JSON.stringify(openingHours, null, 2));
 }
 ```
 
-Constant and replacing layers use separate `value` and `replace` fields. This
-lets a cascade safely use another cascade or a rule as a domain value.
+Constant and replacing layers use separate `value` and `replace` fields. A
+replacement cascade has distinct semantics from a constant JSON value.
 
 ## Endless cascades
 
@@ -273,7 +273,7 @@ import {
   take,
   timeOfDay,
   weekdays,
-} from "@kensio/quando";
+} from "@kensio/quando/core";
 
 const onCall = cascade(layer(weekdays(), "alice"));
 
@@ -292,8 +292,8 @@ for (const { start, value } of take(resolve(onCall, endless), 2)) {
 ```
 
 A cascade that never assigns a value can search forever in an unbounded
-context. Set `to` when the cascade may produce no result. See
-[query termination](../queries/#termination).
+context. Set `to` when the cascade may produce no result. High-level queries
+apply their own [search limits](../queries/#search-limits).
 
 ## Asking a cascade the four questions
 
@@ -309,12 +309,12 @@ import {
   assigned,
   cascade,
   dates,
-  elapsed,
+  coveredDuration,
   layer,
-  next,
+  nextCoveredInterval,
   weekdays,
   weekends,
-} from "@kensio/quando";
+} from "@kensio/quando/core";
 
 const onCall = cascade(
   layer(weekdays(), "alice"),
@@ -332,9 +332,11 @@ const wednesday = Temporal.ZonedDateTime.from(
 );
 
 console.log(activeAt(assigned(onCall, "carol"), wednesday));
-console.log(elapsed(assigned(onCall, "alice"), week).toString());
+console.log(coveredDuration(assigned(onCall, "alice"), week).toString());
 console.log(
-  next(assigned(onCall, "bob"), { from: tuesday })?.start?.toString(),
+  nextCoveredInterval(assigned(onCall, "bob"), {
+    from: tuesday,
+  })?.start?.toString(),
 );
 console.log(
   advanceBy(tuesday, Temporal.Duration.from({ hours: 8 }), {
@@ -370,7 +372,7 @@ import {
   valueAt,
   weekdays,
   weekends,
-} from "@kensio/quando";
+} from "@kensio/quando/core";
 
 const onCall = cascade(
   layer(weekdays(), "alice"),
