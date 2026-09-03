@@ -120,6 +120,19 @@ function advanceBy<V>(
   amount: Temporal.Duration,
   options: { during: Covers<V> } & Search & Omit<Context, "from" | "to">,
 ): Temporal.ZonedDateTime | undefined;
+
+function firstGap<V>(
+  covers: Covers<V>,
+  lasting: Temporal.Duration,
+  context: Context,
+  search?: Pick<Search, "within">,
+): Interval | undefined;
+
+function slots<V>(
+  covers: Covers<V>,
+  context: Context,
+  options: SlotOptions,
+): IntervalStream;
 ```
 
 `Covers<V>` accepts a rule, a boolean cascade, or the result of
@@ -130,11 +143,17 @@ interface Search {
   readonly within?: Temporal.Duration;
   readonly complete?: boolean;
 }
+
+interface SlotOptions {
+  readonly every: Temporal.Duration;
+  readonly lasting: Temporal.Duration;
+}
 ```
 
-`nextCoveredInterval` and `advanceBy` apply `DEFAULT_SEARCH_LIMIT` when no
-finite end is supplied. They throw `SearchLimitExceededError` if they exhaust
-that automatic limit.
+`nextCoveredInterval`, `firstGap`, and `advanceBy` apply
+`DEFAULT_SEARCH_LIMIT` when no finite end is supplied. They throw
+`SearchLimitExceededError` if they exhaust that automatic limit. `slots`
+returns a lazy stream and adds no limit.
 
 ### Comparison and JSON types
 

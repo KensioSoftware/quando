@@ -23,6 +23,9 @@ export {
 export { canonical, equals, fingerprint } from "./canonical.js";
 export { parseRule } from "./parse.js";
 
+export type { SlotOptions } from "./availability.js";
+export { firstGap, slots } from "./availability.js";
+
 export type { Schedule, ScheduleData, ScheduleOptions } from "./schedule.js";
 export { parseSchedule, schedule } from "./schedule.js";
 export type { Rota, RotaData } from "./rota.js";
