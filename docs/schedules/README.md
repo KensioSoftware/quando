@@ -9,20 +9,22 @@ time. Both APIs use ordered methods, with later calls taking precedence.
 import { schedule, weekdays } from "@kensio/quando";
 
 const openingHours = schedule({ zone: "Europe/London" })
-  .open(weekdays(), "09:00-17:00")
-  .closed("2026-03-10")
-  .hoursOn("2026-03-11", "09:00-15:00");
+  .open(weekdays(), "09:00-17:00", { label: "Regular office hours" })
+  .closed("2026-03-10", { label: "Staff training day" })
+  .hoursOn("2026-03-11", "09:00-15:00", {
+    comment: "The office closes early for a team meeting.",
+  });
 ```
 
 The first method sets the usual weekday hours. The second closes Tuesday. The
 third replaces Wednesday's usual hours with a shorter day.
 
-| Method                 | Effect                                             |
-| ---------------------- | -------------------------------------------------- |
-| `.open(scope)`         | Opens for the whole scope                          |
-| `.open(scope, hours)`  | Opens during the hours inside the scope            |
-| `.closed(scope)`       | Closes the whole scope                             |
-| `.hoursOn(day, hours)` | Replaces all earlier hours inside the day or scope |
+| Method                           | Effect                                             |
+| -------------------------------- | -------------------------------------------------- |
+| `.open(scope, options?)`         | Opens for the whole scope                          |
+| `.open(scope, hours, options?)`  | Opens during the hours inside the scope            |
+| `.closed(scope, options?)`       | Closes the whole scope                             |
+| `.hoursOn(day, hours, options?)` | Replaces all earlier hours inside the day or scope |
 
 A scope can be a rule or a date string such as `"2026-03-10"`. Hours can be a
 rule or a range such as `"09:00-17:00"`.
@@ -77,7 +79,7 @@ openingHours.changesTo(
 | Method                                   | Returns                                     |
 | ---------------------------------------- | ------------------------------------------- |
 | `.isOpen(at)`                            | Whether the schedule is open at `at`        |
-| `.explain(at)`                           | The value and matching layers at `at`       |
+| `.explain(at)`                           | The value and reasons at `at`               |
 | `.opensNext(at, search?)`                | The current or next complete opening        |
 | `.firstOpenSlot(from, lasting, search?)` | The first opening long enough for a slot    |
 | `.openSlots(from, to, options)`          | Candidate slots inside a finite window      |
@@ -132,9 +134,10 @@ time available only in `openingHours`.
 time is normal schedule output. Validation reports layer problems only. See
 [validation](../validation/) for diagnostic codes and window selection.
 
-`explain` shows why the schedule is open or closed at one instant. The
-[explanations guide](../explanations/) covers matching layers, replacements,
-and the result shape.
+`explain` returns a readable summary of why the schedule is open or closed. It
+describes each rule match and the effect of layer priority automatically.
+Optional labels and comments add business context. The
+[explanations guide](../explanations/) covers the complete result.
 
 ## Build a rota
 
@@ -158,14 +161,14 @@ console.log(onCall.whoIsOn(monday));
 alice
 ```
 
-| Method                  | Returns or effect                      |
-| ----------------------- | -------------------------------------- |
-| `.assign(scope, value)` | Adds an assignment                     |
-| `.swap(day, value)`     | Adds a higher-priority assignment      |
-| `.whoIsOn(at)`          | The assigned value, or `undefined`     |
-| `.explain(at)`          | The value and matching layers at `at`  |
-| `.shifts(from, to?)`    | A lazy stream of assigned intervals    |
-| `.validate(from, to)`   | Diagnostics, including unassigned time |
+| Method                            | Returns or effect                      |
+| --------------------------------- | -------------------------------------- |
+| `.assign(scope, value, options?)` | Adds an assignment                     |
+| `.swap(day, value, options?)`     | Adds a higher-priority assignment      |
+| `.whoIsOn(at)`                    | The assigned value, or `undefined`     |
+| `.explain(at)`                    | The assignment and reasons at `at`     |
+| `.shifts(from, to?)`              | A lazy stream of assigned intervals    |
+| `.validate(from, to)`             | Diagnostics, including unassigned time |
 
 `assign` and `swap` both append a value layer. Their names express the usual
 intent. Method order determines the result.

@@ -1,5 +1,6 @@
 import type { Cascade, Layer } from "./cascade.js";
 import { assertJsonValue } from "./json.js";
+import { layerOptionsOf } from "./layer-options.js";
 import { MERGE_STRATEGIES, type MergeStrategy } from "./merge.js";
 import { fail, shapeOf } from "./parse-shape.js";
 
@@ -28,6 +29,7 @@ export function parseMerge(
 export function checkCascadeValues<V>(cascade: Cascade<V>, path: string): void {
   cascade.layers.forEach((layer, index) => {
     const layerPath = `${path}.layers[${index}]`;
+    layerOptionsOf(layer, layerPath);
     if ("replace" in layer) {
       checkCascadeValues(layer.replace, `${layerPath}.replace`);
     } else {

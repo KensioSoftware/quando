@@ -1,5 +1,6 @@
 import type { Cascade } from "./cascade.js";
 import type { DefaultExplanation } from "./explain.js";
+import type { LayerOptions } from "./layer-options.js";
 import type { PlainRule } from "./plain-forms.js";
 import type { ValidationDiagnostic } from "./semantic-validation.js";
 import type { ValuedStream } from "./valued-stream.js";
@@ -15,8 +16,16 @@ export type TallyExplanation = DefaultExplanation<number>;
 
 /** Counts over time with methods for tally questions. */
 export interface Tally extends TallyData {
-  readonly plus: (scope: PlainRule, amount: number) => Tally;
-  readonly exactly: (scope: PlainRule, amount: number) => Tally;
+  readonly plus: (
+    scope: PlainRule,
+    amount: number,
+    options?: LayerOptions,
+  ) => Tally;
+  readonly exactly: (
+    scope: PlainRule,
+    amount: number,
+    options?: LayerOptions,
+  ) => Tally;
   readonly at: (at: Temporal.ZonedDateTime) => number;
   readonly explain: (at: Temporal.ZonedDateTime) => TallyExplanation;
   readonly least: (

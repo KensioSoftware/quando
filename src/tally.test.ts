@@ -11,7 +11,7 @@ import { describe, it } from "vitest";
 
 import { weekdays, weekends } from "./build.js";
 import { equals } from "./canonical.js";
-import { cascade, layer, merged } from "./cascade.js";
+import { cascade, layer, merged, replace } from "./cascade.js";
 import { parseTally, tally } from "./tally.js";
 
 describe("counting how many are on", () => {
@@ -135,6 +135,26 @@ describe("counting how many are on", () => {
         ),
         [3, 5],
       );
+      assertStringIncludes(explanation.summary, "Wednesday is a weekday.");
+      assertStringIncludes(explanation.summary, "This layer adds 2.");
+      assertStringIncludes(explanation.summary, "The running total is 5.");
+    });
+
+    it("uses tally labels and comments in an explanation", () => {
+      // Given normal staffing with labelled extra cover.
+      const staff = tally().plus(weekdays(), 3).plus("2026-03-11", 2, {
+        label: "Delivery cover",
+        comment: "Two people cover the Wednesday delivery.",
+      });
+
+      // When the Wednesday total is explained.
+      const explanation = staff.explain(wednesday);
+
+      // Then the business reason accompanies the automatic contribution details.
+      assertIdentical(explanation.steps[1]?.label, "Delivery cover");
+      assertStringIncludes(explanation.summary, "Delivery cover.");
+      assertStringIncludes(explanation.summary, "Wednesday delivery.");
+      assertStringIncludes(explanation.summary, "This layer adds 2.");
     });
 
     it("explains uncovered time as the tally default", () => {
@@ -147,6 +167,25 @@ describe("counting how many are on", () => {
       // Then the tally reports zero with no contributing lines.
       assertIdentical(explanation.value, 0);
       assertArrayEquals(explanation.steps, []);
+    });
+
+    it("uses zero in an empty nested replacement explanation", () => {
+      // Given a stored tally with an empty weekday replacement.
+      const empty = cascade<number>();
+      const storedReplacement = replace(weekdays(), empty);
+      const staff = parseTally({
+        type: "tally",
+        cascade: merged("sum", storedReplacement),
+      });
+
+      // When a weekday is explained.
+      const explanation = staff.explain(wednesday);
+      const replacement = explanation.steps[0];
+
+      // Then both the tally and its nested explanation use the zero default.
+      assertIdentical(explanation.value, 0);
+      assertIdentical(replacement?.type, "replacement");
+      assertStringIncludes(replacement.explanation.summary, "The total is 0");
     });
   });
 

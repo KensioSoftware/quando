@@ -1,8 +1,9 @@
 import { valueAt } from "./assigned.js";
 import { always } from "./build.js";
 import { cascade, type Layer, layer, replace } from "./cascade.js";
-import { explain, withDefaultValue } from "./explain.js";
+import { explainTally } from "./explain.js";
 import { withMethods } from "./fluent.js";
+import type { LayerOptions } from "./layer-options.js";
 import { parseCascade } from "./parse-cascade.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
 import { resolve } from "./resolve.js";
@@ -19,10 +20,14 @@ function amount(value: number): number {
   return value;
 }
 
-function fixed(scope: PlainRule, value: number): Layer<number> {
+function fixed(
+  scope: PlainRule,
+  value: number,
+  options: LayerOptions | undefined,
+): Layer<number> {
   const constant = layer(always(), amount(value));
   const replacement = cascade(constant);
-  return replace(asDays(scope), replacement);
+  return replace(asDays(scope), replacement, options);
 }
 
 function build(data: TallyData): Tally {
@@ -37,12 +42,12 @@ function build(data: TallyData): Tally {
     });
 
   return withMethods(data, {
-    plus: (scope: PlainRule, value: number) =>
-      append(layer(asDays(scope), amount(value))),
-    exactly: (scope: PlainRule, value: number) => append(fixed(scope, value)),
+    plus: (scope: PlainRule, value: number, options?: LayerOptions) =>
+      append(layer(asDays(scope), amount(value), options)),
+    exactly: (scope: PlainRule, value: number, options?: LayerOptions) =>
+      append(fixed(scope, value, options)),
     at: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at) ?? 0,
-    explain: (at: Temporal.ZonedDateTime) =>
-      withDefaultValue(explain(data.cascade, at), 0),
+    explain: (at: Temporal.ZonedDateTime) => explainTally(data.cascade, at),
     least: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>
       leastValue(data.cascade, from, to),
     counts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>

@@ -14,8 +14,11 @@ import { dates, weekdays } from "@kensio/quando";
 import { cascade, layer, resolve } from "@kensio/quando/core";
 
 const onCall = cascade(
-  layer(weekdays(), "alice"),
-  layer(dates("2026-03-11"), "bob"),
+  layer(weekdays(), "alice", { label: "Primary support" }),
+  layer(dates("2026-03-11"), "bob", {
+    label: "Wednesday swap",
+    comment: "Bob is covering Alice's leave.",
+  }),
 );
 
 const week = {
@@ -41,6 +44,10 @@ ordered, non-overlapping, half-open, and reported in the context zone.
 
 Time that has no assigned value is absent from the stream. Add an explicit
 value such as `"nobody"` if your domain needs to represent that state.
+
+The optional third argument to `layer` stores a label, a comment, or both.
+`replace` accepts the same options. Explanations combine this context with an
+automatic account of the rule match and layer effect.
 
 ## Layer order sets priority
 
@@ -124,16 +131,18 @@ import { assigned } from "@kensio/quando/core";
 const aliceTime = coveredDuration(assigned(onCall, "alice"), week);
 ```
 
-Use `explain` to see the matching layers and the result after each one:
+Use `explain` to read why each rule matched and how it changed the result:
 
 ```ts
 import { explain } from "@kensio/quando/core";
 
 const explanation = explain(onCall, now);
+console.log(explanation.summary);
 ```
 
-Replacement steps contain a nested explanation. See
-[explanations](../explanations/) for the result shape and high-level methods.
+Replacement steps contain a nested explanation. `explainRule` describes a rule
+match without a cascade. See [explanations](../explanations/) for the result
+shape and high-level methods.
 
 ## Merge overlapping values
 

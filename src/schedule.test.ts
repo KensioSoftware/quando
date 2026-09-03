@@ -1,6 +1,7 @@
 import { inWindow, render, when } from "#test/intervals.js";
 import {
   assertArrayEmpty,
+  assertArrayLength,
   assertFalse,
   assertIdentical,
   assertInstanceOf,
@@ -73,6 +74,31 @@ describe("a schedule", () => {
     assertTrue(restored.isOpen(when("2026-03-11T10:00")));
   });
 
+  it("keeps explanation labels and comments through storage", () => {
+    // Given labelled opening hours and a commented closure stored as JSON.
+    const original = schedule()
+      .open(weekdays(), "09:00-17:00", { label: "Regular office hours" })
+      .closed("2026-12-25", {
+        label: "Christmas Day",
+        comment: "The office is closed for the public holiday.",
+      });
+
+    // When the stored schedule is restored and Christmas morning is explained.
+    const stored = JSON.stringify(original);
+    const restored = parseSchedule(JSON.parse(stored));
+    const explanation = restored.explain(when("2026-12-25T10:00"));
+
+    // Then both annotations remain in the readable explanation.
+    assertIdentical(explanation.steps[0]?.label, "Regular office hours");
+    assertIdentical(explanation.steps[1]?.label, "Christmas Day");
+    assertIdentical(
+      explanation.steps[1].comment,
+      "The office is closed for the public holiday.",
+    );
+    assertStringIncludes(explanation.summary, "Regular office hours.");
+    assertStringIncludes(explanation.summary, "Christmas Day.");
+  });
+
   it("adds covered time through its own API", () => {
     // Given weekday opening hours and a Monday afternoon start.
     const office = schedule().open(weekdays(), "09:00-17:00");
@@ -92,10 +118,25 @@ describe("a schedule", () => {
 
   it("opens for whole days when given no hours", () => {
     // Given a schedule with days named and no hours inside them.
-    const everyWeekday = schedule().open(weekdays());
+    const everyWeekday = schedule().open(weekdays(), {
+      label: "Twenty-four-hour weekday service",
+    });
 
     // When it is asked about three in the morning on a Monday.
     // Then it is open. A day with no hours given is open for all of it.
+    assertTrue(everyWeekday.isOpen(when("2026-03-09T03:00")));
+    assertIdentical(
+      everyWeekday.explain(when("2026-03-09T03:00")).steps[0]?.label,
+      "Twenty-four-hour weekday service",
+    );
+  });
+
+  it("accepts an empty options object for whole-day opening", () => {
+    // Given a whole-day opening with no explanation fields.
+    const everyWeekday = schedule().open(weekdays(), {});
+
+    // When Monday morning is queried.
+    // Then the empty options object is not mistaken for an hours rule.
     assertTrue(everyWeekday.isOpen(when("2026-03-09T03:00")));
   });
 
@@ -132,16 +173,29 @@ describe("a schedule", () => {
       assertIdentical(explanation.steps[1]?.type, "assignment");
       assertIdentical(explanation.steps[0].path, "layers[0]");
       assertIdentical(explanation.steps[1].path, "layers[1]");
+      assertStringIncludes(
+        explanation.summary,
+        "The schedule is closed on 2026-03-10 at 10:00 in Europe/London.",
+      );
+      assertStringIncludes(explanation.summary, "Tuesday is a weekday.");
+      assertStringIncludes(explanation.summary, "The date is 2026-03-10.");
+      assertStringIncludes(
+        explanation.summary,
+        "changes the schedule from open to closed",
+      );
     });
 
-    it("explains ordinary closed time as having no matching lines", () => {
+    it("explains why ordinary closed time has no matching lines", () => {
       // Given the same schedule.
       // When a Sunday is explained.
       const explanation = asSaid().explain(when("2026-03-15T10:00"));
 
-      // Then the schedule is closed and the trace is empty.
+      // Then the schedule is closed and each rejected line says why.
       assertFalse(explanation.value);
       assertArrayEmpty(explanation.steps);
+      assertArrayLength(explanation.skipped, 3);
+      assertStringIncludes(explanation.summary, "Sunday is not a weekday.");
+      assertStringIncludes(explanation.summary, "This layer does not apply.");
     });
 
     it("keeps the replaced hours on the day they were replaced", () => {
@@ -149,6 +203,26 @@ describe("a schedule", () => {
       // When two in the afternoon on the Wednesday is asked about.
       // Then it is open, inside the replacement hours.
       assertTrue(asSaid().isOpen(when("2026-03-11T14:00")));
+      assertStringIncludes(
+        asSaid().explain(when("2026-03-11T14:00")).summary,
+        "replaces lower-priority schedule layers",
+      );
+    });
+
+    it("explains when overlapping openings keep the schedule open", () => {
+      // Given two opening layers that cover the same time.
+      const overlapping = schedule()
+        .open(weekdays(), "09:00-17:00")
+        .open("2026-03-11", "09:00-12:00");
+
+      // When their overlap is explained.
+      const explanation = overlapping.explain(when("2026-03-11T10:00"));
+
+      // Then the second layer is described as preserving the open state.
+      assertStringIncludes(
+        explanation.summary,
+        "This layer keeps the schedule open.",
+      );
     });
 
     it("does not let the usual hours show through a replaced day", () => {

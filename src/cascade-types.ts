@@ -1,5 +1,6 @@
 import type { Interval } from "./interval.js";
 import type { JsonValue } from "./json.js";
+import type { LayerOptions } from "./layer-options.js";
 import type { MergeStrategy } from "./merge.js";
 import type { Rule } from "./rule.js";
 
@@ -9,13 +10,13 @@ export interface Valued<V> extends Interval {
 }
 
 /** A layer assigning one value across its scope. */
-export interface ConstantLayer<V> {
+export interface ConstantLayer<V> extends LayerOptions {
   readonly scope: Rule;
   readonly value: V;
 }
 
 /** A layer that replaces lower layers throughout its scope. */
-export interface ReplacingLayer<V> {
+export interface ReplacingLayer<V> extends LayerOptions {
   readonly scope: Rule;
   readonly replace: Cascade<V>;
 }

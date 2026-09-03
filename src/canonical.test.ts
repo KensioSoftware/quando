@@ -284,7 +284,10 @@ describe("putting a rule in canonical form", () => {
       const bob = faker.person.firstName();
       const untidyWeek = all(daysOfWeek("friday", "monday"));
       const rota = cascade(
-        layer(untidyWeek, alice),
+        layer(untidyWeek, alice, {
+          label: "Primary support",
+          comment: "Handles Monday and Friday incidents.",
+        }),
         layer(dates("2026-03-11"), bob),
       );
 
@@ -293,7 +296,7 @@ describe("putting a rule in canonical form", () => {
       assertIdentical(
         JSON.stringify(canonical(rota)),
         '{"type":"cascade","layers":[' +
-          `{"scope":{"type":"daysOfWeek","days":["monday","friday"]},"value":"${alice}"},` +
+          `{"scope":{"type":"daysOfWeek","days":["monday","friday"]},"value":"${alice}","label":"Primary support","comment":"Handles Monday and Friday incidents."},` +
           `{"scope":{"type":"dates","dates":["2026-03-11"]},"value":"${bob}"}]}`,
       );
     });
@@ -308,6 +311,20 @@ describe("putting a rule in canonical form", () => {
       // When both are canonicalised.
       // Then they are the same document, because they always meant the same.
       assertTrue(equals(named, silent));
+    });
+
+    it("keeps explanation context in cascade identity", () => {
+      // Given two assignments with the same rule and value but different labels.
+      const primary = cascade(
+        layer(weekdays(), "alice", { label: "Primary support" }),
+      );
+      const escalation = cascade(
+        layer(weekdays(), "alice", { label: "Escalation support" }),
+      );
+
+      // When their complete cascade documents are compared.
+      // Then different explanations make them different definitions.
+      assertFalse(equals(primary, escalation));
     });
 
     it("keeps a merge that changes the answer", () => {

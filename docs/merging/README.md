@@ -14,9 +14,9 @@ A tally adds numeric values that cover the same time:
 import { tally, weekdays, weekends } from "@kensio/quando";
 
 const staff = tally()
-  .plus(weekdays(), 3)
+  .plus(weekdays(), 3, { label: "Usual crew" })
   .plus(weekends(), 1)
-  .plus("2026-03-11", 2);
+  .plus("2026-03-11", 2, { label: "Delivery cover" });
 
 const wednesday = Temporal.ZonedDateTime.from(
   "2026-03-11T11:00[Europe/London]",
@@ -31,15 +31,15 @@ console.log(staff.at(wednesday));
 
 The tally supplies several common operations:
 
-| Method                   | Meaning                               |
-| ------------------------ | ------------------------------------- |
-| `plus(scope, amount)`    | Add an amount                         |
-| `exactly(scope, amount)` | Replace lower values within the scope |
-| `at(instant)`            | Read the amount at one instant        |
-| `explain(instant)`       | Show how matching lines add up        |
-| `least(from, to)`        | Find the lowest amount in a window    |
-| `counts(from, to?)`      | Resolve the valued intervals          |
-| `validate(from, to)`     | Find inactive and shadowed lines      |
+| Method                             | Meaning                               |
+| ---------------------------------- | ------------------------------------- |
+| `plus(scope, amount, options?)`    | Add an amount                         |
+| `exactly(scope, amount, options?)` | Replace lower values within the scope |
+| `at(instant)`                      | Read the amount at one instant        |
+| `explain(instant)`                 | Explain how the matching lines add up |
+| `least(from, to)`                  | Find the lowest amount in a window    |
+| `counts(from, to?)`                | Resolve the valued intervals          |
+| `validate(from, to)`               | Find inactive and shadowed lines      |
 
 `at` and `least` treat unassigned time as zero. `counts` returns assigned
 intervals only. See [explanations](../explanations/) for the trace returned by

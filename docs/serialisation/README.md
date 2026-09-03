@@ -49,13 +49,18 @@ import { parseSchedule, schedule, weekdays } from "@kensio/quando";
 const office = schedule({ zone: "Europe/London" }).open(
   weekdays(),
   "09:00-17:00",
+  {
+    label: "Regular office hours",
+    comment: "Customers can book appointments during these hours.",
+  },
 );
 
 const stored = JSON.stringify(office);
 const restored = parseSchedule(JSON.parse(stored));
 ```
 
-The parsed schedule retains its zone and all schedule methods.
+The parsed schedule retains its zone, methods, labels, and comments. An
+explanation after the round trip uses the same caller-written context.
 
 ## Rotas
 

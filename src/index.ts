@@ -38,7 +38,10 @@ export type {
   Explanation,
   ExplanationStep,
   ReplacementStep,
+  RuleExplanation,
+  SkippedLayer,
 } from "./explain.js";
+export type { LayerOptions } from "./layer-options.js";
 
 export type { SlotOptions } from "./availability.js";
 export { firstGap, slots } from "./availability.js";
