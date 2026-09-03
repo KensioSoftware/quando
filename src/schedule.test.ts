@@ -248,6 +248,27 @@ describe("a schedule", () => {
       );
     });
 
+    it("reports how its opening times change", () => {
+      // Given usual hours and a revision that moves Wednesday one hour later.
+      const before = schedule().open(weekdays(), "09:00-17:00");
+      const after = before.hoursOn("2026-03-11", "10:00-18:00");
+      const from = when("2026-03-11T00:00");
+      const to = when("2026-03-12T00:00");
+
+      // When the old schedule is compared with the revision.
+      const changed = before.changesTo(after, from, to);
+
+      // Then the last hour opened and the first hour closed.
+      assertIdentical(
+        render(changed.opened),
+        "[2026-03-11T17:00:00,2026-03-11T18:00:00)",
+      );
+      assertIdentical(
+        render(changed.closed),
+        "[2026-03-11T09:00:00,2026-03-11T10:00:00)",
+      );
+    });
+
     it("is shut when nothing has been said about it", () => {
       // Given a schedule with nothing said about it at all.
       // When any moment is asked about.

@@ -11,6 +11,12 @@ export interface ScheduleData {
   readonly zone?: string;
 }
 
+/** Opening times added to and removed from a schedule. */
+export interface ScheduleChanges {
+  readonly opened: Iterable<Interval>;
+  readonly closed: Iterable<Interval>;
+}
+
 /** Opening hours with methods for common schedule questions. */
 export interface Schedule extends ScheduleData {
   readonly open: (scope: PlainRule, hours?: PlainRule) => Schedule;
@@ -31,6 +37,11 @@ export interface Schedule extends ScheduleData {
     to: Temporal.ZonedDateTime,
     options: SlotOptions,
   ) => Iterable<Interval>;
+  readonly changesTo: (
+    next: Schedule,
+    from: Temporal.ZonedDateTime,
+    to: Temporal.ZonedDateTime,
+  ) => ScheduleChanges;
   readonly addOpenTime: (
     from: Temporal.ZonedDateTime,
     amount: Temporal.Duration,

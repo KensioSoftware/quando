@@ -20,6 +20,11 @@ The core entry point also exports everything from the root entry point.
 ```ts
 function schedule(options?: { zone?: string }): Schedule;
 function parseSchedule(value: unknown, path?: string): Schedule;
+
+interface ScheduleChanges {
+  readonly opened: Iterable<Interval>;
+  readonly closed: Iterable<Interval>;
+}
 ```
 
 | Method                                  | Result                                      |
@@ -33,6 +38,7 @@ function parseSchedule(value: unknown, path?: string): Schedule;
 | `openSlots(from, to, options)`          | Return candidate opening intervals          |
 | `addOpenTime(from, amount, search?)`    | Advance through open time                   |
 | `openDuration(from, to)`                | Measure open time in a window               |
+| `changesTo(next, from, to)`             | Return newly opened and closed intervals    |
 | `toJSON()`                              | Return the stored schedule data             |
 
 `scope`, `day`, and `hours` accept a `Rule`. They also accept a date string such
@@ -135,6 +141,12 @@ function slots<V>(
   context: Context,
   options: SlotOptions,
 ): IntervalStream;
+
+function coverageChanges<B, A>(
+  before: Covers<B>,
+  after: Covers<A>,
+  context: Context,
+): CoverageChanges;
 ```
 
 `Covers<V>` accepts a rule, a boolean cascade, or the result of
@@ -149,6 +161,11 @@ interface Search {
 interface SlotOptions {
   readonly every: Temporal.Duration;
   readonly lasting: Temporal.Duration;
+}
+
+interface CoverageChanges {
+  readonly added: IntervalStream;
+  readonly removed: IntervalStream;
 }
 ```
 
@@ -213,7 +230,7 @@ half-open, and coalesced.
 
 The core exports these interval operations:
 
-- `clip`, `complement`, `intersect`, and `union`
+- `clip`, `complement`, `difference`, `intersect`, and `union`
 - `contains`, `duration`, and `isEmpty`
 - `compareStarts`, `compareEnds`, `startsBeforeEnd`, and
   `startsAtOrBeforeEnd`

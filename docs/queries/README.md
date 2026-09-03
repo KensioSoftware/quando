@@ -1,6 +1,6 @@
 # Queries
 
-Quando provides six common queries for rules, schedules, and selected cascade
+Quando provides seven common queries for rules, schedules, and selected cascade
 values.
 
 | Function              | Question                                           |
@@ -11,10 +11,12 @@ values.
 | `slots`               | Which fixed-length candidates fit in covered time? |
 | `coveredDuration`     | How much covered time is inside this window?       |
 | `advanceBy`           | Where does an amount of covered time finish?       |
+| `coverageChanges`     | What covered time was added or removed?            |
 
-Schedules can be passed directly to all six functions. They also expose
+Schedules can be passed directly to all seven functions. They also expose
 `isOpen`, `opensNext`, `firstOpenSlot`, `openSlots`, `openDuration`, and
-`addOpenTime` with opening-hours names.
+`addOpenTime` with opening-hours names. Use `changesTo` to compare two
+schedules.
 
 ## Query inputs
 
@@ -208,6 +210,43 @@ const dispatch = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
 });
 ```
 
+## Compare covered time
+
+`coverageChanges` compares two definitions inside a context. `added` contains
+time covered only by the new definition. `removed` contains time covered only
+by the old definition.
+
+```ts
+import { coverageChanges, timeOfDay, weekdays } from "@kensio/quando";
+
+const oldHours = weekdays().and(timeOfDay("09:00", "17:00"));
+const newHours = weekdays().and(timeOfDay("10:00", "18:00"));
+
+const changed = coverageChanges(oldHours, newHours, {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
+});
+```
+
+Both results are lazy interval streams. They compare evaluated coverage, so
+definitions with different document structures can still produce no changes.
+
+For schedules, use opening-hours names:
+
+```ts
+import { schedule, weekdays } from "@kensio/quando";
+
+const oldSchedule = schedule().open(weekdays(), "09:00-17:00");
+const newSchedule = schedule().open(weekdays(), "10:00-18:00");
+const from = Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]");
+const to = Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]");
+
+const { opened, closed } = oldSchedule.changesTo(newSchedule, from, to);
+```
+
+`opened` contains newly open time. `closed` contains time that was open only
+in the old schedule.
+
 ## Bound a search
 
 `nextCoveredInterval`, `firstGap`, and `advanceBy` may need to search for a
@@ -235,7 +274,7 @@ stream to consume.
 ## Query a cascade value
 
 `assigned(cascade, value)` selects the periods that carry one value. The result
-works with all six common queries.
+works with all seven common queries.
 
 ```ts
 import { coveredDuration, rota, weekdays } from "@kensio/quando";

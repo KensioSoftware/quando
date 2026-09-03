@@ -1,8 +1,11 @@
 import {
   advanceBy,
+  type CoverageChanges,
+  coverageChanges,
   firstGap,
   rota,
   schedule,
+  type ScheduleChanges,
   slots,
   weekdays,
 } from "../src/index.js";
@@ -16,6 +19,7 @@ interface Duty {
 const start = Temporal.ZonedDateTime.from("2026-03-09T09:00[Europe/London]");
 const office = schedule().open(weekdays(), "09:00-17:00");
 const halfHour = Temporal.Duration.from({ minutes: 30 });
+const end = start.add({ days: 1 });
 
 advanceBy(start, Temporal.Duration.from({ hours: 1 }), { during: office });
 firstGap(office, halfHour, { from: start });
@@ -33,6 +37,13 @@ office.openSlots(start, start.add({ hours: 1 }), {
   every: Temporal.Duration.from({ minutes: 15 }),
   lasting: halfHour,
 });
+const coverageChange: CoverageChanges = coverageChanges(office, weekdays(), {
+  from: start,
+  to: end,
+});
+const scheduleChange: ScheduleChanges = office.changesTo(office, start, end);
+void coverageChange;
+void scheduleChange;
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
 merged("sum", layer(weekdays(), 2), layer(weekdays(), 3));

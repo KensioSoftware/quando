@@ -65,6 +65,13 @@ openingHours.openDuration(
   Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 );
+
+const revisedHours = openingHours.hoursOn("2026-03-11", "10:00-18:00");
+openingHours.changesTo(
+  revisedHours,
+  Temporal.ZonedDateTime.from("2026-03-11T00:00[Europe/London]"),
+  Temporal.ZonedDateTime.from("2026-03-12T00:00[Europe/London]"),
+);
 ```
 
 | Method                                   | Returns                                     |
@@ -75,6 +82,7 @@ openingHours.openDuration(
 | `.openSlots(from, to, options)`          | Candidate slots inside a finite window      |
 | `.addOpenTime(from, amount, search?)`    | The instant reached after open time elapses |
 | `.openDuration(from, to)`                | The open duration inside a finite window    |
+| `.changesTo(next, from, to)`             | Newly opened and closed intervals           |
 
 `opensNext`, `firstOpenSlot`, and `addOpenTime` search up to 100 years by
 default. Pass a `within` duration when finding no result is an expected
@@ -103,6 +111,20 @@ const afternoonSlots = openingHours.openSlots(
   },
 );
 ```
+
+`changesTo` compares the old schedule with a new one inside a finite window.
+It returns lazy `opened` and `closed` interval streams:
+
+```ts
+const { opened, closed } = openingHours.changesTo(
+  revisedHours,
+  Temporal.ZonedDateTime.from("2026-03-11T00:00[Europe/London]"),
+  Temporal.ZonedDateTime.from("2026-03-12T00:00[Europe/London]"),
+);
+```
+
+`opened` contains time available only in `revisedHours`. `closed` contains
+time available only in `openingHours`.
 
 ## Build a rota
 
