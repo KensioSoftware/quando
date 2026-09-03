@@ -85,8 +85,8 @@ functions answer six questions:
 | `coveredDuration`     | The covered time within a finite window |
 | `advanceBy`           | The result of adding only covered time  |
 
-Schedules can be passed to all six functions. Four also have schedule methods
-with opening-hours names.
+Schedules can be passed to all six functions. Each query also has a schedule
+method with an opening-hours name.
 
 ## Cascades attach values
 

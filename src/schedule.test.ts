@@ -200,6 +200,54 @@ describe("a schedule", () => {
       assertUndefined(next);
     });
 
+    it("finds the first opening that fits a slot", () => {
+      // Given one hour left in Wednesday's shortened opening.
+      const wednesday = when("2026-03-11T14:00");
+      const twoHours = Temporal.Duration.from({ hours: 2 });
+
+      // When a two-hour open slot is requested.
+      const slot = openingHours().firstOpenSlot(wednesday, twoHours);
+
+      // Then it starts at Thursday's opening.
+      assertIdentical(
+        render(slot === undefined ? [] : [slot]),
+        "[2026-03-12T09:00:00,2026-03-12T11:00:00)",
+      );
+    });
+
+    it("bounds an open-slot search with a duration", () => {
+      // Given a Friday evening and a two-hour search horizon.
+      const friday = when("2026-03-13T18:00");
+      const lasting = Temporal.Duration.from({ hours: 1 });
+      const within = Temporal.Duration.from({ hours: 2 });
+
+      // When the first open slot is requested within that horizon.
+      const slot = openingHours().firstOpenSlot(friday, lasting, within);
+
+      // Then Monday's opening is outside the search.
+      assertUndefined(slot);
+    });
+
+    it("produces open slots inside a finite window", () => {
+      // Given the last hour of Wednesday's shortened opening.
+      const from = when("2026-03-11T14:00");
+      const to = when("2026-03-11T16:00");
+
+      // When half-hour slots are requested every fifteen minutes.
+      const found = openingHours().openSlots(from, to, {
+        every: Temporal.Duration.from({ minutes: 15 }),
+        lasting: Temporal.Duration.from({ minutes: 30 }),
+      });
+
+      // Then every fitting slot ends by the three o'clock closure.
+      assertIdentical(
+        render(found),
+        "[2026-03-11T14:00:00,2026-03-11T14:30:00) " +
+          "[2026-03-11T14:15:00,2026-03-11T14:45:00) " +
+          "[2026-03-11T14:30:00,2026-03-11T15:00:00)",
+      );
+    });
+
     it("is shut when nothing has been said about it", () => {
       // Given a schedule with nothing said about it at all.
       // When any moment is asked about.

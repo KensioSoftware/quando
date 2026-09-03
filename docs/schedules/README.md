@@ -59,6 +59,7 @@ const friday = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
 
 openingHours.isOpen(friday);
 openingHours.opensNext(friday.add({ hours: 2 }));
+openingHours.firstOpenSlot(friday, Temporal.Duration.from({ minutes: 30 }));
 openingHours.addOpenTime(friday, Temporal.Duration.from({ hours: 3 }));
 openingHours.openDuration(
   Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -66,15 +67,18 @@ openingHours.openDuration(
 );
 ```
 
-| Method                                | Returns                                     |
-| ------------------------------------- | ------------------------------------------- |
-| `.isOpen(at)`                         | Whether the schedule is open at `at`        |
-| `.opensNext(at, search?)`             | The current or next complete opening        |
-| `.addOpenTime(from, amount, search?)` | The instant reached after open time elapses |
-| `.openDuration(from, to)`             | The open duration inside a finite window    |
+| Method                                   | Returns                                     |
+| ---------------------------------------- | ------------------------------------------- |
+| `.isOpen(at)`                            | Whether the schedule is open at `at`        |
+| `.opensNext(at, search?)`                | The current or next complete opening        |
+| `.firstOpenSlot(from, lasting, search?)` | The first opening long enough for a slot    |
+| `.openSlots(from, to, options)`          | Candidate slots inside a finite window      |
+| `.addOpenTime(from, amount, search?)`    | The instant reached after open time elapses |
+| `.openDuration(from, to)`                | The open duration inside a finite window    |
 
-`opensNext` and `addOpenTime` search up to 100 years by default. Pass a
-`within` duration when finding no result is an expected outcome:
+`opensNext`, `firstOpenSlot`, and `addOpenTime` search up to 100 years by
+default. Pass a `within` duration when finding no result is an expected
+outcome:
 
 ```ts
 const boundedOpening = openingHours.opensNext(friday.add({ hours: 2 }), {
@@ -85,6 +89,20 @@ const boundedOpening = openingHours.opensNext(friday.add({ hours: 2 }), {
 An explicit search returns `undefined` when it finds no answer. The default
 search throws `SearchLimitExceededError` when its safety limit expires. The
 [queries guide](../queries/#bound-a-search) explains the search options.
+
+`openSlots` returns a lazy sequence. `lasting` sets the slot length and `every`
+sets the time between slot starts:
+
+```ts
+const afternoonSlots = openingHours.openSlots(
+  Temporal.ZonedDateTime.from("2026-03-13T14:00[Europe/London]"),
+  Temporal.ZonedDateTime.from("2026-03-13T17:00[Europe/London]"),
+  {
+    every: Temporal.Duration.from({ minutes: 15 }),
+    lasting: Temporal.Duration.from({ minutes: 30 }),
+  },
+);
+```
 
 ## Build a rota
 
