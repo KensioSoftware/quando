@@ -3,6 +3,7 @@ import type { Cascade } from "./cascade.js";
 import type { Interval } from "./interval.js";
 import type { PlainRule } from "./plain-forms.js";
 import type { Search } from "./query.js";
+import type { ValidationDiagnostic } from "./semantic-validation.js";
 
 /** The stored form of opening hours. */
 export interface ScheduleData {
@@ -42,6 +43,10 @@ export interface Schedule extends ScheduleData {
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
   ) => ScheduleChanges;
+  readonly validate: (
+    from: Temporal.ZonedDateTime,
+    to: Temporal.ZonedDateTime,
+  ) => readonly ValidationDiagnostic[];
   readonly addOpenTime: (
     from: Temporal.ZonedDateTime,
     amount: Temporal.Duration,

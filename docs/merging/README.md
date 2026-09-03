@@ -38,6 +38,7 @@ The tally supplies several common operations:
 | `at(instant)`            | Read the amount at one instant        |
 | `least(from, to)`        | Find the lowest amount in a window    |
 | `counts(from, to?)`      | Resolve the valued intervals          |
+| `validate(from, to)`     | Find inactive and shadowed lines      |
 
 `at` and `least` treat unassigned time as zero. `counts` returns assigned
 intervals only.

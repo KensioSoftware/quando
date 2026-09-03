@@ -1,5 +1,6 @@
 import { inWindow, render, when } from "#test/intervals.js";
 import {
+  assertArrayEmpty,
   assertFalse,
   assertIdentical,
   assertInstanceOf,
@@ -267,6 +268,17 @@ describe("a schedule", () => {
         render(changed.closed),
         "[2026-03-11T09:00:00,2026-03-11T10:00:00)",
       );
+    });
+
+    it("validates its layers without treating closed time as a gap", () => {
+      // Given ordinary weekday opening hours with an active exception.
+      const hours = openingHours();
+
+      // When the schedule is validated over its representative week.
+      const diagnostics = hours.validate(WEEK.from, when("2026-03-16T00:00"));
+
+      // Then every layer is active and ordinary closed time is accepted.
+      assertArrayEmpty(diagnostics);
     });
 
     it("is shut when nothing has been said about it", () => {

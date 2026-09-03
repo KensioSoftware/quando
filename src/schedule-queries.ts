@@ -11,6 +11,7 @@ import {
   type Search,
 } from "./query.js";
 import type { Schedule } from "./schedule-types.js";
+import { validate } from "./semantic-validation.js";
 
 type ScheduleQueries = Pick<
   Schedule,
@@ -19,6 +20,7 @@ type ScheduleQueries = Pick<
   | "firstOpenSlot"
   | "openSlots"
   | "changesTo"
+  | "validate"
   | "addOpenTime"
   | "openDuration"
 >;
@@ -50,6 +52,7 @@ export function scheduleQueries(document: Cascade<boolean>): ScheduleQueries {
       const changed = coverageChanges(document, next, { from, to });
       return { opened: changed.added, closed: changed.removed };
     },
+    validate: (from, to) => validate(document, { from, to }),
     addOpenTime: (from, amount, search) =>
       advanceBy(from, amount, { during: document, ...search }),
     openDuration: (from, to) => coveredDuration(document, { from, to }),

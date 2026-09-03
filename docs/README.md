@@ -13,6 +13,7 @@ Read the pages in this order if Quando is new to you:
 3. [Schedules and rotas](schedules/) covers the main domain APIs.
 4. [Rules](rules/) shows how to compose custom time definitions.
 5. [Queries](queries/) explains each question you can ask of a rule or schedule.
+6. [Validation](validation/) finds semantic problems in a finite window.
 
 ## Guides by task
 
@@ -22,6 +23,7 @@ Read the pages in this order if Quando is new to you:
 - [Merging](merging/) introduces tallies and the numeric merge strategies.
 - [Time zones](time-zones/) covers local time and daylight-saving changes.
 - [Serialisation](serialisation/) covers storage, parsing, and validation.
+- [Validation](validation/) finds inactive layers, shadowed layers, and gaps.
 
 ### Custom models
 

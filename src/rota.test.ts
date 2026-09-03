@@ -1,6 +1,7 @@
-import { renderValued, when } from "#test/intervals.js";
+import { render, renderValued, when } from "#test/intervals.js";
 import { faker } from "@faker-js/faker";
 import {
+  assertArrayEmpty,
   assertIdentical,
   assertInstanceOf,
   assertStringIncludes,
@@ -111,6 +112,31 @@ describe("a rota", () => {
         `[2026-03-12T00:00:00,2026-03-14T00:00:00)=${weekday} ` +
         `[2026-03-14T00:00:00,2026-03-16T00:00:00)=${weekend}`,
     );
+  });
+
+  it("reports times when nobody is assigned", () => {
+    // Given a rota that assigns weekdays only.
+    const weekdaysOnly = rota().assign(weekdays(), faker.person.firstName());
+
+    // When the rota is validated over a whole week.
+    const diagnostics = weekdaysOnly.validate(MONDAY, NEXT_MONDAY);
+
+    // Then its uncovered weekend is reported.
+    const gaps = diagnostics.flatMap((diagnostic) =>
+      diagnostic.code === "uncovered-time" ? [diagnostic.interval] : [],
+    );
+    assertIdentical(render(gaps), "[2026-03-14T00:00:00,2026-03-16T00:00:00)");
+  });
+
+  it("accepts a rota that covers its whole validation window", () => {
+    // Given the complete weekday and weekend rota.
+    const { onCall } = anOnCallRota();
+
+    // When it is validated over the week.
+    const diagnostics = onCall.validate(MONDAY, NEXT_MONDAY);
+
+    // Then no problems are found.
+    assertArrayEmpty(diagnostics);
   });
 
   it("runs on for as long as it is asked to", () => {

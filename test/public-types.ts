@@ -7,6 +7,11 @@ import {
   schedule,
   type ScheduleChanges,
   slots,
+  type ValidationDiagnostic,
+  type ValidationOptions,
+  type ValidationWindow,
+  validate,
+  tally,
   weekdays,
 } from "../src/index.js";
 import { layer, merged } from "../src/core.js";
@@ -20,6 +25,8 @@ const start = Temporal.ZonedDateTime.from("2026-03-09T09:00[Europe/London]");
 const office = schedule().open(weekdays(), "09:00-17:00");
 const halfHour = Temporal.Duration.from({ minutes: 30 });
 const end = start.add({ days: 1 });
+const validationWindow: ValidationWindow = { from: start, to: end };
+const validationOptions: ValidationOptions = { requireFullCoverage: true };
 
 advanceBy(start, Temporal.Duration.from({ hours: 1 }), { during: office });
 firstGap(office, halfHour, { from: start });
@@ -44,6 +51,15 @@ const coverageChange: CoverageChanges = coverageChanges(office, weekdays(), {
 const scheduleChange: ScheduleChanges = office.changesTo(office, start, end);
 void coverageChange;
 void scheduleChange;
+const diagnostics: readonly ValidationDiagnostic[] = validate(
+  office,
+  validationWindow,
+  validationOptions,
+);
+office.validate(start, end);
+rota().assign(weekdays(), "alice").validate(start, end);
+tally().plus(weekdays(), 3).validate(start, end);
+void diagnostics;
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
 merged("sum", layer(weekdays(), 2), layer(weekdays(), 3));

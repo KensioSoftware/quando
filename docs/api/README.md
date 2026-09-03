@@ -39,6 +39,7 @@ interface ScheduleChanges {
 | `addOpenTime(from, amount, search?)`    | Advance through open time                   |
 | `openDuration(from, to)`                | Measure open time in a window               |
 | `changesTo(next, from, to)`             | Return newly opened and closed intervals    |
+| `validate(from, to)`                    | Return semantic schedule diagnostics        |
 | `toJSON()`                              | Return the stored schedule data             |
 
 `scope`, `day`, and `hours` accept a `Rule`. They also accept a date string such
@@ -62,6 +63,7 @@ function parseRota<V>(
 | `swap(day, value)`     | Add a replacement assignment for a day   |
 | `whoIsOn(at)`          | Return the assigned value or `undefined` |
 | `shifts(from, to?)`    | Return valued intervals                  |
+| `validate(from, to)`   | Return diagnostics, including rota gaps  |
 | `toJSON()`             | Return the stored rota data              |
 
 ### Tallies
@@ -78,6 +80,7 @@ function parseTally(value: unknown, path?: string): Tally;
 | `at(at)`                 | Return the amount at one instant       |
 | `least(from, to)`        | Return the lowest amount in a window   |
 | `counts(from, to?)`      | Return valued intervals                |
+| `validate(from, to)`     | Return semantic tally diagnostics      |
 | `toJSON()`               | Return the stored tally data           |
 
 ### Rule builders
@@ -181,6 +184,32 @@ rules and cascades.
 
 `JsonValue` describes values that JSON can preserve. `JsonCompatible<T>`
 checks an application type without requiring an index signature.
+
+### Semantic validation
+
+```ts
+function validate(
+  source: Rule | CascadeLike<unknown>,
+  window: ValidationWindow,
+  options?: ValidationOptions,
+): readonly ValidationDiagnostic[];
+
+interface ValidationWindow extends Context {
+  readonly to: Temporal.ZonedDateTime;
+}
+
+interface ValidationOptions {
+  readonly requireFullCoverage?: boolean;
+}
+```
+
+Diagnostic codes are `inactive-rule`, `inactive-layer`, `shadowed-layer`, and
+`uncovered-time`. Layer diagnostics include a cascade-relative `path`.
+Uncovered-time diagnostics include the uncovered `interval`.
+
+The window must be finite. `requireFullCoverage` reports every interval where a
+cascade assigns no value. `Rota.validate` enables it, while `Schedule.validate`
+allows ordinary closed time.
 
 ## Core entry point
 
