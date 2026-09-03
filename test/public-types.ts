@@ -1,4 +1,11 @@
-import { advanceBy, rota, schedule, weekdays } from "../src/index.js";
+import {
+  advanceBy,
+  firstGap,
+  rota,
+  schedule,
+  slots,
+  weekdays,
+} from "../src/index.js";
 import { layer, merged } from "../src/core.js";
 
 interface Duty {
@@ -10,6 +17,15 @@ const start = Temporal.ZonedDateTime.from("2026-03-09T09:00[Europe/London]");
 const office = schedule().open(weekdays(), "09:00-17:00");
 
 advanceBy(start, Temporal.Duration.from({ hours: 1 }), { during: office });
+firstGap(office, Temporal.Duration.from({ minutes: 30 }), { from: start });
+slots(
+  office,
+  { from: start },
+  {
+    every: Temporal.Duration.from({ minutes: 15 }),
+    lasting: Temporal.Duration.from({ minutes: 30 }),
+  },
+);
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
 merged("sum", layer(weekdays(), 2), layer(weekdays(), 3));

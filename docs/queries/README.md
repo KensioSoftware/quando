@@ -1,17 +1,20 @@
 # Queries
 
-Quando provides four common queries for rules, schedules, and selected cascade
+Quando provides six common queries for rules, schedules, and selected cascade
 values.
 
-| Function              | Question                                      |
-| --------------------- | --------------------------------------------- |
-| `activeAt`            | Is this instant covered?                      |
-| `nextCoveredInterval` | What is the current or next covered interval? |
-| `coveredDuration`     | How much covered time is inside this window?  |
-| `advanceBy`           | Where does an amount of covered time finish?  |
+| Function              | Question                                           |
+| --------------------- | -------------------------------------------------- |
+| `activeAt`            | Is this instant covered?                           |
+| `nextCoveredInterval` | What is the current or next covered interval?      |
+| `firstGap`            | Where does a duration fit in covered time?         |
+| `slots`               | Which fixed-length candidates fit in covered time? |
+| `coveredDuration`     | How much covered time is inside this window?       |
+| `advanceBy`           | Where does an amount of covered time finish?       |
 
-Schedules expose the same operations as `isOpen`, `opensNext`,
-`openDuration`, and `addOpenTime`.
+Schedules can be passed directly to all six functions. They also expose
+`isOpen`, `opensNext`, `openDuration`, and `addOpenTime` as methods for the four
+general schedule questions.
 
 ## Query inputs
 
@@ -69,6 +72,72 @@ query answers what is covered from now onward.
 A finite search can clip the end of the returned interval. Pass
 `{ complete: true }` to continue far enough to return the interval's complete
 end.
+
+## Find an available gap
+
+`firstGap` returns the earliest interval of the requested length that fits
+wholly inside covered time. Intersect rules first to find time shared by
+several people.
+
+```ts
+import { firstGap, timeOfDay, weekdays } from "@kensio/quando";
+
+const alice = weekdays().and(timeOfDay("09:00", "17:00"));
+const bob = weekdays().and(timeOfDay("10:00", "16:00"));
+const shared = alice.and(bob);
+
+const gap = firstGap(shared, Temporal.Duration.from({ hours: 2 }), {
+  from: Temporal.ZonedDateTime.from("2026-03-09T13:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-09T18:00[Europe/London]"),
+});
+
+console.log(gap?.start?.toPlainTime().toString());
+console.log(gap?.end?.toPlainTime().toString());
+```
+
+```text
+13:00:00
+15:00:00
+```
+
+The gap begins at the start of the first covered interval long enough to hold
+it. An interval ending exactly when the gap ends is an exact fit.
+
+## Produce booking slots
+
+`slots` lazily emits candidate intervals. `lasting` sets each candidate's
+length and `every` sets the time between candidate starts.
+
+```ts
+import { slots } from "@kensio/quando";
+
+const candidates = slots(
+  shared,
+  {
+    from: Temporal.ZonedDateTime.from("2026-03-09T14:00[Europe/London]"),
+    to: Temporal.ZonedDateTime.from("2026-03-09T15:00[Europe/London]"),
+  },
+  {
+    every: Temporal.Duration.from({ minutes: 15 }),
+    lasting: Temporal.Duration.from({ minutes: 30 }),
+  },
+);
+
+console.log(
+  [...candidates].map((candidate) => candidate.start?.toPlainTime().toString()),
+);
+```
+
+```text
+[ '14:00:00', '14:15:00', '14:30:00' ]
+```
+
+Each covered interval starts its own cadence. Candidates may overlap when
+`every` is shorter than `lasting`. A candidate must fit wholly inside one
+covered interval.
+
+Both durations use exact elapsed time and must be positive. Calendar units
+such as days and months are rejected.
 
 ## Measure covered time
 
@@ -136,8 +205,8 @@ const dispatch = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
 
 ## Bound a search
 
-`nextCoveredInterval` and `advanceBy` may need to search for a future answer.
-When no end is supplied, they apply a 100-year safety limit.
+`nextCoveredInterval`, `firstGap`, and `advanceBy` may need to search for a
+future answer. When no end is supplied, they apply a 100-year safety limit.
 
 If the automatic limit expires, the query throws `SearchLimitExceededError`.
 Pass `within` when finding no answer in a known range is expected:
@@ -155,8 +224,8 @@ An existing `context.to` also provides an explicit limit. When both are
 present, `within` can shorten the context window and cannot extend it.
 
 The low-level `intervals` and `resolve` functions do not add a safety limit.
-They return lazy streams, and the caller decides how much of the stream to
-consume.
+They return lazy streams. `slots` does too. The caller decides how much of a
+stream to consume.
 
 ## Query a cascade value
 
