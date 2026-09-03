@@ -1,19 +1,32 @@
 # Queries
 
-Queries answer common questions about the time a rule or boolean cascade
-covers.
+Quando provides four common queries for rules, schedules, and selected cascade
+values.
 
 | Function              | Question                                      |
 | --------------------- | --------------------------------------------- |
-| `activeAt`            | Does this cover an instant?                   |
+| `activeAt`            | Is this instant covered?                      |
 | `nextCoveredInterval` | What is the current or next covered interval? |
-| `coveredDuration`     | How much covered time falls inside a window?  |
+| `coveredDuration`     | How much covered time is inside this window?  |
 | `advanceBy`           | Where does an amount of covered time finish?  |
 
-Schedules expose the same operations as `isOpen`, `opensNext`, `openDuration`,
-and `addOpenTime`.
+Schedules expose the same operations as `isOpen`, `opensNext`,
+`openDuration`, and `addOpenTime`.
+
+## Query inputs
+
+The standalone functions accept any of these inputs:
+
+- A rule
+- A schedule or another boolean cascade
+- One value selected from a cascade with `assigned`
+
+Every instant is a `Temporal.ZonedDateTime`. A range is a `Context` with
+`from` and optional `to` values.
 
 ## Check an instant
+
+`activeAt` returns whether its input covers one instant.
 
 ```ts
 import { activeAt, timeOfDay, weekdays } from "@kensio/quando";
@@ -28,10 +41,12 @@ console.log(activeAt(office, monday));
 true
 ```
 
-`activeAt` uses half-open interval bounds. Opening time is covered and closing
-time is excluded.
+Coverage is half-open. The opening instant is covered and the closing instant
+is excluded.
 
 ## Find the current or next interval
+
+`nextCoveredInterval` starts searching at `context.from`.
 
 ```ts
 import { nextCoveredInterval } from "@kensio/quando";
@@ -48,11 +63,17 @@ console.log(opening?.start?.toString());
 2026-03-16T09:00:00+00:00[Europe/London]
 ```
 
-When the start lies inside a covered interval, the returned interval starts at
-that instant. Pass `complete: true` to return its real end when a finite search
-window would clip it.
+If `context.from` is already covered, the result begins at that instant. The
+query answers what is covered from now onward.
+
+A finite search can clip the end of the returned interval. Pass
+`{ complete: true }` to continue far enough to return the interval's complete
+end.
 
 ## Measure covered time
+
+`coveredDuration` adds the elapsed length of every covered interval in a
+finite window.
 
 ```ts
 import { coveredDuration } from "@kensio/quando";
@@ -69,9 +90,13 @@ console.log(week.toString());
 PT40H
 ```
 
-`coveredDuration` requires a `to`. It rejects a reversed window.
+This query requires `context.to`. It rejects a reversed window. Durations use
+exact elapsed time, including across clock changes.
 
-## Advance through covered time
+## Add covered time
+
+`advanceBy` moves forward while counting only the time covered by its
+`during` input.
 
 ```ts
 import { advanceBy } from "@kensio/quando";
@@ -89,28 +114,33 @@ console.log(dispatch?.toString());
 2026-03-16T11:55:00+00:00[Europe/London]
 ```
 
-`advanceBy` accepts exact elapsed units from hours down to nanoseconds. It
-rejects years, months, weeks, days, and negative durations. A zero duration
-returns the input instant.
+Five minutes count on Friday. Closed time is skipped, and the remaining time
+finishes on Monday.
 
-Schedules pass directly as `during`:
+The duration may use hours, minutes, seconds, milliseconds, microseconds, and
+nanoseconds. Calendar units are rejected because a day can have 23, 24, or 25
+elapsed hours. Negative durations are also rejected. A zero duration returns
+the starting instant.
+
+Schedules can be passed directly:
 
 ```ts
 import { schedule, weekdays } from "@kensio/quando";
 
 const openingHours = schedule().open(weekdays(), "09:00-17:00");
+
 const dispatch = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
   during: openingHours,
 });
 ```
 
-## Search limits
+## Bound a search
 
-`nextCoveredInterval` and `advanceBy` apply a 100-year safety limit when the
-context has no end and the caller supplies no `within`. They throw
-`SearchLimitExceededError` if the limit expires.
+`nextCoveredInterval` and `advanceBy` may need to search for a future answer.
+When no end is supplied, they apply a 100-year safety limit.
 
-Use `within` when an empty result is expected:
+If the automatic limit expires, the query throws `SearchLimitExceededError`.
+Pass `within` when finding no answer in a known range is expected:
 
 ```ts
 const opening = nextCoveredInterval(office, fridayEvening, {
@@ -118,32 +148,39 @@ const opening = nextCoveredInterval(office, fridayEvening, {
 });
 ```
 
-The result is `undefined` after the explicit range has been searched. An
-existing `context.to` also defines an explicit range. `within` narrows that
-range and never widens it.
+This search returns `undefined` after two hours. It does not throw because the
+caller supplied the limit.
 
-The low-level `intervals` and `resolve` streams remain lazy. An unbounded stream
-is suitable when the caller controls how many values it pulls. Those functions
-live in `@kensio/quando/core`.
+An existing `context.to` also provides an explicit limit. When both are
+present, `within` can shorten the context window and cannot extend it.
 
-## Cascade values
+The low-level `intervals` and `resolve` functions do not add a safety limit.
+They return lazy streams, and the caller decides how much of the stream to
+consume.
 
-Use `assigned` from the core entry point to query one value in a cascade:
+## Query a cascade value
+
+`assigned(cascade, value)` selects the periods that carry one value. The result
+works with all four common queries.
 
 ```ts
 import { coveredDuration, rota, weekdays } from "@kensio/quando";
 import { assigned } from "@kensio/quando/core";
 
 const onCall = rota().assign(weekdays(), "alice");
-const weekContext = {
+const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 };
-const aliceHours = coveredDuration(assigned(onCall, "alice"), weekContext);
+
+const aliceHours = coveredDuration(assigned(onCall, "alice"), week);
 ```
 
-`activeAt`, `nextCoveredInterval`, `coveredDuration`, and `advanceBy` accept a
-rule, a boolean cascade or façade, or an assigned cascade value.
+Values are matched with `Object.is`. An assigned selection is a query input and
+has no stored rule form.
+
+Use `valueAt` and `nextValue` from `@kensio/quando/core` when you want the
+assigned value itself.
 
 <!-- card
 ```ts

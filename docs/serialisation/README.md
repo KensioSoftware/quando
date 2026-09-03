@@ -1,13 +1,16 @@
 # Serialisation
 
-Quando documents use JSON-compatible data. Parsers validate stored data and
-restore fluent methods.
+Quando definitions are JSON-compatible documents. You can store them with
+`JSON.stringify`, read them with `JSON.parse`, and pass the result to a Quando
+parser.
+
+The parsers accept `unknown`. They validate the complete document and restore
+the methods supplied by the builders.
 
 ## Rules
 
-Rule builders attach `.and`, `.or`, and `.except` as non-enumerable methods.
-Data operations see the rule fields only. `structuredClone` and JSON storage
-therefore work without encountering functions.
+Rule builders add `.and`, `.or`, and `.except` as non-enumerable methods.
+JSON storage sees the rule fields without seeing those functions.
 
 ```ts
 import { dates, parseRule, timeOfDay, weekdays } from "@kensio/quando";
@@ -18,11 +21,11 @@ const openingHours = weekdays()
 
 const stored = JSON.stringify(openingHours);
 const restored = parseRule(JSON.parse(stored));
-const withLunch = restored.except(timeOfDay("12:30", "13:30"));
+
+const withLunchBreak = restored.except(timeOfDay("12:30", "13:30"));
 ```
 
-`parseRule` checks the complete document before returning it. Errors include
-the path to the invalid field:
+`parseRule` reports the path to an invalid field:
 
 ```ts
 parseRule({
@@ -38,12 +41,7 @@ parseRule({
 TypeError: rule.rules[0].days[0]: "mondey" is not a day of the week. Expected one of monday, tuesday, wednesday, thursday, friday, saturday, sunday
 ```
 
-Builders and parsers both validate dates, times, equal time endpoints, and time
-zones immediately.
-
 ## Schedules
-
-A schedule stores its domain tag, optional zone, and underlying cascade.
 
 ```ts
 import { parseSchedule, schedule, weekdays } from "@kensio/quando";
@@ -53,30 +51,53 @@ const office = schedule({ zone: "Europe/London" }).open(
   "09:00-17:00",
 );
 
-const restored = parseSchedule(JSON.parse(JSON.stringify(office)));
-
-restored.isOpen(Temporal.ZonedDateTime.from("2026-03-09T10:00[Europe/London]"));
+const stored = JSON.stringify(office);
+const restored = parseSchedule(JSON.parse(stored));
 ```
 
-`parseSchedule` requires a `schedule` document with override semantics. The
-result retains the zone and every schedule method.
+The parsed schedule retains its zone and all schedule methods.
 
 ## Rotas
 
-Rota values belong to the application. `parseRota` accepts a parser for those
-values.
+Rota values belong to your application. Pass a value parser to `parseRota` so
+Quando can validate them.
 
 ```ts
 import { asString, parseRota, rota, weekdays } from "@kensio/quando";
 
 const onCall = rota().assign(weekdays(), "alice");
-const restored = parseRota(JSON.parse(JSON.stringify(onCall)), asString);
-
-restored.assign("2026-03-11", "bob");
+const stored = JSON.stringify(onCall);
+const restored = parseRota(JSON.parse(stored), asString);
 ```
 
-Use `asString` and `asBoolean` for those primitive types. Custom parsers can use
-`fail` from `@kensio/quando/parsing` to produce the same path-based errors.
+`asString` and `asBoolean` cover those primitive types. A custom parser
+receives the value and its path:
+
+```ts
+import { rota, weekdays } from "@kensio/quando";
+import { fail, parseRota, type ValueParser } from "@kensio/quando/parsing";
+
+interface Engineer {
+  readonly id: string;
+}
+
+const asEngineer: ValueParser<Engineer> = (value, path) => {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("id" in value) ||
+    typeof value.id !== "string"
+  ) {
+    return fail(path, "expected an engineer with a string id.");
+  }
+  return { id: value.id };
+};
+
+const storedRota = JSON.stringify(
+  rota<Engineer>().assign(weekdays(), { id: "alice" }),
+);
+const restored = parseRota(JSON.parse(storedRota), asEngineer);
+```
 
 ## Tallies
 
@@ -87,14 +108,14 @@ const staff = tally().plus(weekdays(), 3);
 const restored = parseTally(JSON.parse(JSON.stringify(staff)));
 ```
 
-`parseTally` requires finite numeric values and the `sum` strategy.
+`parseTally` requires finite numbers and a cascade that uses the `sum`
+strategy.
 
 ## Cascades
 
-Low-level cascades use `parseCascade` from the parsing entry point:
+Use `parseCascade` for a low-level cascade. Supply a parser for its values.
 
 ```ts
-import { resolve } from "@kensio/quando/core";
 import { asString, parseCascade } from "@kensio/quando/parsing";
 
 const stored: unknown = {
@@ -107,39 +128,38 @@ const stored: unknown = {
   ],
 };
 
-const cascade = parseCascade(stored, asString);
+const onCall = parseCascade(stored, asString);
 ```
 
-`parseCascade` checks each value for JSON compatibility. It also checks values
-against `sum`, `max`, `min`, and `concat` before resolution starts.
+The parser checks nested replacement cascades and validates values against the
+cascade's merge strategy.
 
-## JSON-compatible values
+## Values that can be stored
 
-The exported `JsonValue` type describes stored values. `JsonCompatible<T>`
-checks application types without requiring an index signature. Constructors
-reject runtime values that JSON cannot preserve.
+`JsonValue` describes the values supported by JSON. `JsonCompatible<T>`
+checks an application type without requiring an index signature.
 
-| Value                           | Result                                       |
-| ------------------------------- | -------------------------------------------- |
-| `undefined`, functions, symbols | Rejected because JSON drops them             |
-| `bigint`                        | Rejected because JSON cannot encode it       |
-| `NaN`, `Infinity`               | Rejected because JSON changes them to `null` |
-| Class instances                 | Rejected because their prototype is lost     |
-| Circular objects                | Rejected because JSON cannot traverse them   |
+Valid values include strings, finite numbers, booleans, `null`, arrays, and
+plain objects. Constructors reject values that JSON would lose or change:
 
-Plain objects, arrays, strings, finite numbers, booleans, and `null` are valid.
+| Value                               | Reason                      |
+| ----------------------------------- | --------------------------- |
+| `undefined`, functions, and symbols | JSON drops them             |
+| `bigint`                            | JSON cannot encode it       |
+| `NaN` and infinity                  | JSON changes them to `null` |
+| Class instances                     | JSON loses their prototype  |
+| Circular objects                    | JSON cannot traverse them   |
+| Symbol-keyed properties             | JSON omits them             |
+| Non-enumerable properties           | JSON omits them             |
 
-## Schema changes
+## Changing a stored format
 
-Parsers reject unknown fields. A misspelt field can otherwise change the
-meaning of a schedule without producing an error. Deploy readers before writers
-when adding a stored field.
+Parsers reject unknown fields. Deploy code that can read a new field before
+deploying code that writes it.
 
 <!-- card
 ```ts
-const restored = parseSchedule(
-  JSON.parse(JSON.stringify(openingHours)),
-);
-restored.isOpen(now);
+const stored = JSON.stringify(openingHours);
+const restored = parseSchedule(JSON.parse(stored));
 ```
 -->

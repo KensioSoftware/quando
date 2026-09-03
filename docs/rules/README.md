@@ -1,320 +1,225 @@
 # Rules
 
-A rule describes a set of times. Five rule types select time. They are
-`always`, `never`, `daysOfWeek`, `timeOfDay`, and `dates`. The `all`, `any`, and
-`not` rule types combine other rules. `inZone` evaluates a rule subtree in a
-named time zone.
+A rule describes the times when something applies. Rules are boolean and carry
+no application value.
 
-Rules are boolean. A moment is either covered or uncovered. Use a
-[cascade](../cascades/) when you need to assign values.
+Use a [schedule](../schedules/) for opening hours or a
+[cascade](../cascades/) when you need values such as names and prices.
 
-## Reading a rule
-
-Call `intervals(rule, context)` to read a rule. The context sets the start and
-optional end of the evaluation window:
+## Build a rule
 
 ```ts
-import { always, intervals, never } from "@kensio/quando/core";
+import { dates, timeOfDay, weekdays } from "@kensio/quando";
 
-const week = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-};
-
-for (const { start, end } of intervals(always(), week)) {
-  console.log(`${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}`);
-}
-console.log([...intervals(never(), week)].length);
-```
-
-```text
-2026-03-09T00:00:00 → 2026-03-16T00:00:00
-0
-```
-
-The `start` and `end` fields have the type
-`Temporal.ZonedDateTime | undefined`. An undefined `start` means the interval
-extends into the unbounded past. An undefined `end` means it extends into the
-unbounded future.
-
-Intervals are half-open and use the form `[start, end)`. They include the start
-and exclude the end.
-
-## `always` and `never`
-
-`always()` covers all time. Within a bounded context, it returns the context
-window. `never()` returns an empty stream.
-
-These are the identity rules for intersections and unions. `all()` with no
-arguments produces `always()`. `any()` with no arguments produces `never()`.
-
-## `daysOfWeek`
-
-`daysOfWeek` covers whole days selected by weekday. `weekdays()` selects Monday
-through Friday. `weekends()` selects Saturday and Sunday.
-
-```ts
-import { intervals, weekdays } from "@kensio/quando/core";
-
-const fortnight = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-23T00:00[Europe/London]"),
-};
-
-for (const { start, end } of intervals(weekdays(), fortnight)) {
-  console.log(`${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}`);
-}
-```
-
-```text
-2026-03-09T00:00:00 → 2026-03-14T00:00:00
-2026-03-16T00:00:00 → 2026-03-21T00:00:00
-```
-
-Consecutive selected days are coalesced. In this example, each working week is
-one interval from Monday midnight to Saturday midnight. Do not use the number
-of intervals to count days.
-
-`daysOfWeek(...)` accepts weekday names from `"monday"` through `"sunday"`. With
-no arguments, it returns a rule that covers no time.
-
-## `timeOfDay`
-
-`timeOfDay` covers a wall-clock window on each day. The written start and end
-stay fixed across daylight-saving changes. The elapsed duration can change.
-See [time zones](../time-zones/).
-
-When `to` is earlier than `from`, the interval continues past midnight. A night
-shift can therefore use one rule:
-
-```ts
-import { intervals, timeOfDay } from "@kensio/quando/core";
-
-const twoDays = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-11T00:00[Europe/London]"),
-};
-
-for (const { start, end } of intervals(timeOfDay("22:00", "06:00"), twoDays)) {
-  console.log(`${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}`);
-}
-```
-
-```text
-2026-03-09T00:00:00 → 2026-03-09T06:00:00
-2026-03-09T22:00:00 → 2026-03-10T06:00:00
-2026-03-10T22:00:00 → 2026-03-11T00:00:00
-```
-
-The first interval began before the context. The last interval ends after the
-context. `intervals` clips both to the context window.
-
-A window with equal start and end times is invalid. The builder rejects it
-immediately:
-
-```ts
-try {
-  timeOfDay("09:00", "09:00");
-} catch (error) {
-  console.log(String(error));
-}
-```
-
-```text
-RangeError: A time-of-day window must have different endpoints.
-```
-
-The range `09:00` to `09:00` could mean a full day or an empty interval. Quando
-rejects the range. Use `always()` to cover a full day.
-
-Builders and parsers validate time syntax and equal endpoints.
-
-## `dates`
-
-`dates` covers whole calendar dates:
-
-```ts
-import { dates, intervals } from "@kensio/quando/core";
-
-const march = {
-  from: Temporal.ZonedDateTime.from("2026-03-01T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-04-01T00:00[Europe/London]"),
-};
-
-const shutdown = dates("2026-03-16", "2026-03-14", "2026-03-15");
-
-for (const { start, end } of intervals(shutdown, march)) {
-  console.log(`${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}`);
-}
-```
-
-```text
-2026-03-14T00:00:00 → 2026-03-17T00:00:00
-```
-
-Quando sorts the dates and coalesces consecutive dates. The three dates above
-produce one interval ending at midnight on 17 March.
-
-Use `dates` for holidays and other named dates. Quando does not provide calendar
-data. Supply the dates from your application or another package.
-
-## Combining
-
-|       |                                             |
-| ----- | ------------------------------------------- |
-| `all` | intersection. Every rule must apply.        |
-| `any` | union. At least one rule must apply.        |
-| `not` | complement. The source rule must not apply. |
-
-`not` returns the gaps in its source rule:
-
-```ts
-import { intervals, not, timeOfDay } from "@kensio/quando/core";
-
-const day = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
-};
-
-for (const { start, end } of intervals(not(timeOfDay("09:00", "17:00")), day)) {
-  console.log(`${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}`);
-}
-```
-
-```text
-2026-03-09T00:00:00 → 2026-03-09T09:00:00
-2026-03-09T17:00:00 → 2026-03-10T00:00:00
-```
-
-The complement extends beyond both ends of this example. The context clips the
-result to one day.
-
-With no arguments, `all()` covers all time and `any()` covers no time. This is
-useful when you build a combined rule from an array that may be empty.
-
-```ts
-import { all, any, intervals } from "@kensio/quando/core";
-
-const day = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
-};
-
-console.log([...intervals(all(), day)].length);
-console.log([...intervals(any(), day)].length);
-```
-
-```text
-1
-0
-```
-
-## The builder
-
-Every builder returns a rule with non-enumerable `.and`, `.or`, and `.except`
-methods. `parseRule` restores the same methods after storage.
-
-|              |                          |
-| ------------ | ------------------------ |
-| `.and(…)`    | `all(this, …)`           |
-| `.or(…)`     | `any(this, …)`           |
-| `.except(…)` | `all(this, not(any(…)))` |
-
-Use `.except` to remove exceptions such as holidays from another rule:
-
-```ts
-import { dates, intervals, timeOfDay, weekdays } from "@kensio/quando/core";
-
-const openingHours = weekdays()
+const officeHours = weekdays()
   .and(timeOfDay("09:00", "17:00"))
-  .except(dates("2026-03-11"));
+  .except(dates("2026-12-25"));
+```
 
+This rule covers Monday to Friday from 09:00 until 17:00, excluding Christmas
+Day.
+
+Every builder returns a rule that is ready to query, combine, serialise, or
+store. There is no final `.build()` call.
+
+## Rule builders
+
+| Builder                      | Covered time                               |
+| ---------------------------- | ------------------------------------------ |
+| `always()`                   | All time                                   |
+| `never()`                    | No time                                    |
+| `daysOfWeek(...days)`        | Whole days with the selected weekday names |
+| `weekdays()`                 | Monday through Friday                      |
+| `weekends()`                 | Saturday and Sunday                        |
+| `timeOfDay(from, to, zone?)` | A local time range on every day            |
+| `dates(...dates)`            | The selected calendar dates                |
+| `all(...rules)`              | Times covered by every rule                |
+| `any(...rules)`              | Times covered by at least one rule         |
+| `not(rule)`                  | Times outside the rule                     |
+| `inZone(zone, rule)`         | A rule subtree evaluated in one time zone  |
+
+Builders validate their inputs immediately. Invalid weekday names, dates,
+times, and time zones fail where the rule is created.
+
+## Select weekdays
+
+`daysOfWeek` accepts full lowercase weekday names:
+
+```ts
+import { daysOfWeek, weekdays, weekends } from "@kensio/quando";
+
+const deliveries = daysOfWeek("monday", "wednesday", "friday");
+const workingDays = weekdays();
+const restDays = weekends();
+```
+
+Consecutive selected days form one continuous interval. For example,
+`weekdays()` covers Monday midnight through Saturday midnight.
+
+Calling `daysOfWeek()` with no arguments covers no time.
+
+## Select times of day
+
+`timeOfDay` uses local wall-clock time:
+
+```ts
+import { timeOfDay } from "@kensio/quando";
+
+const office = timeOfDay("09:00", "17:00");
+const nightShift = timeOfDay("22:00", "06:00");
+```
+
+An end earlier than the start continues into the next day. The night shift runs
+from 22:00 until 06:00.
+
+Equal endpoints are ambiguous and rejected:
+
+```ts
+timeOfDay("09:00", "09:00");
+// RangeError: A time-of-day window must have different endpoints.
+```
+
+Use `always()` when you mean a full day.
+
+Wall-clock endpoints remain fixed across daylight-saving changes. Their elapsed
+duration may change. See [time zones](../time-zones/).
+
+## Select dates
+
+`dates` covers whole ISO calendar dates:
+
+```ts
+import { dates } from "@kensio/quando";
+
+const bankHolidays = dates("2026-04-03", "2026-04-06", "2026-05-04");
+```
+
+Quando sorts dates, removes duplicates, and joins consecutive dates during
+evaluation. It does not provide holiday data. Pass dates from your application
+or a calendar package.
+
+Calling `dates()` with no arguments covers no time.
+
+## Combine rules
+
+Built rules have `.and`, `.or`, and `.except` methods:
+
+```ts
+const officeHours = weekdays().and(timeOfDay("09:00", "17:00"));
+const supportHours = officeHours.or(
+  weekends().and(timeOfDay("10:00", "14:00")),
+);
+const openWithoutHolidays = supportHours.except(bankHolidays);
+```
+
+The same operations are available as functions:
+
+```ts
+import { all, any, not } from "@kensio/quando";
+
+const officeHours = all(weekdays(), timeOfDay("09:00", "17:00"));
+const supportHours = any(
+  officeHours,
+  all(weekends(), timeOfDay("10:00", "14:00")),
+);
+const openWithoutHolidays = all(supportHours, not(bankHolidays));
+```
+
+The operations use set semantics:
+
+| Operation | Set operation | Meaning                                    |
+| --------- | ------------- | ------------------------------------------ |
+| `and`     | Intersection  | Every rule covers the time                 |
+| `or`      | Union         | At least one rule covers the time          |
+| `except`  | Difference    | The source covers it and exceptions do not |
+
+`all()` with no arguments covers all time. `any()` with no arguments covers
+no time. These identities make it safe to combine an array that may be empty.
+
+## Set a time zone
+
+A rule without an explicit zone follows the zone of the query context.
+`inZone` fixes one rule subtree to a named zone:
+
+```ts
+import { inZone } from "@kensio/quando";
+
+const londonOffice = inZone(
+  "Europe/London",
+  weekdays().and(timeOfDay("09:00", "17:00")),
+);
+```
+
+The weekday and time-of-day parts now use London local time. A nested `inZone`
+can choose a different zone for one child rule.
+
+## Query a rule
+
+The root package provides the common queries:
+
+```ts
+import { activeAt, coveredDuration } from "@kensio/quando";
+
+const monday = Temporal.ZonedDateTime.from("2026-03-09T10:00[Europe/London]");
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 };
 
-for (const { start, end } of intervals(openingHours, week)) {
-  console.log(`${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}`);
+activeAt(officeHours, monday);
+coveredDuration(officeHours, week);
+```
+
+See [queries](../queries/) for checking an instant, finding the next interval,
+measuring covered time, and adding covered time.
+
+## Read intervals directly
+
+The core entry point exposes the interval stream behind a rule:
+
+```ts
+import { intervals } from "@kensio/quando/core";
+
+for (const { start, end } of intervals(officeHours, week)) {
+  console.log(start?.toString(), end?.toString());
 }
 ```
 
-```text
-2026-03-09T09:00:00 → 2026-03-09T17:00:00
-2026-03-10T09:00:00 → 2026-03-10T17:00:00
-2026-03-12T09:00:00 → 2026-03-12T17:00:00
-2026-03-13T09:00:00 → 2026-03-13T17:00:00
-```
+Intervals are ordered, non-overlapping, and half-open. They include `start` and
+exclude `end`. Adjacent intervals are joined.
 
-Wednesday the 11th is gone entirely.
+`start` or `end` may be `undefined` for an interval that extends into an
+unbounded past or future. A finite context clips intervals to its own bounds.
 
-Use `.or` to form a union. This example covers weekends and each evening:
+## Unbounded contexts
 
-```ts
-import { intervals, timeOfDay, weekends } from "@kensio/quando/core";
-
-const cover = weekends().or(timeOfDay("18:00", "23:00"));
-
-const week = {
-  from: Temporal.ZonedDateTime.from("2026-03-12T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-};
-
-for (const { start, end } of intervals(cover, week)) {
-  console.log(`${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}`);
-}
-```
-
-```text
-2026-03-12T18:00:00 → 2026-03-12T23:00:00
-2026-03-13T18:00:00 → 2026-03-13T23:00:00
-2026-03-14T00:00:00 → 2026-03-16T00:00:00
-```
-
-Saturday and Sunday form one continuous interval. Friday evening remains
-separate because the rule does not cover 23:00 to midnight.
-
-A built rule is ready to evaluate and serialise. It needs no `.build()` call.
-See [serialisation](../serialisation/).
-
-## Rules that recur forever
-
-A context can omit its end. A recurring rule then produces a lazy, endless
-stream. `take` reads only the requested number of intervals.
+The `to` field of a context is optional. Omitting it allows a recurring rule to
+produce a lazy, endless stream:
 
 ```ts
-import { intervals, take, timeOfDay } from "@kensio/quando/core";
+import { intervals, take } from "@kensio/quando/core";
 
-const forever = {
+const future = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
 };
 
-const openings = take(intervals(timeOfDay("09:00", "17:00"), forever), 3);
-
-for (const { start } of openings) {
-  console.log(start?.toPlainDateTime().toString());
-}
+const firstThree = take(intervals(officeHours, future), 3);
 ```
 
-```text
-2026-03-09T09:00:00
-2026-03-10T09:00:00
-2026-03-11T09:00:00
-```
+Bound the context when a rule may never produce an interval. An impossible rule
+such as `weekdays().and(weekends())` cannot prove an empty result while it keeps
+searching an unbounded future.
 
-An impossible recurring rule can search forever in an unbounded context. For
-example, `weekdays().and(weekends())` never produces an interval. Set `to` when
-the rule may produce no result.
+## Store a rule
 
-## Zones
+Rules are JSON-compatible objects with non-enumerable builder methods.
+`parseRule` validates stored data and restores the methods.
 
-`inZone(zone, rule)` applies a time zone to a rule subtree. A rule with no zone
-uses the zone from the evaluation context. See
-[time zones](../time-zones/) for details.
+See [serialisation](../serialisation/) for stored forms and parser errors.
 
 <!-- card
 ```ts
-const openingHours = weekdays()
+const officeHours = weekdays()
   .and(timeOfDay("09:00", "17:00"))
   .except(dates("2026-12-25"));
 ```

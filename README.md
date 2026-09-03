@@ -1,15 +1,27 @@
 # Quando
 
-Declarative temporal rules for schedules, deadlines, and exceptions.
+Quando is a TypeScript library for schedules, rotas, time-based values, and
+recurring time rules.
 
-Quando calculates when something happens. It uses `Temporal` for dates, times,
-durations, and time zones.
+It answers questions such as these:
+
+- Is this shop open now?
+- When does it open next?
+- When will three working hours have elapsed?
+- Who is on call at a given time?
+- How many people are working during a period?
+
+Quando uses the standard `Temporal` API for dates, times, durations, and time
+zones.
+
+## Install
 
 ```bash
 npm install @kensio/quando
 ```
 
-Quando requires Node 26 or another runtime with global `Temporal`.
+Quando requires Node 26 or another JavaScript runtime with global `Temporal`.
+TypeScript projects must include `ESNext` in `compilerOptions.lib`.
 
 ## Opening hours
 
@@ -35,10 +47,20 @@ openingHours
 // 2026-03-16T11:55:00+00:00[Europe/London]
 ```
 
-Method order sets precedence. The Christmas closure overrides the ordinary
-weekday hours. `hoursOn` replaces the hours for its date.
+The first call to `open` sets the usual hours. Later calls add exceptions.
+`closed` closes Christmas Day, and `hoursOn` gives Christmas Eve its own hours.
 
-## Rotas and tallies
+## Choose an API
+
+| API        | Use it for                                      |
+| ---------- | ----------------------------------------------- |
+| `schedule` | Opening hours and other open or closed periods  |
+| `rota`     | Assigning names or application values over time |
+| `tally`    | Adding numeric values where periods overlap     |
+| Rules      | Composing custom definitions of when            |
+
+Schedules, rotas, and tallies provide methods named for their domains. Rules
+provide the common time model underneath them.
 
 ```ts
 import { rota, tally, weekdays, weekends } from "@kensio/quando";
@@ -48,35 +70,13 @@ const onCall = rota()
   .assign(weekends(), "bob")
   .swap("2026-03-11", "carol");
 
-onCall.whoIsOn(placed);
-// "alice"
-
-const staff = tally().plus(weekdays(), 3).plus("2026-03-11", 2);
-
-staff.at(Temporal.ZonedDateTime.from("2026-03-11T11:00[Europe/London]"));
-// 5
+const staffing = tally().plus(weekdays(), 3).plus("2026-03-11", 2);
 ```
 
-A rota uses precedence. A tally adds values where its layers overlap.
+## Store definitions as JSON
 
-## Rules
-
-Rules handle cases outside the domain façades.
-
-```ts
-import { dates, timeOfDay, weekdays } from "@kensio/quando";
-
-const dispatchHours = weekdays()
-  .and(timeOfDay("09:00", "17:00"))
-  .except(dates("2026-12-25"));
-```
-
-Rules are JSON-shaped data with non-enumerable fluent methods. `parseRule`
-validates stored data and restores those methods.
-
-## Storage
-
-The domain façades keep their type and configuration in JSON.
+Quando definitions are JSON-compatible data. Parsers validate stored data and
+restore the API methods.
 
 ```ts
 import { parseSchedule } from "@kensio/quando";
@@ -87,40 +87,27 @@ const restored = parseSchedule(JSON.parse(stored));
 restored.isOpen(placed);
 ```
 
-Cascade and rota values must be JSON-compatible. TypeScript rejects
-`undefined`, `bigint`, functions, and symbols. Runtime validation rejects
-non-finite numbers, class instances, and circular objects.
-
-## Advanced APIs
-
-The root entry point contains the common rule and domain APIs. Low-level
-interval, cascade, and resolution functions live under `@kensio/quando/core`.
-Storage parsers are also available from `@kensio/quando/parsing`.
-
-```ts
-import { cascade, layer, resolve } from "@kensio/quando/core";
-```
-
 ## Documentation
 
-- [Getting started](docs/getting-started/)
+Start with the [getting started guide](docs/getting-started/). The remaining
+guides cover:
+
 - [Schedules and rotas](docs/schedules/)
 - [Rules](docs/rules/)
 - [Queries](docs/queries/)
 - [Time zones](docs/time-zones/)
 - [Serialisation](docs/serialisation/)
-- [Cascades](docs/cascades/)
-- [Merging](docs/merging/)
-- [Comparing](docs/comparing/)
-- [API](docs/api/)
+- [Cascades](docs/cascades/) and [merging](docs/merging/)
+- [Comparison](docs/comparing/) and the [API reference](docs/api/)
 
-The documentation is published at [quandojs.dev](https://quandojs.dev).
+The same documentation is published at
+[quandojs.dev](https://quandojs.dev).
 
 ## Scope
 
-Quando calculates times and intervals. It does not run jobs, store data, or
-provide holiday datasets. Occurrence constraints such as minimum spacing and
-rolling-window totals require a separate constraint solver.
+Quando calculates times and intervals. It leaves job execution, persistence,
+and holiday data to the application. It does not solve constraints that depend
+on previous occurrences, such as minimum spacing or rolling-window totals.
 
 ## Licence
 

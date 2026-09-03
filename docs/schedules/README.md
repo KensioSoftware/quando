@@ -1,9 +1,9 @@
 # Schedules and rotas
 
-Schedules describe opening hours. Rotas assign JSON-compatible values over
-time.
+Schedules model open and closed time. Rotas assign application values over
+time. Both APIs use ordered methods, with later calls taking precedence.
 
-## Opening hours
+## Build a schedule
 
 ```ts
 import { schedule, weekdays } from "@kensio/quando";
@@ -14,14 +14,45 @@ const openingHours = schedule({ zone: "Europe/London" })
   .hoursOn("2026-03-11", "09:00-15:00");
 ```
 
-Method order sets precedence. The closure overrides ordinary hours on 10 March.
-`hoursOn` replaces the whole day's hours on 11 March.
+The first method sets the usual weekday hours. The second closes Tuesday. The
+third replaces Wednesday's usual hours with a shorter day.
 
-The schedule zone supplies the default zone for rules passed to its methods.
-The result stays fixed to London time when a caller asks from another zone.
-A nested rule with an explicit zone can override that default.
+| Method                 | Effect                                             |
+| ---------------------- | -------------------------------------------------- |
+| `.open(scope)`         | Opens for the whole scope                          |
+| `.open(scope, hours)`  | Opens during the hours inside the scope            |
+| `.closed(scope)`       | Closes the whole scope                             |
+| `.hoursOn(day, hours)` | Replaces all earlier hours inside the day or scope |
 
-### Schedule queries
+A scope can be a rule or a date string such as `"2026-03-10"`. Hours can be a
+rule or a range such as `"09:00-17:00"`.
+
+### Method order sets precedence
+
+Later methods win wherever their scopes overlap. Write the general case first,
+then add exceptions from broadest to most specific.
+
+```ts
+const seasonalHours = schedule({ zone: "Europe/London" })
+  .open(weekdays(), "09:00-17:00")
+  .closed("2026-12-25")
+  .hoursOn("2026-12-24", "09:00-15:00");
+```
+
+`closed` overrides the normal weekday hours on Christmas Day. `hoursOn`
+claims all of Christmas Eve before applying its shorter hours. Earlier hours do
+not resume after 15:00.
+
+### The schedule zone
+
+`schedule({ zone })` fixes the schedule rules to one local time zone. A London
+schedule still opens at 09:00 London time when queried from a Tokyo instant.
+
+Omit the zone when the same definition should follow the query instant's local
+time. See [time zones](../time-zones/) for clock changes and explicit rule
+zones.
+
+## Query a schedule
 
 ```ts
 const friday = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
@@ -35,29 +66,30 @@ openingHours.openDuration(
 );
 ```
 
-| Method                                | Result                                      |
+| Method                                | Returns                                     |
 | ------------------------------------- | ------------------------------------------- |
 | `.isOpen(at)`                         | Whether the schedule is open at `at`        |
 | `.opensNext(at, search?)`             | The current or next complete opening        |
 | `.addOpenTime(from, amount, search?)` | The instant reached after open time elapses |
-| `.openDuration(from, to)`             | The open time inside a window               |
+| `.openDuration(from, to)`             | The open duration inside a finite window    |
 
-`opensNext` searches up to 100 years when the caller supplies no end. It throws
-`SearchLimitExceededError` when that safety limit expires. Pass a `within`
-duration when an empty result is expected:
+`opensNext` and `addOpenTime` search up to 100 years by default. Pass a
+`within` duration when finding no result is an expected outcome:
 
 ```ts
-const opening = openingHours.opensNext(friday, {
+const boundedOpening = openingHours.opensNext(friday.add({ hours: 2 }), {
   within: Temporal.Duration.from({ days: 7 }),
 });
 ```
 
-An explicit finite search returns `undefined` when it finds no opening.
+An explicit search returns `undefined` when it finds no answer. The default
+search throws `SearchLimitExceededError` when its safety limit expires. The
+[queries guide](../queries/#bound-a-search) explains the search options.
 
-Adding a zero duration returns the input instant. This holds during open and
-closed time.
+## Build a rota
 
-## Rotas
+A rota assigns one JSON-compatible value at any moment. The value can be a
+name, identifier, status, or application object.
 
 ```ts
 import { rota, weekdays, weekends } from "@kensio/quando";
@@ -76,62 +108,55 @@ console.log(onCall.whoIsOn(monday));
 alice
 ```
 
-| Method                  | Result                                    |
-| ----------------------- | ----------------------------------------- |
-| `.assign(scope, value)` | Assigns a value within a scope            |
-| `.swap(day, value)`     | Assigns a replacement value for a day     |
-| `.whoIsOn(at)`          | Returns the assigned value or `undefined` |
-| `.shifts(from, to?)`    | Returns each valued interval              |
+| Method                  | Returns or effect                   |
+| ----------------------- | ----------------------------------- |
+| `.assign(scope, value)` | Adds an assignment                  |
+| `.swap(day, value)`     | Adds a higher-priority assignment   |
+| `.whoIsOn(at)`          | The assigned value, or `undefined`  |
+| `.shifts(from, to?)`    | A lazy stream of assigned intervals |
 
-Literal assignments accumulate in the result type. The example returns
-`"alice" | "bob" | "carol" | undefined` from `whoIsOn`. Use `rota<string>()`
-when values arrive at runtime.
+`assign` and `swap` both append a value layer. Their names express the usual
+intent. Method order determines the result.
 
-Rota values must be JSON-compatible. This requirement permits safe storage and
-excludes `undefined`, `bigint`, functions, class instances, non-finite numbers,
-and circular objects.
-
-## Stored forms
-
-Schedules and rotas are façades over explicit cascade data. The `.cascade`
-property exposes that data for low-level operations.
+Literal values accumulate in the inferred type. In the example,
+`whoIsOn` returns `"alice" | "bob" | "carol" | undefined`. Use an explicit
+type when the values arrive at runtime:
 
 ```ts
-import { resolve } from "@kensio/quando/core";
-
-const week = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-};
-
-for (const shift of resolve(onCall, week)) {
-  console.log(shift.value);
+interface Duty {
+  readonly person: string;
+  readonly level: number;
 }
+
+const duties = rota<Duty>().assign(weekdays(), {
+  person: "alice",
+  level: 2,
+});
 ```
 
-Each façade has a tagged stored form. Its parser validates the stored data and
-restores the methods:
+Rota values must survive a JSON round trip. Constructors reject
+`undefined`, `bigint`, functions, symbols, non-finite numbers, class
+instances, hidden properties, and circular objects.
+
+## Store and restore domain objects
+
+Schedules and rotas include a tagged JSON form. Their methods are
+non-enumerable.
 
 ```ts
 import { asString, parseRota, parseSchedule } from "@kensio/quando";
 
 const restoredHours = parseSchedule(JSON.parse(JSON.stringify(openingHours)));
 const restoredRota = parseRota(JSON.parse(JSON.stringify(onCall)), asString);
-
-restoredHours.isOpen(monday);
-restoredRota.whoIsOn(monday);
 ```
 
-## Plain forms
+`parseRota` needs a value parser because the application owns the value type.
+`parseSchedule` already knows that schedule values are boolean.
 
-Schedule and rota methods accept dates such as `"2026-03-11"` and time ranges
-such as `"09:00-17:00"`. They also accept full rules.
-
-All authoring functions validate dates, times, equal time endpoints, and zones
-when called. Query execution does not defer these errors.
-
-Use the [cascade API](../cascades/) for custom replacement structures and merge
-strategies. Use the [rule API](../rules/) for temporal composition.
+Each object exposes its underlying `.cascade` for low-level operations. Most
+schedule and rota code can stay on the domain methods. See
+[serialisation](../serialisation/) for stored forms and [cascades](../cascades/)
+for the lower-level model.
 
 <!-- card
 ```ts

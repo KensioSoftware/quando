@@ -1,36 +1,30 @@
 # Time zones
 
-Quando represents every input and output moment as a
-`Temporal.ZonedDateTime`. Each rule uses either its own named time zone or the
-zone from its evaluation context.
+Quando evaluates local dates and times in a named time zone. The zone comes
+from the query context, a schedule, or an explicit rule.
 
-## The zone comes from the context
+## The context supplies the default zone
 
-The context `from` value carries a time zone. A rule with no explicit zone uses
-that zone. `Context` has no separate `zone` property.
-
-This example evaluates one rule in London and Tokyo:
+Every query starts from a `Temporal.ZonedDateTime`. Its zone becomes the
+default for rules that have no zone of their own.
 
 ```ts
-import { intervals, timeOfDay, weekdays } from "@kensio/quando/core";
+import { timeOfDay, weekdays } from "@kensio/quando";
+import { intervals } from "@kensio/quando/core";
 
 const officeHours = weekdays().and(timeOfDay("09:00", "17:00"));
 
-const inLondon = {
+const londonDay = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   to: Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
 };
-const inTokyo = {
+const tokyoDay = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Asia/Tokyo]"),
   to: Temporal.ZonedDateTime.from("2026-03-10T00:00[Asia/Tokyo]"),
 };
 
-for (const { start } of intervals(officeHours, inLondon)) {
-  console.log(start?.toString());
-}
-for (const { start } of intervals(officeHours, inTokyo)) {
-  console.log(start?.toString());
-}
+console.log([...intervals(officeHours, londonDay)][0]?.start?.toString());
+console.log([...intervals(officeHours, tokyoDay)][0]?.start?.toString());
 ```
 
 ```text
@@ -38,40 +32,33 @@ for (const { start } of intervals(officeHours, inTokyo)) {
 2026-03-09T09:00:00+09:00[Asia/Tokyo]
 ```
 
-Both results start at 09:00 local time. They represent different instants. Use a
-rule without a zone when the rule should follow the context's local time.
+Both intervals begin at 09:00 local time. They represent different instants.
 
-## A rule subtree may name its own zone
+A `Context` has no separate zone field. The zone on `from` is the source of
+the default.
 
-`inZone` sets the default zone for a rule subtree:
+## Fix a rule to one zone
+
+`inZone(zone, rule)` evaluates a complete rule subtree in the named zone.
 
 ```ts
-import { inZone, intervals, timeOfDay, weekdays } from "@kensio/quando/core";
+import { inZone, timeOfDay, weekdays } from "@kensio/quando";
 
 const londonOffice = inZone(
   "Europe/London",
   weekdays().and(timeOfDay("09:00", "17:00")),
 );
-
-const fromTokyo = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Asia/Tokyo]"),
-  to: Temporal.ZonedDateTime.from("2026-03-11T00:00[Asia/Tokyo]"),
-};
-
-for (const { start, end } of intervals(londonOffice, fromTokyo)) {
-  console.log(`${start?.toString()} → ${end?.toString()}`);
-}
 ```
 
-```text
-2026-03-09T18:00:00+09:00[Asia/Tokyo] → 2026-03-10T02:00:00+09:00[Asia/Tokyo]
-2026-03-10T18:00:00+09:00[Asia/Tokyo] → 2026-03-11T00:00:00+09:00[Asia/Tokyo]
-```
+Both the weekday and the time range now use London local time. A query from
+Tokyo still evaluates this rule in London.
 
-The same zone decides which dates are weekdays and when 09:00 occurs. A nested
-`inZone` rule or a child rule with an explicit zone can override it.
+A nested `inZone` can choose another zone for one part of the rule. The
+nearest explicit zone applies to that subtree.
 
-Schedules provide the same behaviour at their front door:
+## Give a schedule a zone
+
+Schedules provide the same default at the domain level:
 
 ```ts
 import { schedule, weekdays } from "@kensio/quando";
@@ -82,141 +69,90 @@ const londonOffice = schedule({ zone: "Europe/London" }).open(
 );
 ```
 
-The second result stops at Tokyo midnight because that is the end of the
-context. Results are always clipped to the context window.
+Every rule passed to this schedule uses London unless that rule contains its
+own explicit zone. Omit the schedule zone when the definition should follow the
+query instant's zone.
 
-## Answers come back in the context's zone
+## Results use the context zone
 
-The previous results are reported in Tokyo time because the context starts in
-Tokyo. Quando always returns intervals in the zone of `context.from`.
+Intervals are returned in the zone of `context.from`. A London rule queried
+from Tokyo produces values displayed in Tokyo time.
 
-Combined rules may contain intervals from different zones. Normalising the
-result keeps both ends of each interval in one zone.
+This affects display only. Calling `.withTimeZone("Europe/London")` on a result
+keeps the same instant and changes its displayed local time.
 
-Normalisation does not change the represented instants. Call `.withTimeZone()`
-on a result when you need another display zone.
+When a context has a finite `to`, results are clipped at that instant even if
+the rule's local interval continues beyond it.
 
-## Wall clock against elapsed time
+## Wall-clock time and elapsed time
 
-`timeOfDay` uses wall-clock time. A night shift from 22:00 to 06:00 keeps those
-local endpoints across a daylight-saving change. Its elapsed duration may
-change.
-
-This example evaluates the same shift across both UK clock changes:
+`timeOfDay` describes wall-clock endpoints. A shift from 22:00 to 06:00 keeps
+those local times when clocks change. Its elapsed duration can be seven, eight,
+or nine hours.
 
 ```ts
-import { duration, intervals, timeOfDay } from "@kensio/quando/core";
+import { timeOfDay } from "@kensio/quando";
+import { duration, intervals } from "@kensio/quando/core";
 
 const nightShift = timeOfDay("22:00", "06:00");
-
-const springForward = {
+const springChange = {
   from: Temporal.ZonedDateTime.from("2026-03-28T12:00[Europe/London]"),
   to: Temporal.ZonedDateTime.from("2026-03-29T12:00[Europe/London]"),
 };
-const backAgain = {
+const autumnChange = {
   from: Temporal.ZonedDateTime.from("2026-10-24T12:00[Europe/London]"),
   to: Temporal.ZonedDateTime.from("2026-10-25T12:00[Europe/London]"),
 };
 
-for (const context of [springForward, backAgain]) {
-  for (const shift of intervals(nightShift, context)) {
-    console.log(
-      `${shift.start?.toPlainDateTime()} → ${shift.end?.toPlainDateTime()}` +
-        `: ${duration(shift)?.toString()}`,
-    );
-  }
+for (const context of [springChange, autumnChange]) {
+  const [shift] = [...intervals(nightShift, context)];
+  console.log(shift === undefined ? undefined : duration(shift)?.toString());
 }
 ```
 
 ```text
-2026-03-28T22:00:00 → 2026-03-29T06:00:00: PT7H
-2026-10-24T22:00:00 → 2026-10-25T06:00:00: PT9H
+PT7H
+PT9H
 ```
 
-Both shifts run from 22:00 to 06:00 local time. The spring shift lasts seven
-hours and the autumn shift lasts nine hours.
+Queries such as `coveredDuration` and `advanceBy` use exact elapsed time.
+`advanceBy` therefore rejects calendar durations containing years, months,
+weeks, or days.
 
-Quando measures durations as exact elapsed time. This affects `advanceBy`:
+## Skipped and repeated local times
 
-```ts
-import { advanceBy, timeOfDay } from "@kensio/quando";
+Some local times do not exist when clocks move forward. Others occur twice when
+clocks move back.
 
-const nightShift = timeOfDay("22:00", "06:00");
-const clockOn = Temporal.ZonedDateTime.from("2026-10-24T22:00[Europe/London]");
-
-const after = advanceBy(clockOn, Temporal.Duration.from({ hours: 8 }), {
-  during: nightShift,
-});
-
-console.log(after?.toString());
-```
-
-```text
-2026-10-25T05:00:00+00:00[Europe/London]
-```
-
-Eight elapsed hours after 22:00 is 05:00 on the morning when the clocks move
-back. The repeated hour counts twice.
-
-For the same reason, [`advanceBy`](../queries/#advance-through-covered-time) rejects
-`P1D`. A calendar day may contain 23, 24, or 25 elapsed hours.
-
-## A skipped hour produces no interval
-
-When the clocks move forward, some local times do not occur. A rule that covers
-only a skipped range produces no interval for that date:
-
-```ts
-import { intervals, timeOfDay } from "@kensio/quando/core";
-
-const smallHours = timeOfDay("01:00", "02:00");
-
-const overTheChange = {
-  from: Temporal.ZonedDateTime.from("2026-03-28T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-31T00:00[Europe/London]"),
-};
-
-for (const { start, end } of intervals(smallHours, overTheChange)) {
-  console.log(`${start?.toString()} → ${end?.toString()}`);
-}
-```
-
-```text
-2026-03-28T01:00:00+00:00[Europe/London] → 2026-03-28T02:00:00+00:00[Europe/London]
-2026-03-30T01:00:00+01:00[Europe/London] → 2026-03-30T02:00:00+01:00[Europe/London]
-```
-
-There is no interval on 29 March. The local range from 01:00 to 02:00 has zero
-elapsed duration on that date, and interval streams omit empty intervals.
-
-## Reject ambiguous local times
-
-The default `compatible` policy follows Temporal's ordinary disambiguation.
-Set `disambiguation: "reject"` on a context when a skipped or repeated local
-time must fail:
+By default, Quando uses Temporal's `compatible` disambiguation. Set
+`disambiguation` on the context when the application needs another policy:
 
 ```ts
 const strict = {
-  ...overTheChange,
+  from: Temporal.ZonedDateTime.from("2026-03-28T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-31T00:00[Europe/London]"),
   disambiguation: "reject" as const,
 };
-
-[...intervals(smallHours, strict)];
 ```
 
-The context also accepts `earlier` and `later`.
+The available policies are `compatible`, `earlier`, `later`, and `reject`.
+The `reject` policy throws when evaluation encounters an ambiguous or
+nonexistent local time.
 
-## Zone names are checked when a rule is read
+A time-of-day range with zero elapsed duration produces no interval. For
+example, the London range from 01:00 to 02:00 is absent on the 2026 spring
+clock-change date.
 
-`parseRule` validates zone names in stored rules. An unknown zone causes a
-`TypeError` while the document is parsed. See
-[serialisation](../serialisation/).
+## Zone validation
+
+Rule builders, `schedule`, and parsers validate zone names immediately. An
+unknown zone throws at the authoring or parsing boundary.
 
 <!-- card
 ```ts
-timeOfDay("22:00", "06:00") // a night shift, across a clock change
-
-//  2026-03-28T22:00 → 2026-03-29T06:00 = PT7H
-//  2026-10-24T22:00 → 2026-10-25T06:00 = PT9H
+const londonOffice = inZone(
+  "Europe/London",
+  weekdays().and(timeOfDay("09:00", "17:00")),
+);
 ```
 -->
