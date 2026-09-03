@@ -7,13 +7,14 @@ model becomes useful when you need custom rules or lower-level queries.
 
 ## Choose the smallest useful API
 
-| Need                                       | Start with |
-| ------------------------------------------ | ---------- |
-| Opening hours or availability              | `schedule` |
-| One assigned value at a time               | `rota`     |
-| Numeric values that add where they overlap | `tally`    |
-| A custom definition of when                | Rules      |
-| Custom value precedence or merging         | Cascades   |
+| Need                                        | Start with |
+| ------------------------------------------- | ---------- |
+| Opening hours or availability               | `schedule` |
+| One assigned value at a time                | `rota`     |
+| Numeric values that add where they overlap  | `tally`    |
+| A custom definition of when                 | Rules      |
+| Custom value precedence or merging          | Cascades   |
+| Inactive rules, hidden layers, or rota gaps | Validation |
 
 The root package exports schedules, rotas, tallies, rules, and common queries.
 The `@kensio/quando/core` entry point adds interval and cascade operations.

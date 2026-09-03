@@ -83,6 +83,7 @@ openingHours.changesTo(
 | `.addOpenTime(from, amount, search?)`    | The instant reached after open time elapses |
 | `.openDuration(from, to)`                | The open duration inside a finite window    |
 | `.changesTo(next, from, to)`             | Newly opened and closed intervals           |
+| `.validate(from, to)`                    | Inactive and shadowed schedule layers       |
 
 `opensNext`, `firstOpenSlot`, and `addOpenTime` search up to 100 years by
 default. Pass a `within` duration when finding no result is an expected
@@ -126,6 +127,10 @@ const { opened, closed } = openingHours.changesTo(
 `opened` contains time available only in `revisedHours`. `closed` contains
 time available only in `openingHours`.
 
+`validate` checks how the schedule's layers behave in a finite window. Closed
+time is normal schedule output. Validation reports layer problems only. See
+[validation](../validation/) for diagnostic codes and window selection.
+
 ## Build a rota
 
 A rota assigns one JSON-compatible value at any moment. The value can be a
@@ -148,12 +153,13 @@ console.log(onCall.whoIsOn(monday));
 alice
 ```
 
-| Method                  | Returns or effect                   |
-| ----------------------- | ----------------------------------- |
-| `.assign(scope, value)` | Adds an assignment                  |
-| `.swap(day, value)`     | Adds a higher-priority assignment   |
-| `.whoIsOn(at)`          | The assigned value, or `undefined`  |
-| `.shifts(from, to?)`    | A lazy stream of assigned intervals |
+| Method                  | Returns or effect                      |
+| ----------------------- | -------------------------------------- |
+| `.assign(scope, value)` | Adds an assignment                     |
+| `.swap(day, value)`     | Adds a higher-priority assignment      |
+| `.whoIsOn(at)`          | The assigned value, or `undefined`     |
+| `.shifts(from, to?)`    | A lazy stream of assigned intervals    |
+| `.validate(from, to)`   | Diagnostics, including unassigned time |
 
 `assign` and `swap` both append a value layer. Their names express the usual
 intent. Method order determines the result.

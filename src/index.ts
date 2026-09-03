@@ -23,6 +23,13 @@ export {
 export { canonical, equals, fingerprint } from "./canonical.js";
 export { parseRule } from "./parse.js";
 
+export type {
+  ValidationDiagnostic,
+  ValidationOptions,
+  ValidationWindow,
+} from "./semantic-validation.js";
+export { validate } from "./semantic-validation.js";
+
 export type { CoverageChanges } from "./coverage-changes.js";
 export { coverageChanges } from "./coverage-changes.js";
 

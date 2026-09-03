@@ -148,6 +148,20 @@ describe("counting how many are on", () => {
     });
   });
 
+  it("reports a tally line hidden by an exact replacement", () => {
+    // Given one weekday line fully replaced by a later exact value.
+    const staff = tally().plus(weekdays(), 3).exactly(weekdays(), 1);
+
+    // When the tally is validated over a week.
+    const diagnostics = staff.validate(weekStart, weekEnd);
+
+    // Then the lower line is reported as shadowed.
+    assertIdentical(
+      diagnostics.map(({ code }) => code).join(","),
+      "shadowed-layer",
+    );
+  });
+
   describe("least", () => {
     it("finds the thinnest cover in a window", () => {
       // Given a week with more people on some days than others.

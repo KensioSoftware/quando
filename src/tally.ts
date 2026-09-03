@@ -5,6 +5,7 @@ import { withMethods } from "./fluent.js";
 import { parseCascade } from "./parse-cascade.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
 import { resolve } from "./resolve.js";
+import { validate } from "./semantic-validation.js";
 import { leastValue } from "./tally-query.js";
 import type { Tally, TallyData } from "./tally-types.js";
 
@@ -43,6 +44,8 @@ function build(data: TallyData): Tally {
       leastValue(data.cascade, from, to),
     counts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>
       resolve(data.cascade, to === undefined ? { from } : { from, to }),
+    validate: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>
+      validate(data.cascade, { from, to }),
     toJSON: () => ({ ...data }),
   });
 }

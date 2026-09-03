@@ -5,6 +5,7 @@ import type { JsonCompatible } from "./json.js";
 import { parseCascade, type ValueParser } from "./parse-cascade.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
 import { resolve } from "./resolve.js";
+import { type ValidationDiagnostic, validate } from "./semantic-validation.js";
 import type { ValuedStream } from "./valued-stream.js";
 
 /** The stored form of a rota. */
@@ -28,6 +29,10 @@ export interface Rota<V> extends RotaData<V> {
     from: Temporal.ZonedDateTime,
     to?: Temporal.ZonedDateTime,
   ) => ValuedStream<V>;
+  readonly validate: (
+    from: Temporal.ZonedDateTime,
+    to: Temporal.ZonedDateTime,
+  ) => readonly ValidationDiagnostic[];
   readonly toJSON: () => RotaData<V>;
 }
 
@@ -49,6 +54,8 @@ function build<V>(data: RotaData<V>): Rota<V> {
     whoIsOn: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at),
     shifts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>
       resolve(data.cascade, to === undefined ? { from } : { from, to }),
+    validate: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>
+      validate(data.cascade, { from, to }, { requireFullCoverage: true }),
     toJSON: () => ({ ...data }),
   });
 }
