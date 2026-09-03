@@ -14,6 +14,7 @@ Read the pages in this order if Quando is new to you:
 4. [Rules](rules/) shows how to compose custom time definitions.
 5. [Queries](queries/) explains each question you can ask of a rule or schedule.
 6. [Validation](validation/) finds semantic problems in a finite window.
+7. [Explanations](explanations/) shows which layers produced a value.
 
 ## Guides by task
 
@@ -24,6 +25,7 @@ Read the pages in this order if Quando is new to you:
 - [Time zones](time-zones/) covers local time and daylight-saving changes.
 - [Serialisation](serialisation/) covers storage, parsing, and validation.
 - [Validation](validation/) finds inactive layers, shadowed layers, and gaps.
+- [Explanations](explanations/) traces a value back through matching layers.
 
 ### Custom models
 

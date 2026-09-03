@@ -9,6 +9,7 @@ export type {
   Schedule,
   ScheduleChanges,
   ScheduleData,
+  ScheduleExplanation,
   ScheduleOptions,
 } from "./schedule-types.js";
 

@@ -119,6 +119,35 @@ describe("counting how many are on", () => {
       // of its stream, and nobody rostered is nobody there.
       assertIdentical(staff.at(saturday), 0);
     });
+
+    it("explains the running count", () => {
+      // Given a standing crew and extra Wednesday cover.
+      const staff = tally().plus(weekdays(), 3).plus("2026-03-11", 2);
+
+      // When the Wednesday count is explained.
+      const explanation = staff.explain(wednesday);
+
+      // Then the count and each intermediate sum are available.
+      assertIdentical(explanation.value, 5);
+      assertArrayEquals(
+        explanation.steps.map((step) =>
+          step.type === "assignment" ? step.result : undefined,
+        ),
+        [3, 5],
+      );
+    });
+
+    it("explains uncovered time as the tally default", () => {
+      // Given weekday staffing only.
+      const staff = tally().plus(weekdays(), 3);
+
+      // When a Saturday is explained.
+      const explanation = staff.explain(saturday);
+
+      // Then the tally reports zero with no contributing lines.
+      assertIdentical(explanation.value, 0);
+      assertArrayEquals(explanation.steps, []);
+    });
   });
 
   describe("exactly", () => {

@@ -1,6 +1,7 @@
 import { valueAt } from "./assigned.js";
 import { always } from "./build.js";
 import { cascade, type Layer, layer, replace } from "./cascade.js";
+import { explain, withDefaultValue } from "./explain.js";
 import { withMethods } from "./fluent.js";
 import { parseCascade } from "./parse-cascade.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
@@ -9,7 +10,7 @@ import { validate } from "./semantic-validation.js";
 import { leastValue } from "./tally-query.js";
 import type { Tally, TallyData } from "./tally-types.js";
 
-export type { Tally, TallyData } from "./tally-types.js";
+export type { Tally, TallyData, TallyExplanation } from "./tally-types.js";
 
 function amount(value: number): number {
   if (!Number.isFinite(value)) {
@@ -40,6 +41,8 @@ function build(data: TallyData): Tally {
       append(layer(asDays(scope), amount(value))),
     exactly: (scope: PlainRule, value: number) => append(fixed(scope, value)),
     at: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at) ?? 0,
+    explain: (at: Temporal.ZonedDateTime) =>
+      withDefaultValue(explain(data.cascade, at), 0),
     least: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>
       leastValue(data.cascade, from, to),
     counts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>

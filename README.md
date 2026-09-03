@@ -12,6 +12,7 @@ It answers questions such as these:
 - Which half-hour booking slots are available?
 - Which opening times changed in a revised schedule?
 - Does a rota leave any time unassigned?
+- Why is this instant open, closed, assigned, or counted this way?
 - Who is on call at a given time?
 - How many people are working during a period?
 
@@ -105,6 +106,7 @@ guides cover:
 - [Rules](docs/rules/)
 - [Queries](docs/queries/)
 - [Validation](docs/validation/)
+- [Explanations](docs/explanations/)
 - [Time zones](docs/time-zones/)
 - [Serialisation](docs/serialisation/)
 - [Cascades](docs/cascades/) and [merging](docs/merging/)

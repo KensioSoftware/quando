@@ -77,6 +77,7 @@ openingHours.changesTo(
 | Method                                   | Returns                                     |
 | ---------------------------------------- | ------------------------------------------- |
 | `.isOpen(at)`                            | Whether the schedule is open at `at`        |
+| `.explain(at)`                           | The value and matching layers at `at`       |
 | `.opensNext(at, search?)`                | The current or next complete opening        |
 | `.firstOpenSlot(from, lasting, search?)` | The first opening long enough for a slot    |
 | `.openSlots(from, to, options)`          | Candidate slots inside a finite window      |
@@ -131,6 +132,10 @@ time available only in `openingHours`.
 time is normal schedule output. Validation reports layer problems only. See
 [validation](../validation/) for diagnostic codes and window selection.
 
+`explain` shows why the schedule is open or closed at one instant. The
+[explanations guide](../explanations/) covers matching layers, replacements,
+and the result shape.
+
 ## Build a rota
 
 A rota assigns one JSON-compatible value at any moment. The value can be a
@@ -158,6 +163,7 @@ alice
 | `.assign(scope, value)` | Adds an assignment                     |
 | `.swap(day, value)`     | Adds a higher-priority assignment      |
 | `.whoIsOn(at)`          | The assigned value, or `undefined`     |
+| `.explain(at)`          | The value and matching layers at `at`  |
 | `.shifts(from, to?)`    | A lazy stream of assigned intervals    |
 | `.validate(from, to)`   | Diagnostics, including unassigned time |
 

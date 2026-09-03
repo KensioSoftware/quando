@@ -33,6 +33,13 @@ export { validate } from "./semantic-validation.js";
 export type { CoverageChanges } from "./coverage-changes.js";
 export { coverageChanges } from "./coverage-changes.js";
 
+export type {
+  AssignmentStep,
+  Explanation,
+  ExplanationStep,
+  ReplacementStep,
+} from "./explain.js";
+
 export type { SlotOptions } from "./availability.js";
 export { firstGap, slots } from "./availability.js";
 
@@ -40,12 +47,13 @@ export type {
   Schedule,
   ScheduleChanges,
   ScheduleData,
+  ScheduleExplanation,
   ScheduleOptions,
 } from "./schedule.js";
 export { parseSchedule, schedule } from "./schedule.js";
 export type { Rota, RotaData } from "./rota.js";
 export { parseRota, rota } from "./rota.js";
-export type { Tally, TallyData } from "./tally.js";
+export type { Tally, TallyData, TallyExplanation } from "./tally.js";
 export { parseTally, tally } from "./tally.js";
 
 export { asBoolean, asString } from "./parse-shape.js";

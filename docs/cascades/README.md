@@ -124,6 +124,17 @@ import { assigned } from "@kensio/quando/core";
 const aliceTime = coveredDuration(assigned(onCall, "alice"), week);
 ```
 
+Use `explain` to see the matching layers and the result after each one:
+
+```ts
+import { explain } from "@kensio/quando/core";
+
+const explanation = explain(onCall, now);
+```
+
+Replacement steps contain a nested explanation. See
+[explanations](../explanations/) for the result shape and high-level methods.
+
 ## Merge overlapping values
 
 The default `cascade` constructor uses priority. The `merged` constructor can

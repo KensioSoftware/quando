@@ -33,6 +33,7 @@ interface ScheduleChanges {
 | `closed(scope)`                         | Close the entire scope                      |
 | `hoursOn(day, hours)`                   | Replace the hours within a day              |
 | `isOpen(at)`                            | Check one instant                           |
+| `explain(at)`                           | Explain the value at one instant            |
 | `opensNext(at, search?)`                | Return the current or next opening interval |
 | `firstOpenSlot(from, lasting, search?)` | Return the first fitting opening interval   |
 | `openSlots(from, to, options)`          | Return candidate opening intervals          |
@@ -62,6 +63,7 @@ function parseRota<V>(
 | `assign(scope, value)` | Add an assignment                        |
 | `swap(day, value)`     | Add a replacement assignment for a day   |
 | `whoIsOn(at)`          | Return the assigned value or `undefined` |
+| `explain(at)`          | Explain the value at one instant         |
 | `shifts(from, to?)`    | Return valued intervals                  |
 | `validate(from, to)`   | Return diagnostics, including rota gaps  |
 | `toJSON()`             | Return the stored rota data              |
@@ -78,6 +80,7 @@ function parseTally(value: unknown, path?: string): Tally;
 | `plus(scope, amount)`    | Add an amount                          |
 | `exactly(scope, amount)` | Replace lower amounts within the scope |
 | `at(at)`                 | Return the amount at one instant       |
+| `explain(at)`            | Explain the value at one instant       |
 | `least(from, to)`        | Return the lowest amount in a window   |
 | `counts(from, to?)`      | Return valued intervals                |
 | `validate(from, to)`     | Return semantic tally diagnostics      |
@@ -228,7 +231,17 @@ function replace<V>(
 function replace(scope: Rule, replacement: Rule): ReplacingLayer<boolean>;
 
 function resolve<V>(cascade: CascadeLike<V>, context: Context): ValuedStream<V>;
+
+function explain<V>(
+  cascade: CascadeLike<V>,
+  at: Temporal.ZonedDateTime,
+  context?: Omit<Context, "from" | "to">,
+): Explanation<V>;
 ```
+
+`Explanation.value` is the value at the instant, or `undefined` when the
+cascade assigns nothing. Its `steps` contain matching assignments and nested
+replacements. See [explanations](../explanations/) for the complete shape.
 
 `cascade` uses later-layer priority. `merged` has strategy-specific
 overloads:
