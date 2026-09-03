@@ -1,3 +1,4 @@
+import type { SlotOptions } from "./availability.js";
 import type { Cascade } from "./cascade.js";
 import type { Interval } from "./interval.js";
 import type { PlainRule } from "./plain-forms.js";
@@ -20,6 +21,16 @@ export interface Schedule extends ScheduleData {
     at: Temporal.ZonedDateTime,
     search?: Search | Temporal.Duration,
   ) => Interval | undefined;
+  readonly firstOpenSlot: (
+    from: Temporal.ZonedDateTime,
+    lasting: Temporal.Duration,
+    search?: Pick<Search, "within"> | Temporal.Duration,
+  ) => Interval | undefined;
+  readonly openSlots: (
+    from: Temporal.ZonedDateTime,
+    to: Temporal.ZonedDateTime,
+    options: SlotOptions,
+  ) => Iterable<Interval>;
   readonly addOpenTime: (
     from: Temporal.ZonedDateTime,
     amount: Temporal.Duration,

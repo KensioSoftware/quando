@@ -22,16 +22,18 @@ function schedule(options?: { zone?: string }): Schedule;
 function parseSchedule(value: unknown, path?: string): Schedule;
 ```
 
-| Method                               | Result                                      |
-| ------------------------------------ | ------------------------------------------- |
-| `open(scope, hours?)`                | Add opening hours                           |
-| `closed(scope)`                      | Close the entire scope                      |
-| `hoursOn(day, hours)`                | Replace the hours within a day              |
-| `isOpen(at)`                         | Check one instant                           |
-| `opensNext(at, search?)`             | Return the current or next opening interval |
-| `addOpenTime(from, amount, search?)` | Advance through open time                   |
-| `openDuration(from, to)`             | Measure open time in a window               |
-| `toJSON()`                           | Return the stored schedule data             |
+| Method                                  | Result                                      |
+| --------------------------------------- | ------------------------------------------- |
+| `open(scope, hours?)`                   | Add opening hours                           |
+| `closed(scope)`                         | Close the entire scope                      |
+| `hoursOn(day, hours)`                   | Replace the hours within a day              |
+| `isOpen(at)`                            | Check one instant                           |
+| `opensNext(at, search?)`                | Return the current or next opening interval |
+| `firstOpenSlot(from, lasting, search?)` | Return the first fitting opening interval   |
+| `openSlots(from, to, options)`          | Return candidate opening intervals          |
+| `addOpenTime(from, amount, search?)`    | Advance through open time                   |
+| `openDuration(from, to)`                | Measure open time in a window               |
+| `toJSON()`                              | Return the stored schedule data             |
 
 `scope`, `day`, and `hours` accept a `Rule`. They also accept a date string such
 as `"2026-03-11"` or a time range such as `"09:00-17:00"` in the appropriate

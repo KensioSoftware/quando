@@ -15,9 +15,10 @@ interface Duty {
 
 const start = Temporal.ZonedDateTime.from("2026-03-09T09:00[Europe/London]");
 const office = schedule().open(weekdays(), "09:00-17:00");
+const halfHour = Temporal.Duration.from({ minutes: 30 });
 
 advanceBy(start, Temporal.Duration.from({ hours: 1 }), { during: office });
-firstGap(office, Temporal.Duration.from({ minutes: 30 }), { from: start });
+firstGap(office, halfHour, { from: start });
 slots(
   office,
   { from: start },
@@ -26,6 +27,12 @@ slots(
     lasting: Temporal.Duration.from({ minutes: 30 }),
   },
 );
+office.firstOpenSlot(start, halfHour);
+office.firstOpenSlot(start, halfHour, Temporal.Duration.from({ days: 7 }));
+office.openSlots(start, start.add({ hours: 1 }), {
+  every: Temporal.Duration.from({ minutes: 15 }),
+  lasting: halfHour,
+});
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
 merged("sum", layer(weekdays(), 2), layer(weekdays(), 3));

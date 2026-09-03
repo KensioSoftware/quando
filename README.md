@@ -44,6 +44,11 @@ openingHours.opensNext(placed.add({ hours: 2 }))?.start?.toString();
 // 2026-03-16T09:00:00+00:00[Europe/London]
 
 openingHours
+  .firstOpenSlot(placed, Temporal.Duration.from({ minutes: 30 }))
+  ?.start?.toString();
+// 2026-03-16T09:00:00+00:00[Europe/London]
+
+openingHours
   .addOpenTime(placed, Temporal.Duration.from({ hours: 3 }))
   ?.toString();
 // 2026-03-16T11:55:00+00:00[Europe/London]

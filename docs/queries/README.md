@@ -13,8 +13,8 @@ values.
 | `advanceBy`           | Where does an amount of covered time finish?       |
 
 Schedules can be passed directly to all six functions. They also expose
-`isOpen`, `opensNext`, `openDuration`, and `addOpenTime` as methods for the four
-general schedule questions.
+`isOpen`, `opensNext`, `firstOpenSlot`, `openSlots`, `openDuration`, and
+`addOpenTime` with opening-hours names.
 
 ## Query inputs
 
@@ -103,6 +103,9 @@ console.log(gap?.end?.toPlainTime().toString());
 The gap begins at the start of the first covered interval long enough to hold
 it. An interval ending exactly when the gap ends is an exact fit.
 
+Use `openingHours.firstOpenSlot(from, lasting, search?)` when querying a
+schedule.
+
 ## Produce booking slots
 
 `slots` lazily emits candidate intervals. `lasting` sets each candidate's
@@ -138,6 +141,8 @@ covered interval.
 
 Both durations use exact elapsed time and must be positive. Calendar units
 such as days and months are rejected.
+
+Use `openingHours.openSlots(from, to, options)` when querying a schedule.
 
 ## Measure covered time
 
@@ -230,7 +235,7 @@ stream to consume.
 ## Query a cascade value
 
 `assigned(cascade, value)` selects the periods that carry one value. The result
-works with all four common queries.
+works with all six common queries.
 
 ```ts
 import { coveredDuration, rota, weekdays } from "@kensio/quando";
