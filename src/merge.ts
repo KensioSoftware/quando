@@ -14,7 +14,6 @@
  * stored cascade could disagree about the answer. The cost is a closed
  * vocabulary, which is the same trade the rule language already makes.
  */
-
 /**
  * How overlapping layers combine.
  *
@@ -105,7 +104,10 @@ export function mergeBy<V>(strategy: MergeStrategy | undefined): Merge<V> {
 
     case "concat": {
       return (under, over) =>
-        [...asArray("concat", under), ...asArray("concat", over)] as V;
+        [
+          ...asArray("concat", under),
+          ...asArray("concat", over),
+        ] as unknown as V;
     }
 
     case "override":

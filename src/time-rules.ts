@@ -43,7 +43,9 @@ export function* timeOfDayIntervals(
     .subtract({ days: 1 });
 
   for (;;) {
-    const start = date.toZonedDateTime({ timeZone: inZone, plainTime: opens });
+    const start = date.toPlainDateTime(opens).toZonedDateTime(inZone, {
+      disambiguation: context.disambiguation ?? "compatible",
+    });
     if (
       stop !== undefined &&
       Temporal.ZonedDateTime.compare(start, stop) >= 0
@@ -52,9 +54,8 @@ export function* timeOfDayIntervals(
     }
 
     const closing = wraps ? date.add({ days: 1 }) : date;
-    const end = closing.toZonedDateTime({
-      timeZone: inZone,
-      plainTime: closes,
+    const end = closing.toPlainDateTime(closes).toZonedDateTime(inZone, {
+      disambiguation: context.disambiguation ?? "compatible",
     });
 
     // A window can collapse to nothing on the morning clocks go forward. Both

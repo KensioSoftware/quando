@@ -1,9 +1,10 @@
 /**
  * Asking the four questions of a cascade rather than of a rule.
  *
- * `activeAt`, `elapsed`, `next` and `advanceBy` are about *when*, and a rule
- * is what they read. A cascade says *what holds when*, which is a different
- * question. Narrowing one to a single value turns it back into the first.
+ * `activeAt`, `coveredDuration`, `nextCoveredInterval` and `advanceBy` are
+ * about *when*, and a rule is what they read. A cascade says *what holds when*,
+ * which is a different question. Narrowing one to a single value turns it back
+ * into the first.
  * The times a rota assigns to Alice are a stretch of when, and every question
  * worth asking about a rule is worth asking about them.
  *
@@ -11,7 +12,12 @@
  * {@link valueAt} is the one question a rule has no version of.
  */
 
-import type { Cascade, Valued } from "./cascade.js";
+import {
+  asCascade,
+  type Cascade,
+  type CascadeLike,
+  type Valued,
+} from "./cascade.js";
 import type { Context } from "./context.js";
 import type { IntervalStream } from "./interval-stream.js";
 import { intervals } from "./interpret.js";
@@ -32,26 +38,28 @@ export interface Assigned<V> {
 }
 
 /** Either of the two things a query can read as the times it covers. */
-export type Covers<V> = Rule | Assigned<V>;
+export type Covers<V> = Rule | Assigned<V> | CascadeLike<boolean>;
 
 /**
  * The times a cascade assigns a value.
  *
  * ```ts
- * elapsed(assigned(onCall, "alice"), week);
+ * coveredDuration(assigned(onCall, "alice"), week);
  * advanceBy(from, threeHours, { during: assigned(onCall, "alice") });
  * ```
  *
  * Sameness is `Object.is`, the same test {@link coalesce} uses, so a value
  * matches by identity rather than by shape.
  */
-export function assigned<V>(cascade: Cascade<V>, is: V): Assigned<V> {
-  return { cascade, is };
+export function assigned<V>(cascade: CascadeLike<V>, is: V): Assigned<V> {
+  return { cascade: asCascade(cascade), is };
 }
 
 /** Whether a query is reading a rule or a narrowed cascade. */
 function isRule<V>(covers: Covers<V>): covers is Rule {
-  return "type" in covers;
+  return (
+    "type" in covers && covers.type !== "cascade" && !("cascade" in covers)
+  );
 }
 
 /**
@@ -68,7 +76,10 @@ export function covered<V>(
   if (isRule(covers)) {
     return intervals(covers, context);
   }
-  return matching(covers, context);
+  if ("is" in covers) {
+    return matching(covers, context);
+  }
+  return matching({ cascade: asCascade(covers), is: true }, context);
 }
 
 /** The stretches of a resolved cascade carrying the value asked for. */
@@ -90,7 +101,7 @@ function* matching<V>(covers: Assigned<V>, context: Context): IntervalStream {
  * smallest window there is.
  */
 export function valueAt<V>(
-  cascade: Cascade<V>,
+  cascade: CascadeLike<V>,
   at: Temporal.ZonedDateTime,
   context?: Omit<Context, "from" | "to">,
 ): V | undefined {
@@ -111,7 +122,7 @@ export function valueAt<V>(
  * timeline asks.
  */
 export function nextValue<V>(
-  cascade: Cascade<V>,
+  cascade: CascadeLike<V>,
   context: Context,
 ): Valued<V> | undefined {
   const [first] = take(resolve(cascade, context), 1);

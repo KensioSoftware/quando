@@ -140,6 +140,14 @@ export function canonicalRule(rule: Rule): Rule {
       };
     }
 
+    case "inZone": {
+      return {
+        type: "inZone",
+        zone: rule.zone,
+        rule: canonicalRule(rule.rule),
+      };
+    }
+
     case "not": {
       const inner = canonicalRule(rule.rule);
       // Two complements cancel, and the complement of a constant is the other

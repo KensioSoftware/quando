@@ -52,9 +52,11 @@ function edge(at: Temporal.ZonedDateTime | undefined): string {
 export function renderValued<V>(assigned: Iterable<Valued<V>>): string {
   const parts: string[] = [];
   for (const interval of assigned) {
-    parts.push(
-      `[${edge(interval.start)},${edge(interval.end)})=${String(interval.value)}`,
-    );
+    const value =
+      typeof interval.value === "string"
+        ? interval.value
+        : JSON.stringify(interval.value);
+    parts.push(`[${edge(interval.start)},${edge(interval.end)})=${value}`);
   }
   return parts.join(" ");
 }

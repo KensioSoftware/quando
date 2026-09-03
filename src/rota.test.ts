@@ -3,6 +3,7 @@ import { faker } from "@faker-js/faker";
 import {
   assertIdentical,
   assertInstanceOf,
+  assertStringIncludes,
   assertThrowsError,
   assertUndefined,
 } from "@kensio/smartass";
@@ -10,7 +11,8 @@ import { describe, it } from "vitest";
 
 import { dates, weekdays, weekends } from "./build.js";
 import { cascade, layer } from "./cascade.js";
-import { rota } from "./rota.js";
+import { asString } from "./parse-shape.js";
+import { parseRota, rota } from "./rota.js";
 import { take } from "./stream.js";
 
 describe("a rota", () => {
@@ -36,20 +38,19 @@ describe("a rota", () => {
     };
   };
 
-  it("is the cascade it would have been written as by hand", () => {
+  it("keeps its cascade as explicit data", () => {
     // Given a rota built through the domain vocabulary.
     const { weekday, weekend, covering, onCall } = anOnCallRota();
 
-    // When it is compared with the layers spelled out by hand.
+    // When its underlying data is compared with the low-level form.
     const byHand = cascade(
       layer(weekdays(), weekday),
       layer(weekends(), weekend),
       layer(dates("2026-03-11"), covering),
     );
 
-    // Then the two documents are the same. The vocabulary is a way of writing
-    // a cascade, and the stored form carries no trace of which was used.
-    assertIdentical(JSON.stringify(onCall), JSON.stringify(byHand));
+    // Then the two cascade documents are the same.
+    assertIdentical(JSON.stringify(onCall.cascade), JSON.stringify(byHand));
   });
 
   it("says who is on", () => {
@@ -60,6 +61,21 @@ describe("a rota", () => {
     // Then each falls to whoever holds that part of the week.
     assertIdentical(onCall.whoIsOn(when("2026-03-09T10:00")), weekday);
     assertIdentical(onCall.whoIsOn(when("2026-03-14T10:00")), weekend);
+  });
+
+  it("restores its methods after storage", () => {
+    // Given a rota that has passed through JSON storage.
+    const stored = JSON.stringify(rota().assign(weekdays(), "alice"));
+
+    // When the stored rota is parsed and a weekend assignment is added.
+    const restored = parseRota(JSON.parse(stored), asString).assign(
+      weekends(),
+      "bob",
+    );
+
+    // Then both assignments are available through the rota API.
+    assertIdentical(restored.whoIsOn(when("2026-03-09T10:00")), "alice");
+    assertIdentical(restored.whoIsOn(when("2026-03-14T10:00")), "bob");
   });
 
   it("gives a swapped day to whoever took it", () => {
@@ -159,6 +175,38 @@ describe("a rota", () => {
 
       // Then it is refused where it was written.
       assertInstanceOf(error, RangeError);
+    });
+
+    it("validates the stored envelope", () => {
+      // Given invalid outer values, a wrong tag, and an unknown field.
+      const values: readonly unknown[] = [
+        null,
+        [],
+        "rota",
+        { type: "schedule", cascade: cascade<string>() },
+        { type: "rota", cascade: cascade<string>(), person: "alice" },
+      ];
+
+      // When each is parsed.
+      // Then each is rejected by the rota parser.
+      for (const value of values) {
+        const error = assertThrowsError(() => parseRota(value, asString));
+        assertInstanceOf(error, TypeError);
+      }
+    });
+
+    it("requires override merge semantics", () => {
+      // Given a stored rota that requests concatenation.
+      const stored = {
+        type: "rota",
+        cascade: { type: "cascade", merge: "concat", layers: [] },
+      };
+
+      // When it is parsed.
+      const error = assertThrowsError(() => parseRota(stored, asString));
+
+      // Then the message names the rota's merge rule.
+      assertStringIncludes(error.message, "a rota uses override");
     });
   });
 });

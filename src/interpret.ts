@@ -12,7 +12,8 @@
  * the leaves is what makes them run out.
  */
 
-import { type Context, windowOf } from "./context.js";
+import { checkWindow } from "./validation.js";
+import { contextInZone, type Context, windowOf } from "./context.js";
 import {
   clip,
   complement,
@@ -44,6 +45,7 @@ const EMPTY: IntervalStream = [];
  * only settles which zone reads them back.
  */
 export function intervals(rule: Rule, context: Context): IntervalStream {
+  checkWindow(context.from, context.to);
   return readIn(evaluate(rule, context), context.from.timeZoneId);
 }
 
@@ -81,6 +83,10 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
         timeOfDayIntervals(context, rule.from, rule.to, rule.zone),
         window,
       );
+    }
+
+    case "inZone": {
+      return evaluate(rule.rule, contextInZone(context, rule.zone));
     }
 
     case "all": {

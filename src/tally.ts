@@ -1,157 +1,87 @@
-/**
- * How many, in the words people use for counting.
- *
- * The same relationship to [merging](./merge.ts) that a
- * [schedule](./schedule.ts) has to a cascade. `merged("sum", layer(…),
- * layer(…))` says what it does, and it asks the reader to know three things
- * first: that layers overlap, that an overlap is what combines, and what a
- * bare `"sum"` in the first argument governs. Nobody staffing a warehouse
- * says any of that. They say three on weekdays, two more on the eleventh.
- *
- * A `Tally` *is* a `Cascade<number>` with `merge: "sum"`, so everything that
- * takes a cascade takes one of these, and it serialises to the document a
- * hand-written one would.
- */
-
 import { valueAt } from "./assigned.js";
 import { always } from "./build.js";
-import {
-  type Cascade,
-  cascade,
-  type Layer,
-  layer,
-  replace,
-} from "./cascade.js";
-import { duration } from "./interval.js";
+import { cascade, type Layer, layer, replace } from "./cascade.js";
+import { withMethods } from "./fluent.js";
+import { parseCascade } from "./parse-cascade.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
 import { resolve } from "./resolve.js";
-import type { ValuedStream } from "./valued-stream.js";
+import { leastValue } from "./tally-query.js";
+import type { Tally, TallyData } from "./tally-types.js";
 
-/** Zero, as a duration to accumulate onto. */
-const NOTHING = Temporal.Duration.from({ seconds: 0 });
+export type { Tally, TallyData } from "./tally-types.js";
 
-/** How many there are over time, and the questions worth asking about that. */
-export interface Tally extends Cascade<number> {
-  /**
-   * That much more, on top of whatever else covers the same time.
-   *
-   * The verb a tally is mostly written in. Two teams each putting three
-   * people on a Monday have six people on that Monday.
-   */
-  readonly plus: (scope: PlainRule, amount: number) => Tally;
-
-  /**
-   * That many for these times, in place of whatever was said before.
-   *
-   * Instead of, not as well as. A skeleton crew on Christmas Eve is a figure
-   * that replaces the usual one, and writing it as a `plus` would need the
-   * author to know what they were adding to.
-   *
-   * "Exactly" is about the figure rather than the last word on it. This
-   * outranks every line above it, and a `plus` written afterwards still adds,
-   * the same way `hoursOn` works on a [schedule](./schedule.ts).
-   */
-  readonly exactly: (scope: PlainRule, amount: number) => Tally;
-
-  /**
-   * How many at that moment.
-   *
-   * Zero where no layer claims the moment. A cascade leaves an unclaimed
-   * moment out of its stream, and nobody rostered is nobody there, so this
-   * reads it as the figure it is. The same call
-   * [`isOpen`](./schedule.ts) makes for a schedule.
-   */
-  readonly at: (at: Temporal.ZonedDateTime) => number;
-
-  /**
-   * The lowest figure anywhere between two moments.
-   *
-   * The question capacity is really asking. A stretch that no layer claims
-   * counts as zero, so a window with a gap in it answers zero however well
-   * covered the rest of it is.
-   */
-  readonly least: (
-    from: Temporal.ZonedDateTime,
-    to: Temporal.ZonedDateTime,
-  ) => number;
-
-  /**
-   * Each stretch between two moments, and how many are on for it.
-   *
-   * Leave `to` out for an endless run of them, which is lazy and safe to stop
-   * pulling from whenever you have enough.
-   */
-  readonly counts: (
-    from: Temporal.ZonedDateTime,
-    to?: Temporal.ZonedDateTime,
-  ) => ValuedStream<number>;
+function amount(value: number): number {
+  if (!Number.isFinite(value)) {
+    throw new RangeError("A tally amount must be a finite number.");
+  }
+  return value;
 }
 
-/**
- * A figure that claims its scope outright.
- *
- * The inner cascade covers the whole of the region this layer wins, which is
- * what `always` means once it is resolved against that region rather than
- * against the context.
- */
-function fixed(scope: PlainRule, amount: number): Layer<number> {
-  const figure = cascade(layer(always(), amount));
-  return replace(asDays(scope), figure);
+function fixed(scope: PlainRule, value: number): Layer<number> {
+  const constant = layer(always(), amount(value));
+  const replacement = cascade(constant);
+  return replace(asDays(scope), replacement);
 }
 
-function build(layers: readonly Layer<number>[]): Tally {
-  const self: Tally = {
-    type: "cascade",
-    merge: "sum",
-    layers,
+function build(data: TallyData): Tally {
+  const append = (next: Layer<number>): Tally =>
+    build({
+      type: "tally",
+      cascade: {
+        type: "cascade",
+        merge: "sum",
+        layers: [...data.cascade.layers, next],
+      },
+    });
 
-    plus: (scope, amount) => build([...layers, layer(asDays(scope), amount)]),
-
-    exactly: (scope, amount) => build([...layers, fixed(scope, amount)]),
-
-    at: (at) => valueAt(self, at) ?? 0,
-
-    least: (from, to) => {
-      let lowest: number | undefined;
-      let covered = NOTHING;
-
-      for (const span of resolve(self, { from, to })) {
-        lowest =
-          lowest === undefined ? span.value : Math.min(lowest, span.value);
-        const length = duration(span);
-        if (length !== undefined) {
-          covered = covered.add(length);
-        }
-      }
-
-      // Anything the layers left uncovered is nobody there, which is lower
-      // than any figure they assigned. Comparing what was covered against the
-      // window finds that without a second sweep for the gaps.
-      const window = from.until(to, { largestUnit: "hour" });
-      if (Temporal.Duration.compare(covered, window) < 0) {
-        return 0;
-      }
-      return lowest ?? 0;
-    },
-
-    counts: (from, to) =>
-      resolve(self, to === undefined ? { from } : { from, to }),
-  };
-
-  return self;
+  return withMethods(data, {
+    plus: (scope: PlainRule, value: number) =>
+      append(layer(asDays(scope), amount(value))),
+    exactly: (scope: PlainRule, value: number) => append(fixed(scope, value)),
+    at: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at) ?? 0,
+    least: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>
+      leastValue(data.cascade, from, to),
+    counts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>
+      resolve(data.cascade, to === undefined ? { from } : { from, to }),
+    toJSON: () => ({ ...data }),
+  });
 }
 
-/**
- * An empty tally: nobody, until something says otherwise.
- *
- * ```ts
- * const staff = tally()
- *   .plus(weekdays(), 3)
- *   .plus(weekends(), 1)
- *   .plus("2026-03-11", 2)
- *   .exactly("2026-12-24", 1);
- * ```
- */
+/** Creates an empty tally. */
 export function tally(): Tally {
-  return build([]);
+  return build({
+    type: "tally",
+    cascade: { type: "cascade", merge: "sum", layers: [] },
+  });
+}
+
+/** Reads a stored tally and restores its methods. */
+export function parseTally(value: unknown, path = "tally"): Tally {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError(`${path}: expected a tally object.`);
+  }
+  const node = value as Record<string, unknown>;
+  if (node["type"] !== "tally") {
+    throw new TypeError(`${path}.type: expected "tally".`);
+  }
+  const unknown = Object.keys(node).find(
+    (field) => !["type", "cascade"].includes(field),
+  );
+  if (unknown !== undefined) {
+    throw new TypeError(`${path}.${unknown}: unknown tally field.`);
+  }
+  const document = parseCascade(
+    node["cascade"],
+    (item, itemPath) => {
+      if (typeof item !== "number" || !Number.isFinite(item)) {
+        throw new TypeError(`${itemPath}: expected a finite number.`);
+      }
+      return item;
+    },
+    `${path}.cascade`,
+  );
+  if (document.merge !== "sum") {
+    throw new TypeError(`${path}.cascade.merge: a tally uses sum.`);
+  }
+  return build({ type: "tally", cascade: document });
 }

@@ -54,7 +54,7 @@ const hours = weekdays().and(timeOfDay("09:00", "17:00"));
   the first queries.
 - [Concepts](concepts/) explains rules, intervals, and cascades.
 - [Rules](rules/) documents every rule type and the rule builder.
-- [Queries](queries/) documents `advanceBy`, `activeAt`, `elapsed`, and `next`.
+- [Queries](queries/) documents the schedule and standalone query APIs.
 - [Time zones](time-zones/) explains how Quando handles local time and clock
   changes.
 - [Serialisation](serialisation/) explains the JSON format and parsing.

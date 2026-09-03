@@ -13,7 +13,7 @@ import { describe, it } from "vitest";
 import { all, dates, timeOfDay, weekdays } from "./build.js";
 import { cascade, layer, replace } from "./cascade.js";
 import { resolve } from "./resolve.js";
-import { schedule } from "./schedule.js";
+import { parseSchedule, schedule } from "./schedule.js";
 
 describe("a schedule", () => {
   /** Monday 2026-03-09 to the Monday after it. */
@@ -25,18 +25,19 @@ describe("a schedule", () => {
       .open(weekdays(), "09:00-17:00")
       .hoursOn("2026-03-11", "09:00-15:00");
 
-  it("is the cascade it would have been written as by hand", () => {
+  it("keeps its cascade as explicit data", () => {
     // Given the same opening hours said twice, once in the domain vocabulary
     // and once as the layers underneath it.
     const usualHours = all(weekdays(), timeOfDay("09:00", "17:00"));
     const early = replace(dates("2026-03-11"), timeOfDay("09:00", "15:00"));
     const byHand = cascade(layer(usualHours, true), early);
 
-    // When both are serialised.
-    // Then the documents match. This is the whole claim of the layer: the
-    // vocabulary is a way of writing a cascade, and anything that reads a
-    // cascade reads a schedule.
-    assertIdentical(JSON.stringify(openingHours()), JSON.stringify(byHand));
+    // When its underlying data is read.
+    // Then the cascade matches the low-level form.
+    assertIdentical(
+      JSON.stringify(openingHours().cascade),
+      JSON.stringify(byHand),
+    );
   });
 
   it("can be resolved by the core, being one", () => {
@@ -53,6 +54,38 @@ describe("a schedule", () => {
         "[2026-03-11T09:00:00,2026-03-11T15:00:00) " +
         "[2026-03-12T09:00:00,2026-03-12T17:00:00) " +
         "[2026-03-13T09:00:00,2026-03-13T17:00:00)",
+    );
+  });
+
+  it("restores its methods and zone after storage", () => {
+    // Given London opening hours that have passed through JSON storage.
+    const stored = JSON.stringify(
+      schedule({ zone: "Europe/London" }).open(weekdays(), "09:00-17:00"),
+    );
+
+    // When the stored schedule is parsed and extended.
+    const restored = parseSchedule(JSON.parse(stored)).closed("2026-03-10");
+
+    // Then its zone and methods still govern the answer.
+    assertIdentical(restored.zone, "Europe/London");
+    assertFalse(restored.isOpen(when("2026-03-10T10:00")));
+    assertTrue(restored.isOpen(when("2026-03-11T10:00")));
+  });
+
+  it("adds covered time through its own API", () => {
+    // Given weekday opening hours and a Monday afternoon start.
+    const office = schedule().open(weekdays(), "09:00-17:00");
+
+    // When two open hours are added.
+    const reached = office.addOpenTime(
+      when("2026-03-09T16:00"),
+      Temporal.Duration.from({ hours: 2 }),
+    );
+
+    // Then the closed night is skipped.
+    assertIdentical(
+      reached?.toPlainDateTime().toString(),
+      "2026-03-10T10:00:00",
     );
   });
 
@@ -107,7 +140,7 @@ describe("a schedule", () => {
     it("says how long it is open between two moments", () => {
       // Given the opening hours, with two hours dropped from the Wednesday.
       // When the week is measured.
-      const open = openingHours().openBetween(
+      const open = openingHours().openDuration(
         WEEK.from,
         when("2026-03-16T00:00"),
       );
@@ -185,7 +218,10 @@ describe("a schedule", () => {
       // When the next opening after Monday evening is asked for, and the week
       // is measured.
       const next = withClosure.opensNext(when("2026-03-09T18:00"));
-      const week = withClosure.openBetween(WEEK.from, when("2026-03-16T00:00"));
+      const week = withClosure.openDuration(
+        WEEK.from,
+        when("2026-03-16T00:00"),
+      );
 
       // Then the Tuesday is stepped over, and its eight hours are uncounted.
       assertIdentical(
@@ -240,6 +276,56 @@ describe("a schedule", () => {
       // When two in the morning is asked about, inside the wrapped window.
       // Then it is open.
       assertTrue(nights.isOpen(when("2026-03-10T02:00")));
+    });
+  });
+
+  describe("stored forms it refuses", () => {
+    const rejected = (value: unknown): string => {
+      const error = assertThrowsError(() => parseSchedule(value));
+      assertInstanceOf(error, TypeError);
+      return error.message;
+    };
+
+    it("requires an object", () => {
+      // Given values that cannot hold schedule fields.
+      // When each is parsed.
+      // Then each is rejected at the schedule boundary.
+      for (const value of [null, [], "schedule"]) {
+        assertStringIncludes(rejected(value), "expected a schedule object");
+      }
+    });
+
+    it("requires its tag and known fields", () => {
+      // Given a document with the wrong tag and one with a misspelt field.
+      const wrongTag = { type: "rota", cascade: cascade<boolean>() };
+      const unknownField = {
+        type: "schedule",
+        cascade: cascade<boolean>(),
+        timezone: "Europe/London",
+      };
+
+      // When each is parsed.
+      // Then the message names the broken field.
+      assertStringIncludes(rejected(wrongTag), ".type");
+      assertStringIncludes(rejected(unknownField), ".timezone");
+    });
+
+    it("requires a string zone and override semantics", () => {
+      // Given a numeric zone and a summing schedule document.
+      const numericZone = {
+        type: "schedule",
+        cascade: cascade<boolean>(),
+        zone: 7,
+      };
+      const summing = {
+        type: "schedule",
+        cascade: { type: "cascade", merge: "sum", layers: [] },
+      };
+
+      // When each is parsed.
+      // Then the domain-specific requirement is reported.
+      assertStringIncludes(rejected(numericZone), ".zone");
+      assertStringIncludes(rejected(summing), "a schedule uses override");
     });
   });
 });

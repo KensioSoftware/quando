@@ -28,14 +28,8 @@ export interface Context {
    */
   readonly to?: Temporal.ZonedDateTime;
 
-  /** Where on Earth, for rules about the sun, the moon or the tide. */
-  readonly location?: {
-    readonly latitude: number;
-    readonly longitude: number;
-  };
-
-  /** For rendering a rule as text, and for locale-specific conventions. */
-  readonly locale?: string;
+  /** How local times in clock changes are resolved. */
+  readonly disambiguation?: "compatible" | "earlier" | "later" | "reject";
 }
 
 /** The context's window, in the form the interval algebra takes. */
@@ -44,6 +38,15 @@ export function windowOf(context: Context): {
   readonly end: Temporal.ZonedDateTime | undefined;
 } {
   return { start: context.from, end: context.to };
+}
+
+/** The same instant window displayed in another time zone. */
+export function contextInZone(context: Context, zone: string): Context {
+  return {
+    ...context,
+    from: context.from.withTimeZone(zone),
+    ...(context.to === undefined ? {} : { to: context.to.withTimeZone(zone) }),
+  };
 }
 
 /** The zone a rule is read in when it does not name one of its own. */

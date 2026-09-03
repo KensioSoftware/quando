@@ -11,7 +11,15 @@ import {
 import { describe, it } from "vitest";
 
 import { dates, timeOfDay, weekdays } from "./build.js";
-import { cascade, isCascade, layer, replace, whenever } from "./cascade.js";
+import {
+  type Cascade,
+  cascade,
+  isCascade,
+  layer,
+  merged,
+  replace,
+  whenever,
+} from "./cascade.js";
 import { parseRule } from "./parse.js";
 
 describe("cascades as data", () => {
@@ -27,6 +35,48 @@ describe("cascades as data", () => {
   };
 
   describe("a built cascade", () => {
+    it("refuses values JSON cannot preserve", () => {
+      // Given values that JSON drops, rejects, or changes.
+      const cyclic: Record<string, unknown> = {};
+      cyclic["self"] = cyclic;
+      class Assignment {
+        public readonly person = "alice";
+      }
+      const symbolKeyed = { [Symbol("person")]: "alice" };
+      const nonEnumerable = {};
+      Object.defineProperty(nonEnumerable, "person", {
+        value: "alice",
+        enumerable: false,
+      });
+
+      // When each is assigned to a layer.
+      // Then the authoring boundary refuses it.
+      assertThrowsError(() => layer(weekdays(), undefined as never));
+      assertThrowsError(() => layer(weekdays(), 1n as never));
+      assertThrowsError(() => layer(weekdays(), Number.NaN as never));
+      assertThrowsError(() => layer(weekdays(), Number.POSITIVE_INFINITY));
+      assertThrowsError(() => layer(weekdays(), new Assignment() as never));
+      assertThrowsError(() => layer(weekdays(), cyclic as never));
+      assertThrowsError(() => layer(weekdays(), symbolKeyed as never));
+      assertThrowsError(() => layer(weekdays(), nonEnumerable as never));
+    });
+
+    it("checks raw layer values throughout public constructors", () => {
+      // Given invalid values inside raw layers and a nested replacement.
+      const invalid = { scope: weekdays(), value: undefined } as never;
+      const nested = {
+        type: "cascade",
+        layers: [{ scope: weekdays(), value: 1n }],
+      } as never as Cascade<never>;
+
+      // When each public cascade constructor receives one.
+      // Then it refuses the value at the authoring boundary.
+      assertThrowsError(() => cascade(invalid));
+      assertThrowsError(() => merged("override", invalid));
+      assertThrowsError(() => replace(WEDNESDAY, nested));
+      assertThrowsError(() => cascade({ scope: WEDNESDAY, replace: nested }));
+    });
+
     it("is the document it stands for, with the builders' methods left out", () => {
       // Given a rota built through the builders, whose methods are functions
       // hanging off ordinary objects.

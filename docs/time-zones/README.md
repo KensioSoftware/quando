@@ -12,7 +12,7 @@ that zone. `Context` has no separate `zone` property.
 This example evaluates one rule in London and Tokyo:
 
 ```ts
-import { intervals, timeOfDay, weekdays } from "@kensio/quando";
+import { intervals, timeOfDay, weekdays } from "@kensio/quando/core";
 
 const officeHours = weekdays().and(timeOfDay("09:00", "17:00"));
 
@@ -39,18 +39,18 @@ for (const { start } of intervals(officeHours, inTokyo)) {
 ```
 
 Both results start at 09:00 local time. They represent different instants. Use a
-rule without a zone when the rule should follow the context location.
+rule without a zone when the rule should follow the context's local time.
 
-## A rule may name its own zone
+## A rule subtree may name its own zone
 
-`daysOfWeek`, `dates`, and `timeOfDay` each accept an optional zone. `inZone`
-adds a zone to one of these rules after it has been created:
+`inZone` sets the default zone for a rule subtree:
 
 ```ts
-import { inZone, intervals, timeOfDay, weekdays } from "@kensio/quando";
+import { inZone, intervals, timeOfDay, weekdays } from "@kensio/quando/core";
 
-const londonOffice = inZone(weekdays(), "Europe/London").and(
-  timeOfDay("09:00", "17:00", "Europe/London"),
+const londonOffice = inZone(
+  "Europe/London",
+  weekdays().and(timeOfDay("09:00", "17:00")),
 );
 
 const fromTokyo = {
@@ -68,9 +68,19 @@ for (const { start, end } of intervals(londonOffice, fromTokyo)) {
 2026-03-10T18:00:00+09:00[Asia/Tokyo] → 2026-03-11T00:00:00+09:00[Asia/Tokyo]
 ```
 
-Set the zone on both parts of this rule. The `weekdays` zone decides which local
-dates are Monday through Friday. The `timeOfDay` zone decides when 09:00 and
-17:00 occur. Quando allows the two rules to use different zones when needed.
+The same zone decides which dates are weekdays and when 09:00 occurs. A nested
+`inZone` rule or a child rule with an explicit zone can override it.
+
+Schedules provide the same behaviour at their front door:
+
+```ts
+import { schedule, weekdays } from "@kensio/quando";
+
+const londonOffice = schedule({ zone: "Europe/London" }).open(
+  weekdays(),
+  "09:00-17:00",
+);
+```
 
 The second result stops at Tokyo midnight because that is the end of the
 context. Results are always clipped to the context window.
@@ -95,7 +105,7 @@ change.
 This example evaluates the same shift across both UK clock changes:
 
 ```ts
-import { duration, intervals, timeOfDay } from "@kensio/quando";
+import { duration, intervals, timeOfDay } from "@kensio/quando/core";
 
 const nightShift = timeOfDay("22:00", "06:00");
 
@@ -148,7 +158,7 @@ console.log(after?.toString());
 Eight elapsed hours after 22:00 is 05:00 on the morning when the clocks move
 back. The repeated hour counts twice.
 
-For the same reason, [`advanceBy`](../queries/#elapsed-durations-only) rejects
+For the same reason, [`advanceBy`](../queries/#advance-through-covered-time) rejects
 `P1D`. A calendar day may contain 23, 24, or 25 elapsed hours.
 
 ## A skipped hour produces no interval
@@ -157,7 +167,7 @@ When the clocks move forward, some local times do not occur. A rule that covers
 only a skipped range produces no interval for that date:
 
 ```ts
-import { intervals, timeOfDay } from "@kensio/quando";
+import { intervals, timeOfDay } from "@kensio/quando/core";
 
 const smallHours = timeOfDay("01:00", "02:00");
 
@@ -178,6 +188,23 @@ for (const { start, end } of intervals(smallHours, overTheChange)) {
 
 There is no interval on 29 March. The local range from 01:00 to 02:00 has zero
 elapsed duration on that date, and interval streams omit empty intervals.
+
+## Reject ambiguous local times
+
+The default `compatible` policy follows Temporal's ordinary disambiguation.
+Set `disambiguation: "reject"` on a context when a skipped or repeated local
+time must fail:
+
+```ts
+const strict = {
+  ...overTheChange,
+  disambiguation: "reject" as const,
+};
+
+[...intervals(smallHours, strict)];
+```
+
+The context also accepts `earlier` and `later`.
 
 ## Zone names are checked when a rule is read
 

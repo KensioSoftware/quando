@@ -14,7 +14,11 @@
  */
 
 import type { Cascade, Layer } from "./cascade.js";
-import { MERGE_STRATEGIES, type MergeStrategy } from "./merge.js";
+import {
+  checkCascadeValues,
+  checkMergeValues,
+  parseMerge,
+} from "./cascade-validation.js";
 import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
 import { parseRule } from "./parse.js";
 
@@ -68,40 +72,16 @@ export function parseCascade<V>(
     );
   }
 
-  return {
+  const cascade: Cascade<V> = {
     type: "cascade",
-    ...mergePart(node, path),
+    ...parseMerge(node, path),
     layers: layers.map((layer, index) =>
       parseLayer(layer, parseValue, `${path}.layers[${index}]`),
     ),
   };
-}
-
-/**
- * Present or absent, never present-and-undefined, so a cascade that says
- * nothing about merging serialises back to the document it came from.
- *
- * The name is checked here. Whether the values it will be handed are ones it
- * can combine is not, because that is only known once the cascade is resolved.
- */
-function mergePart(
-  node: Record<string, unknown>,
-  path: string,
-): { merge?: MergeStrategy } {
-  const merge = node["merge"];
-  if (merge === undefined) {
-    return {};
-  }
-
-  if (!MERGE_STRATEGIES.includes(merge as MergeStrategy)) {
-    return fail(
-      `${path}.merge`,
-      typeof merge === "string"
-        ? `"${merge}" is not a merge strategy. Expected one of ${MERGE_STRATEGIES.join(", ")}`
-        : `expected a merge strategy, found ${shapeOf(merge)}`,
-    );
-  }
-  return { merge: merge as MergeStrategy };
+  checkCascadeValues(cascade, path);
+  checkMergeValues(cascade, path);
+  return cascade;
 }
 
 /**
@@ -151,7 +131,8 @@ function parseLayer<V>(
   }
 
   if (holds[0] === "value") {
-    return { scope, value: parseValue(node["value"], `${path}.value`) };
+    const parsed = parseValue(node["value"], `${path}.value`);
+    return { scope, value: parsed };
   }
 
   return fail(

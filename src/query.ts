@@ -6,10 +6,6 @@
  * and — the one both of the libraries this evolves from were built around —
  * where do you get to after three hours that only count while it is open.
  *
- * Each takes a rule, or a cascade narrowed to one of its values by
- * [`assigned`](./assigned.ts). "Three hours while the warehouse is open" and
- * "three hours while Alice is on call" are the same question.
- *
  * Durations are exact elapsed time throughout. Three operating hours means
  * three real hours of opening, so a window spanning a clock change is measured
  * by how long it lasted rather than by what the clock said.
@@ -17,70 +13,24 @@
 
 import { type Covers, covered } from "./assigned.js";
 import type { Context } from "./context.js";
-import { duration, earlierEnd, type Interval } from "./interval.js";
+import { duration, type Interval } from "./interval.js";
+import { checkExactDuration } from "./query-validation.js";
+import {
+  boundSearch,
+  restartSearch,
+  SearchLimitExceededError,
+  type Search,
+} from "./search.js";
 import { take } from "./stream.js";
+
+export {
+  DEFAULT_SEARCH_LIMIT,
+  SearchLimitExceededError,
+  type Search,
+} from "./search.js";
 
 /** Zero, as a duration to accumulate onto. */
 const NOTHING = Temporal.Duration.from({ seconds: 0 });
-
-/**
- * How far a search runs.
- *
- * With neither the context's `to` nor a `within`, a search is unbounded. That
- * is fine and often what you want — the first interval of a satisfiable rule
- * arrives immediately, however far the rule recurs. It is only a rule that
- * covers *nothing* that has no answer to give and no way to discover it, and
- * that case runs until stopped. Give a bound when the answer might be nothing.
- */
-export interface Search {
-  /**
-   * Look no further ahead than this from where the search starts.
-   *
-   * Narrows only. A context that already ends before the horizon keeps its own
-   * end, because a caller who gave a window meant it.
-   */
-  readonly within?: Temporal.Duration;
-}
-
-function bounded(context: Context, search: Search | undefined): Context {
-  const within = search?.within;
-  if (within === undefined) {
-    return context;
-  }
-
-  // Whichever runs out first. `within` narrows a search and must never widen
-  // one: a context that already ends on Saturday means the caller is not
-  // interested in Monday, whatever horizon the search asks for.
-  const horizon = context.from.add(within);
-  return { ...context, to: earlierEnd(context.to, horizon) ?? horizon };
-}
-
-/**
- * Refuses an amount whose units do not mean one fixed length of time.
- *
- * A day is not 24 hours on the two mornings a year a clock changes, and a
- * month is not any number of hours at all. Both halves of this function would
- * otherwise disagree about that: the accounting compares durations without a
- * reference point, where a day *is* 24 hours, while the final step adds to a
- * `ZonedDateTime`, where it is a calendar day. `P1D` and `PT24H` would land an
- * hour apart, and neither answer would be wrong enough to notice.
- *
- * Weeks and months do not even get that far — comparing them without a
- * reference point throws, with an empty message.
- */
-function checkExact(amount: Temporal.Duration): void {
-  const calendar = (["years", "months", "weeks", "days"] as const).filter(
-    (unit) => amount[unit] !== 0,
-  );
-
-  if (calendar.length > 0) {
-    throw new RangeError(
-      `advanceBy() measures elapsed time, so ${amount.toString()} is ambiguous: ` +
-        `${calendar.join(" and ")} are calendar units, and a day is not 24 hours ` +
-        `on the mornings a clock changes. Give hours, minutes or seconds.`,
-    );
-  }
-}
 
 /**
  * Whether a rule, or a value a cascade assigns, covers an instant.
@@ -108,13 +58,13 @@ export function activeAt<V>(
  * Needs a window with an end, because the alternative is a number that never
  * finishes being counted.
  */
-export function elapsed<V>(
+export function coveredDuration<V>(
   covers: Covers<V>,
   context: Context,
 ): Temporal.Duration {
   if (context.to === undefined) {
     throw new RangeError(
-      "elapsed() needs a window with an end: give the context a `to`.",
+      "coveredDuration() needs a window with an end: give the context a `to`.",
     );
   }
 
@@ -136,13 +86,27 @@ export function elapsed<V>(
  * there — "when does it next open" answers "it is open" rather than skipping
  * to tomorrow.
  */
-export function next<V>(
+export function nextCoveredInterval<V>(
   covers: Covers<V>,
   context: Context,
   search?: Search,
 ): Interval | undefined {
-  const [first] = take(covered(covers, bounded(context, search)), 1);
-  return first;
+  const window = boundSearch(context, search);
+  const [first] = take(covered(covers, window.context), 1);
+  if (first === undefined) {
+    if (window.automaticLimit !== undefined) {
+      throw new SearchLimitExceededError(
+        "nextCoveredInterval()",
+        window.automaticLimit,
+      );
+    }
+    return;
+  }
+  if (search?.complete !== true || first.start === undefined) {
+    return first;
+  }
+  const [whole] = take(covered(covers, restartSearch(context, first.start)), 1);
+  return whole ?? first;
 }
 
 /**
@@ -159,21 +123,24 @@ export function advanceBy<V>(
   options: { readonly during: Covers<V> } & Search &
     Omit<Context, "from" | "to">,
 ): Temporal.ZonedDateTime | undefined {
-  checkExact(amount);
+  checkExactDuration(amount);
   if (Temporal.Duration.compare(amount, NOTHING) < 0) {
     throw new RangeError(
       `advanceBy() cannot go backwards. Asked for ${amount.toString()}.`,
     );
   }
+  if (Temporal.Duration.compare(amount, NOTHING) === 0) {
+    return from;
+  }
 
-  const { during, within, ...rest } = options;
-  const context = bounded(
+  const { during, within, complete: _complete, ...rest } = options;
+  const window = boundSearch(
     { ...rest, from },
     within === undefined ? undefined : { within },
   );
 
   let remaining = amount;
-  for (const interval of covered(during, context)) {
+  for (const interval of covered(during, window.context)) {
     const length = duration(interval);
 
     // An interval with no end has more than enough of whatever is left.
@@ -187,5 +154,8 @@ export function advanceBy<V>(
     remaining = remaining.subtract(length);
   }
 
+  if (window.automaticLimit !== undefined) {
+    throw new SearchLimitExceededError("advanceBy()", window.automaticLimit);
+  }
   return undefined;
 }

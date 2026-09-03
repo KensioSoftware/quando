@@ -1,147 +1,61 @@
-/**
- * Opening hours, in the words people use for them.
- *
- * Everything here is a cascade underneath, and a `Schedule` *is* one — the
- * same trick the rule builders use, so it serialises to the same document and
- * `resolve` reads it unchanged. What this adds is vocabulary: nobody running a
- * warehouse says "add a layer to the cascade", they say we are open weekdays,
- * closed on bank holidays, and on the eleventh we close at three.
- *
- * Those three read in the order they are said, and each one outranks what came
- * before it — which is the same precedence a cascade has, arrived at by
- * writing the sentence in the obvious order rather than by knowing the rule.
- */
+import { cascade } from "./cascade.js";
+import { parseCascade } from "./parse-cascade.js";
+import { asBoolean } from "./parse-shape.js";
+import { restoreSchedule } from "./schedule-runtime.js";
+import type { Schedule, ScheduleOptions } from "./schedule-types.js";
+import { asZone } from "./validation.js";
 
-import { valueAt } from "./assigned.js";
-import { all } from "./build.js";
-import { type Cascade, type Layer, layer, replace } from "./cascade.js";
-import type { Context } from "./context.js";
-import { duration, type Interval } from "./interval.js";
-import { asDays, asHours, type PlainRule } from "./plain-forms.js";
-import { resolve } from "./resolve.js";
-import { take } from "./stream.js";
+export type {
+  Schedule,
+  ScheduleData,
+  ScheduleOptions,
+} from "./schedule-types.js";
 
-/** Zero, as a duration to accumulate onto. */
-const NOTHING = Temporal.Duration.from({ seconds: 0 });
-
-/**
- * When something is open, and the questions worth asking about that.
- *
- * A `Schedule` is a `Cascade<boolean>`, so anything that takes a cascade takes
- * one of these. The methods below are the common half said plainly; the
- * cascade underneath is the whole of it.
- */
-export interface Schedule extends Cascade<boolean> {
-  /**
-   * Open during these times. With hours, inside them on those days; without,
-   * for the whole of them.
-   */
-  readonly open: (scope: PlainRule, hours?: PlainRule) => Schedule;
-
-  /** Closed for the whole of these times, whatever was said before. */
-  readonly closed: (scope: PlainRule) => Schedule;
-
-  /**
-   * The hours on this day, in place of whatever was said before.
-   *
-   * Instead of, not as well as: the usual hours do not show through the part
-   * this leaves out, which is what "we close early on the eleventh" means and
-   * what makes it different from being shut between three and five.
-   */
-  readonly hoursOn: (day: PlainRule, hours: PlainRule) => Schedule;
-
-  /** Whether it is open at that moment. */
-  readonly isOpen: (at: Temporal.ZonedDateTime) => boolean;
-
-  /**
-   * The next stretch it is open, at or after a moment, or `undefined` if there
-   * is none within `within` of it.
-   *
-   * `within` bounds how far to look and not what is found: a stretch that
-   * starts inside the horizon is returned whole, ending when it really closes
-   * rather than where the search stopped. That differs from `next` on a rule,
-   * which clips its answer to the window it was given.
-   *
-   * A schedule that is never open has no answer to give and no way to discover
-   * that, so pass `within` when that is a possibility.
-   */
-  readonly opensNext: (
-    at: Temporal.ZonedDateTime,
-    within?: Temporal.Duration,
-  ) => Interval | undefined;
-
-  /** How long it is open between two moments. */
-  readonly openBetween: (
-    from: Temporal.ZonedDateTime,
-    to: Temporal.ZonedDateTime,
-  ) => Temporal.Duration;
+/** Creates empty opening hours in an optional local time zone. */
+export function schedule(options: ScheduleOptions = {}): Schedule {
+  const zone =
+    options.zone === undefined ? undefined : asZone(options.zone, "zone");
+  return restoreSchedule({
+    type: "schedule",
+    cascade: cascade<boolean>(),
+    ...(zone === undefined ? {} : { zone }),
+  });
 }
 
-function open(scope: PlainRule, hours: PlainRule | undefined): Layer<boolean> {
-  const when = asDays(scope);
-  return layer(hours === undefined ? when : all(when, asHours(hours)), true);
+/** Reads stored opening hours and restores their methods. */
+export function parseSchedule(value: unknown, path = "schedule"): Schedule {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError(`${path}: expected a schedule object.`);
+  }
+  const node = value as Record<string, unknown>;
+  if (node["type"] !== "schedule") {
+    throw new TypeError(`${path}.type: expected "schedule".`);
+  }
+  const unknown = Object.keys(node).find(
+    (field) => !["type", "cascade", "zone"].includes(field),
+  );
+  if (unknown !== undefined) {
+    throw new TypeError(`${path}.${unknown}: unknown schedule field.`);
+  }
+
+  const zone = parseZone(node["zone"], path);
+  const document = parseCascade(node["cascade"], asBoolean, `${path}.cascade`);
+  if (document.merge !== undefined && document.merge !== "override") {
+    throw new TypeError(`${path}.cascade.merge: a schedule uses override.`);
+  }
+  return restoreSchedule({
+    type: "schedule",
+    cascade: document,
+    ...(zone === undefined ? {} : { zone }),
+  });
 }
 
-function build(layers: readonly Layer<boolean>[]): Schedule {
-  const self: Schedule = {
-    type: "cascade",
-    layers,
-
-    open: (scope, hours) => build([...layers, open(scope, hours)]),
-    closed: (scope) => build([...layers, layer(asDays(scope), false)]),
-    hoursOn: (day, hours) =>
-      build([...layers, replace(asDays(day), asHours(hours))]),
-
-    isOpen: (at) => valueAt(self, at) ?? false,
-
-    opensNext: (at, within) => {
-      const search: Context =
-        within === undefined ? { from: at } : { from: at, to: at.add(within) };
-
-      for (const period of resolve(self, search)) {
-        if (!period.value) {
-          continue;
-        }
-        if (within === undefined || period.start === undefined) {
-          return period;
-        }
-
-        // The horizon bounds how far to look, not what is found. Everything
-        // resolved against a context is clipped to it, so a stretch that runs
-        // past the horizon comes back ending at the horizon — which reads as a
-        // closing time and is not one. Read it again from its own start, with
-        // nothing to clip it, so the end is when it really closes.
-        const [whole] = take(resolve(self, { from: period.start }), 1);
-        return whole ?? period;
-      }
-      return;
-    },
-
-    openBetween: (from, to) => {
-      let total = NOTHING;
-      for (const period of resolve(self, { from, to })) {
-        const length = period.value ? duration(period) : undefined;
-        if (length !== undefined) {
-          total = total.add(length);
-        }
-      }
-      return total.round({ largestUnit: "hour" });
-    },
-  };
-
-  return self;
-}
-
-/**
- * An empty schedule: open for nothing until something says otherwise.
- *
- * ```ts
- * const openingHours = schedule()
- *   .open(weekdays(), "09:00-17:00")
- *   .closed("2026-12-25")
- *   .hoursOn("2026-03-11", "09:00-15:00");
- * ```
- */
-export function schedule(): Schedule {
-  return build([]);
+function parseZone(value: unknown, path: string): string | undefined {
+  if (value === undefined) {
+    return;
+  }
+  if (typeof value !== "string") {
+    throw new TypeError(`${path}.zone: expected a string.`);
+  }
+  return asZone(value, `${path}.zone`);
 }

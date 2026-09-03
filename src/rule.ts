@@ -34,6 +34,7 @@ export type Rule =
   | DaysOfWeekRule
   | TimeOfDayRule
   | DatesRule
+  | InZoneRule
   | AllRule
   | AnyRule
   | NotRule;
@@ -78,6 +79,13 @@ export interface DatesRule {
   readonly type: "dates";
   readonly dates: readonly string[];
   readonly zone?: string;
+}
+
+/** A rule evaluated using one time zone throughout its subtree. */
+export interface InZoneRule {
+  readonly type: "inZone";
+  readonly zone: string;
+  readonly rule: Rule;
 }
 
 /** Every rule must hold: intersection. */

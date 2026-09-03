@@ -108,7 +108,7 @@ describe("parsing a rule from JSON", () => {
       assertIdentical(
         complaintAbout({ type: "weekdays" }),
         'rule.type: "weekdays" is not a rule type. ' +
-          "Expected one of always, never, daysOfWeek, timeOfDay, dates, all, any, not",
+          "Expected one of always, never, daysOfWeek, timeOfDay, dates, inZone, all, any, not",
       );
     });
 
