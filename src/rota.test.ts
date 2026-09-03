@@ -1,6 +1,7 @@
 import { render, renderValued, when } from "#test/intervals.js";
 import { faker } from "@faker-js/faker";
 import {
+  assertArrayEquals,
   assertArrayEmpty,
   assertIdentical,
   assertInstanceOf,
@@ -62,6 +63,23 @@ describe("a rota", () => {
     // Then each falls to whoever holds that part of the week.
     assertIdentical(onCall.whoIsOn(when("2026-03-09T10:00")), weekday);
     assertIdentical(onCall.whoIsOn(when("2026-03-14T10:00")), weekend);
+  });
+
+  it("explains who is on", () => {
+    // Given the rota, including its Wednesday swap.
+    const { weekday, covering, onCall } = anOnCallRota();
+
+    // When the Wednesday assignment is explained.
+    const explanation = onCall.explain(when("2026-03-11T10:00"));
+
+    // Then the swap is the result after the usual assignment.
+    assertIdentical(explanation.value, covering);
+    assertArrayEquals(
+      explanation.steps.map((step) =>
+        step.type === "assignment" ? step.result : undefined,
+      ),
+      [weekday, covering],
+    );
   });
 
   it("restores its methods after storage", () => {

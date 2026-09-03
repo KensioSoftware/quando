@@ -121,6 +121,29 @@ describe("a schedule", () => {
       assertFalse(asSaid().isOpen(when("2026-03-10T10:00")));
     });
 
+    it("explains which opening-hours lines settled a moment", () => {
+      // Given the same schedule, with usual hours followed by a closure.
+      // When a time during the closure is explained.
+      const explanation = asSaid().explain(when("2026-03-10T10:00"));
+
+      // Then its closed value and both matching lines are visible.
+      assertFalse(explanation.value);
+      assertIdentical(explanation.steps[0]?.type, "assignment");
+      assertIdentical(explanation.steps[1]?.type, "assignment");
+      assertIdentical(explanation.steps[0].path, "layers[0]");
+      assertIdentical(explanation.steps[1].path, "layers[1]");
+    });
+
+    it("explains ordinary closed time as having no matching lines", () => {
+      // Given the same schedule.
+      // When a Sunday is explained.
+      const explanation = asSaid().explain(when("2026-03-15T10:00"));
+
+      // Then the schedule is closed and the trace is empty.
+      assertFalse(explanation.value);
+      assertArrayEmpty(explanation.steps);
+    });
+
     it("keeps the replaced hours on the day they were replaced", () => {
       // Given the same schedule.
       // When two in the afternoon on the Wednesday is asked about.

@@ -2,6 +2,7 @@ import {
   advanceBy,
   type CoverageChanges,
   coverageChanges,
+  type Explanation,
   firstGap,
   rota,
   schedule,
@@ -56,10 +57,23 @@ const diagnostics: readonly ValidationDiagnostic[] = validate(
   validationWindow,
   validationOptions,
 );
+const explanation: Explanation<boolean> = office.explain(start);
+const explainedOpen: boolean = office.explain(start).value;
+const explainedAssignment: string | undefined = rota()
+  .assign(weekdays(), "alice")
+  .explain(start).value;
+const explainedCount: number = tally().plus(weekdays(), 3).explain(start).value;
 office.validate(start, end);
+office.explain(start);
 rota().assign(weekdays(), "alice").validate(start, end);
+rota().assign(weekdays(), "alice").explain(start);
 tally().plus(weekdays(), 3).validate(start, end);
+tally().plus(weekdays(), 3).explain(start);
 void diagnostics;
+void explanation;
+void explainedOpen;
+void explainedAssignment;
+void explainedCount;
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
 merged("sum", layer(weekdays(), 2), layer(weekdays(), 3));

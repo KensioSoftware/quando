@@ -36,12 +36,14 @@ The tally supplies several common operations:
 | `plus(scope, amount)`    | Add an amount                         |
 | `exactly(scope, amount)` | Replace lower values within the scope |
 | `at(instant)`            | Read the amount at one instant        |
+| `explain(instant)`       | Show how matching lines add up        |
 | `least(from, to)`        | Find the lowest amount in a window    |
 | `counts(from, to?)`      | Resolve the valued intervals          |
 | `validate(from, to)`     | Find inactive and shadowed lines      |
 
 `at` and `least` treat unassigned time as zero. `counts` returns assigned
-intervals only.
+intervals only. See [explanations](../explanations/) for the trace returned by
+`explain`.
 
 ## Use a merge strategy directly
 

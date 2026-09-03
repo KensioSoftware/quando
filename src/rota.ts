@@ -1,5 +1,6 @@
 import { valueAt } from "./assigned.js";
 import { type Cascade, cascade, layer } from "./cascade.js";
+import { explain, type Explanation } from "./explain.js";
 import { withMethods } from "./fluent.js";
 import type { JsonCompatible } from "./json.js";
 import { parseCascade, type ValueParser } from "./parse-cascade.js";
@@ -25,6 +26,7 @@ export interface Rota<V> extends RotaData<V> {
     value: W & JsonCompatible<W>,
   ) => Rota<V | W>;
   readonly whoIsOn: (at: Temporal.ZonedDateTime) => V | undefined;
+  readonly explain: (at: Temporal.ZonedDateTime) => Explanation<V>;
   readonly shifts: (
     from: Temporal.ZonedDateTime,
     to?: Temporal.ZonedDateTime,
@@ -52,6 +54,7 @@ function build<V>(data: RotaData<V>): Rota<V> {
     swap: <W>(day: PlainRule, value: W & JsonCompatible<W>) =>
       append(day, value),
     whoIsOn: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at),
+    explain: (at: Temporal.ZonedDateTime) => explain(data.cascade, at),
     shifts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>
       resolve(data.cascade, to === undefined ? { from } : { from, to }),
     validate: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>
