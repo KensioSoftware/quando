@@ -41,7 +41,7 @@ export { MERGE_STRATEGIES } from "./merge.js";
 export type { ValuedStream } from "./valued-stream.js";
 export { overlay } from "./valued-stream.js";
 export { resolve } from "./resolve.js";
-export { explain } from "./explain.js";
+export { explain, explainRule } from "./explain.js";
 
 export type { Assigned, Covers } from "./assigned.js";
 export { assigned, nextValue, valueAt } from "./assigned.js";

@@ -54,6 +54,23 @@ describe("parsing a cascade from JSON", () => {
       );
     });
 
+    it("keeps labels and comments on stored layers", () => {
+      // Given a stored assignment with caller-written explanation context.
+      const original = cascade(
+        layer(weekdays(), "alice", {
+          label: "Primary support",
+          comment: "Alice handles weekday incidents.",
+        }),
+      );
+      const document = stored(original);
+
+      // When the cascade is parsed.
+      const parsed = parseCascade(document, asString);
+
+      // Then the context survives as part of the layer document.
+      assertIdentical(JSON.stringify(parsed), JSON.stringify(document));
+    });
+
     it("takes a replacing layer, and the cascade inside it", () => {
       // Given a schedule that closes early on one day, which is the shape a
       // plain value cannot express.
@@ -362,7 +379,30 @@ describe("parsing a cascade from JSON", () => {
           layers: [{ scope: { type: "always" }, valeu: "alice" }],
         }),
         "cascade.layers[0].valeu: is not a field of a layer. Expected scope, " +
-          "value, replace",
+          "value, replace, label, comment",
+      );
+    });
+
+    it("refuses invalid explanation context", () => {
+      // Given layers with an empty label and a non-text comment.
+      const emptyLabel = {
+        type: "cascade",
+        layers: [{ scope: { type: "always" }, value: "alice", label: "   " }],
+      };
+      const numberedComment = {
+        type: "cascade",
+        layers: [{ scope: { type: "always" }, value: "alice", comment: 42 }],
+      };
+
+      // When each stored cascade is parsed.
+      // Then the invalid field is reported at its document path.
+      assertIdentical(
+        complaintAbout(emptyLabel),
+        "cascade.layers[0].label: expected a non-empty string.",
+      );
+      assertIdentical(
+        complaintAbout(numberedComment),
+        "cascade.layers[0].comment: expected a non-empty string.",
       );
     });
 

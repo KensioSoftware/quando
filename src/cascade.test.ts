@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import {
-  assertArrayLength,
+  assertArrayEmpty,
   assertFalse,
   assertIdentical,
   assertInstanceOf,
@@ -61,6 +61,23 @@ describe("cascades as data", () => {
       assertThrowsError(() => layer(weekdays(), nonEnumerable as never));
     });
 
+    it("stores explanation context and refuses unusable text", () => {
+      // Given a labelled assignment and options that contain no useful text.
+      const annotated = layer(weekdays(), "alice", {
+        label: "Primary support",
+        comment: "Alice handles weekday incidents.",
+      });
+
+      // When the valid layer is read and the invalid options are built.
+      // Then the context is data, while empty or unknown fields are refused.
+      assertIdentical(annotated.label, "Primary support");
+      assertIdentical(annotated.comment, "Alice handles weekday incidents.");
+      assertThrowsError(() => layer(weekdays(), "alice", { label: " " }));
+      assertThrowsError(() =>
+        layer(weekdays(), "alice", { because: "weekday" } as never),
+      );
+    });
+
     it("checks raw layer values throughout public constructors", () => {
       // Given invalid values inside raw layers and a nested replacement.
       const invalid = { scope: weekdays(), value: undefined } as never;
@@ -68,6 +85,11 @@ describe("cascades as data", () => {
         type: "cascade",
         layers: [{ scope: weekdays(), value: 1n }],
       } as never as Cascade<never>;
+      const invalidLabel = {
+        scope: weekdays(),
+        value: "alice",
+        label: 42,
+      } as never;
 
       // When each public cascade constructor receives one.
       // Then it refuses the value at the authoring boundary.
@@ -75,6 +97,7 @@ describe("cascades as data", () => {
       assertThrowsError(() => merged("override", invalid));
       assertThrowsError(() => replace(WEDNESDAY, nested));
       assertThrowsError(() => cascade({ scope: WEDNESDAY, replace: nested }));
+      assertThrowsError(() => cascade(invalidLabel));
     });
 
     it("is the document it stands for, with the builders' methods left out", () => {
@@ -114,7 +137,7 @@ describe("cascades as data", () => {
       // Given nothing to layer, as a list filtered down to empty would give.
       // When a cascade is built from it.
       // Then it holds no layers, which is the identity for this shape.
-      assertArrayLength(cascade<string>().layers, 0);
+      assertArrayEmpty(cascade<string>().layers);
     });
   });
 
@@ -139,6 +162,17 @@ describe("cascades as data", () => {
         },
       };
       assertIdentical(JSON.stringify(early), JSON.stringify(document));
+    });
+
+    it("attaches context to a replacement", () => {
+      // Given a changed-hours rule with a business label.
+      // When its replacement layer is built.
+      const early = replace(WEDNESDAY, timeOfDay("09:00", "15:00"), {
+        label: "Team meeting",
+      });
+
+      // Then the label is stored beside the scope it describes.
+      assertIdentical(early.label, "Team meeting");
     });
 
     it("keeps a cascade replacement as it was given", () => {

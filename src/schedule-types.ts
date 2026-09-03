@@ -2,6 +2,7 @@ import type { SlotOptions } from "./availability.js";
 import type { Cascade } from "./cascade.js";
 import type { DefaultExplanation } from "./explain.js";
 import type { Interval } from "./interval.js";
+import type { LayerOptions } from "./layer-options.js";
 import type { PlainRule } from "./plain-forms.js";
 import type { Search } from "./query.js";
 import type { ValidationDiagnostic } from "./semantic-validation.js";
@@ -24,9 +25,16 @@ export type ScheduleExplanation = DefaultExplanation<boolean>;
 
 /** Opening hours with methods for common schedule questions. */
 export interface Schedule extends ScheduleData {
-  readonly open: (scope: PlainRule, hours?: PlainRule) => Schedule;
-  readonly closed: (scope: PlainRule) => Schedule;
-  readonly hoursOn: (day: PlainRule, hours: PlainRule) => Schedule;
+  readonly open: {
+    (scope: PlainRule, options?: LayerOptions): Schedule;
+    (scope: PlainRule, hours: PlainRule, options?: LayerOptions): Schedule;
+  };
+  readonly closed: (scope: PlainRule, options?: LayerOptions) => Schedule;
+  readonly hoursOn: (
+    day: PlainRule,
+    hours: PlainRule,
+    options?: LayerOptions,
+  ) => Schedule;
   readonly isOpen: (at: Temporal.ZonedDateTime) => boolean;
   readonly explain: (at: Temporal.ZonedDateTime) => ScheduleExplanation;
   readonly opensNext: (

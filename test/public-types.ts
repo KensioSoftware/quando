@@ -4,7 +4,10 @@ import {
   coverageChanges,
   type Explanation,
   firstGap,
+  type LayerOptions,
   rota,
+  type RuleExplanation,
+  type SkippedLayer,
   schedule,
   type ScheduleChanges,
   slots,
@@ -15,7 +18,7 @@ import {
   tally,
   weekdays,
 } from "../src/index.js";
-import { layer, merged } from "../src/core.js";
+import { explainRule, layer, merged } from "../src/core.js";
 
 interface Duty {
   readonly person: string;
@@ -24,6 +27,13 @@ interface Duty {
 
 const start = Temporal.ZonedDateTime.from("2026-03-09T09:00[Europe/London]");
 const office = schedule().open(weekdays(), "09:00-17:00");
+const explanationOptions: LayerOptions = {
+  label: "Regular office hours",
+  comment: "The office handles appointments during these hours.",
+};
+const labelledOffice = schedule()
+  .open(weekdays(), "09:00-17:00", explanationOptions)
+  .closed("2026-12-25", { label: "Christmas Day" });
 const halfHour = Temporal.Duration.from({ minutes: 30 });
 const end = start.add({ days: 1 });
 const validationWindow: ValidationWindow = { from: start, to: end };
@@ -58,6 +68,9 @@ const diagnostics: readonly ValidationDiagnostic[] = validate(
   validationOptions,
 );
 const explanation: Explanation<boolean> = office.explain(start);
+const ruleExplanation: RuleExplanation = explainRule(weekdays(), start);
+const skippedLayer: SkippedLayer | undefined = explanation.skipped[0];
+const explanationSummary: string = labelledOffice.explain(start).summary;
 const explainedOpen: boolean = office.explain(start).value;
 const explainedAssignment: string | undefined = rota()
   .assign(weekdays(), "alice")
@@ -71,11 +84,17 @@ tally().plus(weekdays(), 3).validate(start, end);
 tally().plus(weekdays(), 3).explain(start);
 void diagnostics;
 void explanation;
+void ruleExplanation;
+void skippedLayer;
+void explanationSummary;
 void explainedOpen;
 void explainedAssignment;
 void explainedCount;
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
+rota().assign(weekdays(), "alice", { label: "Primary support" });
+tally().plus(weekdays(), 3, { comment: "The usual weekday crew." });
+layer(weekdays(), "alice", { label: "Primary support" });
 merged("sum", layer(weekdays(), 2), layer(weekdays(), 3));
 merged(
   "concat",

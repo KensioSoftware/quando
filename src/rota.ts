@@ -1,8 +1,9 @@
 import { valueAt } from "./assigned.js";
 import { type Cascade, cascade, layer } from "./cascade.js";
-import { explain, type Explanation } from "./explain.js";
+import { explainRota, type Explanation } from "./explain.js";
 import { withMethods } from "./fluent.js";
 import type { JsonCompatible } from "./json.js";
+import type { LayerOptions } from "./layer-options.js";
 import { parseCascade, type ValueParser } from "./parse-cascade.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
 import { resolve } from "./resolve.js";
@@ -20,10 +21,12 @@ export interface Rota<V> extends RotaData<V> {
   readonly assign: <const W>(
     scope: PlainRule,
     value: W & JsonCompatible<W>,
+    options?: LayerOptions,
   ) => Rota<V | W>;
   readonly swap: <const W>(
     day: PlainRule,
     value: W & JsonCompatible<W>,
+    options?: LayerOptions,
   ) => Rota<V | W>;
   readonly whoIsOn: (at: Temporal.ZonedDateTime) => V | undefined;
   readonly explain: (at: Temporal.ZonedDateTime) => Explanation<V>;
@@ -42,19 +45,18 @@ function build<V>(data: RotaData<V>): Rota<V> {
   const append = <W>(
     scope: PlainRule,
     value: W & JsonCompatible<W>,
+    options?: LayerOptions,
   ): Rota<V | W> => {
-    const next = layer(asDays(scope), value);
+    const next = layer(asDays(scope), value, options);
     const document = cascade<V | W>(...data.cascade.layers, next);
     return build({ type: "rota", cascade: document });
   };
 
   return withMethods(data, {
-    assign: <W>(scope: PlainRule, value: W & JsonCompatible<W>) =>
-      append(scope, value),
-    swap: <W>(day: PlainRule, value: W & JsonCompatible<W>) =>
-      append(day, value),
+    assign: append,
+    swap: append,
     whoIsOn: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at),
-    explain: (at: Temporal.ZonedDateTime) => explain(data.cascade, at),
+    explain: (at: Temporal.ZonedDateTime) => explainRota(data.cascade, at),
     shifts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>
       resolve(data.cascade, to === undefined ? { from } : { from, to }),
     validate: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>

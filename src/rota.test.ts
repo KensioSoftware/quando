@@ -80,6 +80,32 @@ describe("a rota", () => {
       ),
       [weekday, covering],
     );
+    assertStringIncludes(explanation.summary, "Wednesday is a weekday.");
+    assertStringIncludes(explanation.summary, "The date is 2026-03-11.");
+    assertStringIncludes(
+      explanation.summary,
+      `assigns ${JSON.stringify(covering)}`,
+    );
+  });
+
+  it("adds rota labels and comments to an explanation", () => {
+    // Given an assignment with a team name and a note about its responsibility.
+    const onCall = rota().assign(weekdays(), "alice", {
+      label: "Primary support",
+      comment: "Alice handles weekday incidents.",
+    });
+
+    // When a weekday assignment is explained.
+    const explanation = onCall.explain(when("2026-03-11T10:00"));
+
+    // Then the caller's terms appear beside Quando's automatic explanation.
+    assertIdentical(explanation.steps[0]?.label, "Primary support");
+    assertIdentical(
+      explanation.steps[0].comment,
+      "Alice handles weekday incidents.",
+    );
+    assertStringIncludes(explanation.summary, "Primary support.");
+    assertStringIncludes(explanation.summary, "Wednesday is a weekday.");
   });
 
   it("restores its methods after storage", () => {
@@ -113,6 +139,10 @@ describe("a rota", () => {
     // When it is asked about a Saturday.
     // Then nobody is on. An unassigned moment has no value to give.
     assertUndefined(weekdaysOnly.whoIsOn(when("2026-03-14T10:00")));
+    assertStringIncludes(
+      weekdaysOnly.explain(when("2026-03-14T10:00")).summary,
+      "Nobody is assigned",
+    );
   });
 
   it("hands back each stretch and who has it", () => {

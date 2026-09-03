@@ -4,7 +4,7 @@ import { valueAt } from "./assigned.js";
 import { firstGap, slots } from "./availability.js";
 import type { Cascade } from "./cascade.js";
 import { coverageChanges } from "./coverage-changes.js";
-import { explain, withDefaultValue } from "./explain.js";
+import { explainSchedule } from "./explain.js";
 import {
   advanceBy,
   coveredDuration,
@@ -38,7 +38,7 @@ function searchOptions(search: Search | Temporal.Duration | undefined): Search {
 export function scheduleQueries(document: Cascade<boolean>): ScheduleQueries {
   return {
     isOpen: (at) => valueAt(document, at) ?? false,
-    explain: (at) => withDefaultValue(explain(document, at), false),
+    explain: (at) => explainSchedule(document, at),
     opensNext: (at, search) =>
       nextCoveredInterval(
         document,

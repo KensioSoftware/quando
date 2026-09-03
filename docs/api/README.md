@@ -25,13 +25,18 @@ interface ScheduleChanges {
   readonly opened: Iterable<Interval>;
   readonly closed: Iterable<Interval>;
 }
+
+interface LayerOptions {
+  readonly label?: string;
+  readonly comment?: string;
+}
 ```
 
 | Method                                  | Result                                      |
 | --------------------------------------- | ------------------------------------------- |
-| `open(scope, hours?)`                   | Add opening hours                           |
-| `closed(scope)`                         | Close the entire scope                      |
-| `hoursOn(day, hours)`                   | Replace the hours within a day              |
+| `open(scope, hours?, options?)`         | Add opening hours                           |
+| `closed(scope, options?)`               | Close the entire scope                      |
+| `hoursOn(day, hours, options?)`         | Replace the hours within a day              |
 | `isOpen(at)`                            | Check one instant                           |
 | `explain(at)`                           | Explain the value at one instant            |
 | `opensNext(at, search?)`                | Return the current or next opening interval |
@@ -47,6 +52,10 @@ interface ScheduleChanges {
 as `"2026-03-11"` or a time range such as `"09:00-17:00"` in the appropriate
 position.
 
+The optional `LayerOptions` has `label` and `comment` fields. Both fields are
+stored and included in explanations. `open(scope, options)` labels an all-day
+opening without an `hours` argument.
+
 ### Rotas
 
 ```ts
@@ -58,15 +67,15 @@ function parseRota<V>(
 ): Rota<V>;
 ```
 
-| Method                 | Result                                   |
-| ---------------------- | ---------------------------------------- |
-| `assign(scope, value)` | Add an assignment                        |
-| `swap(day, value)`     | Add a replacement assignment for a day   |
-| `whoIsOn(at)`          | Return the assigned value or `undefined` |
-| `explain(at)`          | Explain the value at one instant         |
-| `shifts(from, to?)`    | Return valued intervals                  |
-| `validate(from, to)`   | Return diagnostics, including rota gaps  |
-| `toJSON()`             | Return the stored rota data              |
+| Method                           | Result                                   |
+| -------------------------------- | ---------------------------------------- |
+| `assign(scope, value, options?)` | Add an assignment                        |
+| `swap(day, value, options?)`     | Add a replacement assignment for a day   |
+| `whoIsOn(at)`                    | Return the assigned value or `undefined` |
+| `explain(at)`                    | Explain the value at one instant         |
+| `shifts(from, to?)`              | Return valued intervals                  |
+| `validate(from, to)`             | Return diagnostics, including rota gaps  |
+| `toJSON()`                       | Return the stored rota data              |
 
 ### Tallies
 
@@ -75,16 +84,16 @@ function tally(): Tally;
 function parseTally(value: unknown, path?: string): Tally;
 ```
 
-| Method                   | Result                                 |
-| ------------------------ | -------------------------------------- |
-| `plus(scope, amount)`    | Add an amount                          |
-| `exactly(scope, amount)` | Replace lower amounts within the scope |
-| `at(at)`                 | Return the amount at one instant       |
-| `explain(at)`            | Explain the value at one instant       |
-| `least(from, to)`        | Return the lowest amount in a window   |
-| `counts(from, to?)`      | Return valued intervals                |
-| `validate(from, to)`     | Return semantic tally diagnostics      |
-| `toJSON()`               | Return the stored tally data           |
+| Method                             | Result                                 |
+| ---------------------------------- | -------------------------------------- |
+| `plus(scope, amount, options?)`    | Add an amount                          |
+| `exactly(scope, amount, options?)` | Replace lower amounts within the scope |
+| `at(at)`                           | Return the amount at one instant       |
+| `explain(at)`                      | Explain the value at one instant       |
+| `least(from, to)`                  | Return the lowest amount in a window   |
+| `counts(from, to?)`                | Return valued intervals                |
+| `validate(from, to)`               | Return semantic tally diagnostics      |
+| `toJSON()`                         | Return the stored tally data           |
 
 ### Rule builders
 
@@ -221,14 +230,23 @@ allows ordinary closed time.
 ```ts
 function cascade<V>(...layers: readonly Layer<V>[]): Cascade<V>;
 
-function layer<V>(scope: Rule, value: V & JsonCompatible<V>): ConstantLayer<V>;
+function layer<V>(
+  scope: Rule,
+  value: V & JsonCompatible<V>,
+  options?: LayerOptions,
+): ConstantLayer<V>;
 
 function replace<V>(
   scope: Rule,
   replacement: Cascade<V & JsonCompatible<V>>,
+  options?: LayerOptions,
 ): ReplacingLayer<V>;
 
-function replace(scope: Rule, replacement: Rule): ReplacingLayer<boolean>;
+function replace(
+  scope: Rule,
+  replacement: Rule,
+  options?: LayerOptions,
+): ReplacingLayer<boolean>;
 
 function resolve<V>(cascade: CascadeLike<V>, context: Context): ValuedStream<V>;
 
@@ -237,11 +255,19 @@ function explain<V>(
   at: Temporal.ZonedDateTime,
   context?: Omit<Context, "from" | "to">,
 ): Explanation<V>;
+
+function explainRule(
+  rule: Rule,
+  at: Temporal.ZonedDateTime,
+  context?: Omit<Context, "from" | "to">,
+): RuleExplanation;
 ```
 
 `Explanation.value` is the value at the instant, or `undefined` when the
-cascade assigns nothing. Its `steps` contain matching assignments and nested
-replacements. See [explanations](../explanations/) for the complete shape.
+cascade assigns nothing. `summary` is a readable account of the result. Each
+step has an automatic rule-match description, optional caller context, and the
+structured data used to produce the text. See
+[explanations](../explanations/) for the complete shape.
 
 `cascade` uses later-layer priority. `merged` has strategy-specific
 overloads:
@@ -252,9 +278,9 @@ overloads:
 | `sum`, `max`, `min` | Numbers                |
 | `concat`            | Arrays                 |
 
-`whenever(rule)` creates a boolean cascade. `asCascade` returns the cascade
-document behind a supported domain object. `isCascade` checks the cascade type
-tag.
+`whenever(rule, options?)` creates a boolean cascade. `asCascade` returns the
+cascade document behind a supported domain object. `isCascade` checks the
+cascade type tag.
 
 `assigned(cascade, value)` selects the time assigned to one value.
 `valueAt(cascade, at)` reads one instant. `nextValue(cascade, context)`

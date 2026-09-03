@@ -21,6 +21,7 @@ import {
 } from "./cascade-validation.js";
 import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
 import { parseRule } from "./parse.js";
+import { layerOptionsOf } from "./layer-options.js";
 
 /**
  * Reads one stored value back at the type the caller keeps it in, or throws
@@ -33,7 +34,7 @@ import { parseRule } from "./parse.js";
 export type ValueParser<V> = (value: unknown, path: string) => V;
 
 const CASCADE_FIELDS = ["merge", "layers"];
-const LAYER_FIELDS = ["scope", "value", "replace"];
+const LAYER_FIELDS = ["scope", "value", "replace", "label", "comment"];
 
 /**
  * A cascade from unknown JSON, or a `TypeError` saying what is wrong and where.
@@ -110,9 +111,8 @@ function parseLayer<V>(
   checkFields(node, LAYER_FIELDS, path, "a layer");
 
   const scope = parseRule(node["scope"], `${path}.scope`);
-  const holds = LAYER_FIELDS.filter(
-    (field) => field !== "scope" && field in node,
-  );
+  const holds = ["value", "replace"].filter((field) => field in node);
+  const options = layerOptionsOf(node, path);
 
   if (holds.length === 2) {
     return fail(
@@ -127,12 +127,13 @@ function parseLayer<V>(
     return {
       scope,
       replace: parseCascade(node["replace"], parseValue, `${path}.replace`),
+      ...options,
     };
   }
 
   if (holds[0] === "value") {
     const parsed = parseValue(node["value"], `${path}.value`);
-    return { scope, value: parsed };
+    return { scope, value: parsed, ...options };
   }
 
   return fail(

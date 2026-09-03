@@ -8,14 +8,17 @@
 
 import { canonicalRule } from "./canonical-rule.js";
 import { type Cascade, isCascade, type Layer } from "./cascade.js";
+import { layerOptionsOf } from "./layer-options.js";
 import type { Rule } from "./rule.js";
 
 function canonicalLayer<V>(layer: Layer<V>): Layer<V> {
+  const options = layerOptionsOf(layer);
   return "value" in layer
-    ? { scope: canonicalRule(layer.scope), value: layer.value }
+    ? { scope: canonicalRule(layer.scope), value: layer.value, ...options }
     : {
         scope: canonicalRule(layer.scope),
         replace: canonicalCascade(layer.replace),
+        ...options,
       };
 }
 
