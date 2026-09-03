@@ -1,33 +1,43 @@
-# API
+# API reference
 
-Quando separates its common API, low-level core, and storage parsers across
-three package entry points.
+This page lists the main public API. Start with the
+[getting-started guide](../getting-started/) if you are new to Quando.
+
+## Entry points
+
+| Import path              | Purpose                                              |
+| ------------------------ | ---------------------------------------------------- |
+| `@kensio/quando`         | Schedules, rotas, tallies, rules, and common queries |
+| `@kensio/quando/core`    | Cascades, interval streams, and low-level evaluation |
+| `@kensio/quando/parsing` | Parsers for stored Quando documents                  |
+
+The core entry point also exports everything from the root entry point.
 
 ## Root entry point
 
-Import these names from `@kensio/quando`.
-
-### Schedule
+### Schedules
 
 ```ts
 function schedule(options?: { zone?: string }): Schedule;
 function parseSchedule(value: unknown, path?: string): Schedule;
 ```
 
-| Method                               | Result                                       |
-| ------------------------------------ | -------------------------------------------- |
-| `open(scope, hours?)`                | Adds opening hours                           |
-| `closed(scope)`                      | Closes the whole scope                       |
-| `hoursOn(day, hours)`                | Replaces the hours within a day              |
-| `isOpen(at)`                         | Returns whether the schedule is open         |
-| `opensNext(at, search?)`             | Returns the current or next complete opening |
-| `addOpenTime(from, amount, search?)` | Advances through open time                   |
-| `openDuration(from, to)`             | Measures open time in a window               |
+| Method                               | Result                                      |
+| ------------------------------------ | ------------------------------------------- |
+| `open(scope, hours?)`                | Add opening hours                           |
+| `closed(scope)`                      | Close the entire scope                      |
+| `hoursOn(day, hours)`                | Replace the hours within a day              |
+| `isOpen(at)`                         | Check one instant                           |
+| `opensNext(at, search?)`             | Return the current or next opening interval |
+| `addOpenTime(from, amount, search?)` | Advance through open time                   |
+| `openDuration(from, to)`             | Measure open time in a window               |
+| `toJSON()`                           | Return the stored schedule data             |
 
-`Schedule` contains a `cascade: Cascade<boolean>` property. Its JSON form uses
-the `schedule` type tag and retains the optional zone.
+`scope`, `day`, and `hours` accept a `Rule`. They also accept a date string such
+as `"2026-03-11"` or a time range such as `"09:00-17:00"` in the appropriate
+position.
 
-### Rota
+### Rotas
 
 ```ts
 function rota<V = never>(): Rota<V>;
@@ -38,46 +48,48 @@ function parseRota<V>(
 ): Rota<V>;
 ```
 
-| Method                 | Result                          |
-| ---------------------- | ------------------------------- |
-| `assign(scope, value)` | Assigns a value within a scope  |
-| `swap(day, value)`     | Assigns a replacement for a day |
-| `whoIsOn(at)`          | Returns the assigned value      |
-| `shifts(from, to?)`    | Returns valued intervals        |
+| Method                 | Result                                   |
+| ---------------------- | ---------------------------------------- |
+| `assign(scope, value)` | Add an assignment                        |
+| `swap(day, value)`     | Add a replacement assignment for a day   |
+| `whoIsOn(at)`          | Return the assigned value or `undefined` |
+| `shifts(from, to?)`    | Return valued intervals                  |
+| `toJSON()`             | Return the stored rota data              |
 
-### Tally
+### Tallies
 
 ```ts
 function tally(): Tally;
 function parseTally(value: unknown, path?: string): Tally;
 ```
 
-| Method                   | Result                                |
-| ------------------------ | ------------------------------------- |
-| `plus(scope, amount)`    | Adds an amount within a scope         |
-| `exactly(scope, amount)` | Replaces the amount within a scope    |
-| `at(at)`                 | Returns the amount at an instant      |
-| `least(from, to)`        | Returns the lowest amount in a window |
-| `counts(from, to?)`      | Returns valued intervals              |
+| Method                   | Result                                 |
+| ------------------------ | -------------------------------------- |
+| `plus(scope, amount)`    | Add an amount                          |
+| `exactly(scope, amount)` | Replace lower amounts within the scope |
+| `at(at)`                 | Return the amount at one instant       |
+| `least(from, to)`        | Return the lowest amount in a window   |
+| `counts(from, to?)`      | Return valued intervals                |
+| `toJSON()`               | Return the stored tally data           |
 
 ### Rule builders
 
-| Function                     | Rule                                 |
+| Function                     | Covered time                         |
 | ---------------------------- | ------------------------------------ |
 | `always()`                   | All time                             |
 | `never()`                    | No time                              |
-| `daysOfWeek(...days)`        | Whole days by weekday                |
+| `daysOfWeek(...days)`        | Whole days with the named weekdays   |
 | `weekdays()`                 | Monday through Friday                |
 | `weekends()`                 | Saturday and Sunday                  |
 | `timeOfDay(from, to, zone?)` | A daily wall-clock window            |
 | `dates(...dates)`            | Whole named dates                    |
-| `all(...rules)`              | Intersection                         |
-| `any(...rules)`              | Union                                |
-| `not(rule)`                  | Complement                           |
-| `inZone(zone, rule)`         | Evaluates a rule subtree in one zone |
+| `all(...rules)`              | Times covered by every rule          |
+| `any(...rules)`              | Times covered by at least one rule   |
+| `not(rule)`                  | Times outside a rule                 |
+| `inZone(zone, rule)`         | A rule subtree evaluated in one zone |
 
-Every builder validates its immediate inputs and returns `Built<R>`. A built
-rule has non-enumerable `.and`, `.or`, and `.except` methods.
+Each builder validates its arguments and returns a `Built<R>`. A built rule
+is a `Rule` with non-enumerable `.and`, `.or`, and `.except` methods.
 
 ```ts
 function parseRule(value: unknown, path?: string): Built<Rule>;
@@ -110,6 +122,9 @@ function advanceBy<V>(
 ): Temporal.ZonedDateTime | undefined;
 ```
 
+`Covers<V>` accepts a rule, a boolean cascade, or the result of
+`assigned(cascade, value)`.
+
 ```ts
 interface Search {
   readonly within?: Temporal.Duration;
@@ -117,44 +132,53 @@ interface Search {
 }
 ```
 
-The two searching queries use `DEFAULT_SEARCH_LIMIT` when the caller provides
-no finite range. Exhausting that guard throws `SearchLimitExceededError`.
+`nextCoveredInterval` and `advanceBy` apply `DEFAULT_SEARCH_LIMIT` when no
+finite end is supplied. They throw `SearchLimitExceededError` if they exhaust
+that automatic limit.
 
-### Comparison
+### Comparison and JSON types
 
-`canonical`, `equals`, and `fingerprint` compare the stored meaning of rules and
-cascades. They perform syntactic normalisation without evaluating an unbounded
-timeline.
+`canonical`, `equals`, and `fingerprint` compare the stored structure of
+rules and cascades.
 
-### JSON values
-
-`JsonValue` describes stored values. `JsonCompatible<T>` checks an application
-type without requiring an index signature, so named interfaces work as rota
-values.
+`JsonValue` describes values that JSON can preserve. `JsonCompatible<T>`
+checks an application type without requiring an index signature.
 
 ## Core entry point
-
-Import these names from `@kensio/quando/core`.
 
 ### Cascades
 
 ```ts
-function cascade<V>(...layers: Layer<V>[]): Cascade<V>;
+function cascade<V>(...layers: readonly Layer<V>[]): Cascade<V>;
+
 function layer<V>(scope: Rule, value: V & JsonCompatible<V>): ConstantLayer<V>;
+
 function replace<V>(
   scope: Rule,
   replacement: Cascade<V & JsonCompatible<V>>,
 ): ReplacingLayer<V>;
+
 function replace(scope: Rule, replacement: Rule): ReplacingLayer<boolean>;
+
 function resolve<V>(cascade: CascadeLike<V>, context: Context): ValuedStream<V>;
 ```
 
-`merged` has strategy-specific overloads. `sum`, `max`, and `min` accept
-numbers. `concat` accepts arrays. `override` accepts any `JsonValue`.
+`cascade` uses later-layer priority. `merged` has strategy-specific
+overloads:
 
-`asCascade` returns the document behind a cascade façade. `assigned` selects
-the intervals carrying one value. `valueAt` and `nextValue` query cascade
-values.
+| Strategy            | Accepted values        |
+| ------------------- | ---------------------- |
+| `override`          | JSON-compatible values |
+| `sum`, `max`, `min` | Numbers                |
+| `concat`            | Arrays                 |
+
+`whenever(rule)` creates a boolean cascade. `asCascade` returns the cascade
+document behind a supported domain object. `isCascade` checks the cascade type
+tag.
+
+`assigned(cascade, value)` selects the time assigned to one value.
+`valueAt(cascade, at)` reads one instant. `nextValue(cascade, context)`
+returns the next valued interval.
 
 ### Rule evaluation
 
@@ -162,18 +186,24 @@ values.
 function intervals(rule: Rule, context: Context): IntervalStream;
 ```
 
-An `Interval` has optional `start` and `end` values. Undefined endpoints mean
-the interval is unbounded in that direction. Streams are ordered,
-non-overlapping, half-open, and coalesced.
+An `Interval` has optional `start` and `end` values. An omitted endpoint is
+unbounded in that direction. Interval streams are ordered, non-overlapping,
+half-open, and coalesced.
 
-The core exports `clip`, `complement`, `intersect`, `union`, `contains`,
-`duration`, `isEmpty`, `take`, and interval comparison helpers.
+The core exports these interval operations:
+
+- `clip`, `complement`, `intersect`, and `union`
+- `contains`, `duration`, and `isEmpty`
+- `compareStarts`, `compareEnds`, `startsBeforeEnd`, and
+  `startsAtOrBeforeEnd`
+- `overlay` for valued streams
+- `take` for reading a fixed number of stream items
 
 ## Parsing entry point
 
-Import these names from `@kensio/quando/parsing`.
-
 ```ts
+type ValueParser<V> = (value: unknown, path: string) => V;
+
 parseRule;
 parseSchedule;
 parseRota;
@@ -184,10 +214,11 @@ asBoolean;
 fail;
 ```
 
-Every parser accepts `unknown`, rejects unknown fields, and reports the path to
-an invalid value.
+Every parser accepts `unknown`, rejects unknown fields, and reports the path
+to invalid data. `parseRota` and `parseCascade` require a `ValueParser` for
+application values.
 
-## Context
+## Shared types
 
 ```ts
 interface Context {
@@ -195,10 +226,16 @@ interface Context {
   readonly to?: Temporal.ZonedDateTime;
   readonly disambiguation?: "compatible" | "earlier" | "later" | "reject";
 }
+
+interface Interval {
+  readonly start: Temporal.ZonedDateTime | undefined;
+  readonly end: Temporal.ZonedDateTime | undefined;
+}
 ```
 
-The `from` zone supplies the default zone. `to` must be at or after `from`.
-`disambiguation` controls ambiguous and nonexistent wall-clock times.
+The zone carried by `Context.from` is the default evaluation zone. `to` must
+represent the same instant or a later instant. `disambiguation` controls
+ambiguous and nonexistent local times.
 
 <!-- card
 ```ts

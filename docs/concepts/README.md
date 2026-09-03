@@ -1,153 +1,134 @@
 # Concepts
 
-Quando calculates when something happens under a set of time rules.
+Quando models time with rules, contexts, intervals, and ordered value layers.
 
-`Temporal` represents dates, times, durations, and time zones. Quando uses those
-values to evaluate rules such as "weekdays from 09:00 to 17:00, except bank
-holidays".
+You can use the domain APIs without working with every part of this model. The
+model becomes useful when you need custom rules or lower-level queries.
 
-This page explains the model. See [getting started](../getting-started/) for a
-short example, or go to [rules](../rules/) and [queries](../queries/) for the
-API.
+## Choose the smallest useful API
 
-## A rule produces intervals
+| Need                                       | Start with |
+| ------------------------------------------ | ---------- |
+| Opening hours or availability              | `schedule` |
+| One assigned value at a time               | `rota`     |
+| Numeric values that add where they overlap | `tally`    |
+| A custom definition of when                | Rules      |
+| Custom value precedence or merging         | Cascades   |
 
-A rule produces the intervals during which it applies. For example, a warehouse
-rule might produce one interval for each period when the warehouse is open.
+The root package exports schedules, rotas, tallies, rules, and common queries.
+The `@kensio/quando/core` entry point adds interval and cascade operations.
 
-This is more useful than testing one instant at a time. Sampling requires a step
-size. A large step can miss a boundary, while a small step can make a long
-search slow.
+## Rules describe when
 
-Intervals preserve exact boundaries. They also support the main calculations
-directly:
-
-```text
-weekdays 09:00–17:00, for the week of 2026-03-09:
-
-  Mon ▓▓▓▓▓▓▓▓        Tue ▓▓▓▓▓▓▓▓        Wed ▓▓▓▓▓▓▓▓
-  Thu ▓▓▓▓▓▓▓▓        Fri ▓▓▓▓▓▓▓▓        Sat                 Sun
-```
-
-Working time in a window is the sum of the interval durations. Advancing by
-working time means moving through the intervals until the duration is used.
-The next opening is the next interval.
-
-Intervals are half-open. They include the start and exclude the end, written as
-`[start, end)`. Two intervals can meet at 17:00 without overlapping.
-
-## Rules combine
-
-Rules combine with three set operations:
-
-|       |                                             |
-| ----- | ------------------------------------------- |
-| `all` | intersection. Every rule must apply.        |
-| `any` | union. At least one rule must apply.        |
-| `not` | complement. The source rule must not apply. |
-
-For example, "weekdays and 09:00 to 17:00" is an intersection. "Saturdays or
-bank holidays" is a union. See [rules](../rules/) for every rule type.
-
-## Overrides need layers
-
-Set operations work well for exceptions. Opening hours excluding holidays can
-be written as `all(hours, not(holidays))` or `hours.except(holidays)`.
-
-Overrides are harder to express as sets. The following rule defines normal
-weekday hours and replaces the hours on 11 March:
+A rule describes a set of covered times. It carries no application value.
 
 ```ts
-import { dates, intervals, timeOfDay, weekdays } from "@kensio/quando/core";
+import { dates, timeOfDay, weekdays } from "@kensio/quando";
 
-const closesEarly = dates("2026-03-11");
-
-const openingHours = weekdays()
+const dispatchHours = weekdays()
   .and(timeOfDay("09:00", "17:00"))
-  .except(closesEarly)
-  .or(closesEarly.and(timeOfDay("09:00", "15:00")));
+  .except(dates("2026-12-25"));
+```
 
+This rule covers weekday office hours except Christmas Day. The parts have
+ordinary set meanings:
+
+| Operation | Meaning                                            |
+| --------- | -------------------------------------------------- |
+| `and`     | Every rule must cover the time                     |
+| `or`      | At least one rule must cover the time              |
+| `except`  | The first rule covers it and an exception does not |
+
+Rules are useful on their own and also form the scopes used by schedules,
+rotas, tallies, and cascades.
+
+## A context bounds evaluation
+
+Recurring rules have no natural end. A context says where evaluation starts
+and where it stops.
+
+```ts
 const week = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-14T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 };
+```
 
-for (const { start, end } of intervals(openingHours, week)) {
-  console.log(`${start?.toPlainDateTime()} → ${end?.toPlainDateTime()}`);
+The `from` value also supplies the default time zone. The optional `to` value
+makes the window finite. Low-level streams can remain unbounded when `to` is
+omitted.
+
+## Rules produce intervals
+
+Evaluating a rule produces the exact intervals it covers within a context.
+
+```ts
+import { intervals } from "@kensio/quando/core";
+
+for (const interval of intervals(dispatchHours, week)) {
+  console.log(interval.start?.toString(), interval.end?.toString());
 }
 ```
 
+Intervals are half-open. `[start, end)` includes the start and excludes the
+end. Adjacent intervals do not overlap at their shared boundary.
+
+Most applications do not need to iterate intervals directly. The common query
+functions answer four questions:
+
+| Function              | Answer                                  |
+| --------------------- | --------------------------------------- |
+| `activeAt`            | Whether an instant is covered           |
+| `nextCoveredInterval` | The current or next covered interval    |
+| `coveredDuration`     | The covered time within a finite window |
+| `advanceBy`           | The result of adding only covered time  |
+
+Schedules expose the same queries as methods with opening-hours names.
+
+## Cascades attach values
+
+A cascade is an ordered list of layers. Each layer pairs a rule with a value.
+Later layers take precedence by default.
+
 ```text
-2026-03-09T09:00:00 → 2026-03-09T17:00:00
-2026-03-10T09:00:00 → 2026-03-10T17:00:00
-2026-03-11T09:00:00 → 2026-03-11T15:00:00
-2026-03-12T09:00:00 → 2026-03-12T17:00:00
-2026-03-13T09:00:00 → 2026-03-13T17:00:00
+1. weekdays                  alice
+2. weekends                  bob
+3. 2026-03-11                carol
 ```
 
-The rule must name 11 March twice. It first removes the date from the normal
-hours, then adds the shorter hours.
+Carol is assigned on 11 March because the third layer comes last. The scope's
+specificity has no effect on precedence.
 
-## Cascades apply layers in order
+Rotas use this model for assignments. Schedules use boolean values. Tallies use
+a `sum` strategy that adds overlapping numbers. The [cascades](../cascades/)
+and [merging](../merging/) guides cover the low-level API.
 
-A cascade expresses the same override as an ordered list of layers. Each layer
-has a scope and a value. By default, the last layer that covers a moment wins.
+## Definitions are data
 
-```text
-  1. weekdays 09:00–17:00         ← the usual hours
-  2. bank holidays: closed        ← an exception
-  3. the 11th: 09:00–15:00        ← an override, wins inside its own day
-```
+Rules and domain objects have explicit JSON forms. Builder methods are attached
+as non-enumerable properties, so JSON storage sees only the definition.
 
-A value can be a boolean, a name, a price, or another domain value. Schedules
-use boolean values. Rotas use values such as names.
+Parsers accept `unknown`, validate the complete document, and restore the
+methods. Your application remains responsible for storing the JSON. See
+[serialisation](../serialisation/).
 
-Rules remain boolean and cascades carry values. This keeps operations such as
-`not` well-defined. See [cascades](../cascades/) for the full API.
+## Limits
 
-Cascades use precedence by default. They can also merge overlapping values with
-`sum`, `max`, `min`, or `concat`. See [merging](../merging/).
+Quando calculates times and intervals. It does not run scheduled work or
+provide holiday datasets.
 
-## Rules are data
+Every rule describes a set of times independently. Constraints that depend on
+previous occurrences need a different model. Examples include a minimum gap
+between doses, a maximum number of requests per minute, and a rolling total.
 
-A rule is a JSON-compatible object. You can store it in a database, send it
-through an API, or keep it in a configuration file.
-
-Quando provides builders and parsers. Your application handles storage. See
-[serialisation](../serialisation/) for the JSON format and validation.
-
-## What a rule cannot say
-
-Every rule describes a set of times. This model cannot express constraints on a
-series of separate occurrences.
-
-Examples include:
-
-- At most four doses a day, at least four hours apart.
-- Ninety days in any rolling period of a hundred and eighty.
-- Nine hours of driving a day, with a break after four and a half.
-- A hundred requests a minute.
-
-These constraints require information about previous occurrences. Quando does
-not support them.
-
-Quando also has no validity horizon. A weekday rule continues into the future,
-even if its holiday data stops earlier. Applications must track how far their
-data is valid.
-
-## Scope
-
-Quando calculates times. A separate scheduler can use the results to run timers
-or trigger events.
-
-`Temporal` provides the date and time operations. Quando uses `Temporal` values
-for its inputs and outputs.
+Rules also have no built-in validity horizon. A weekday rule continues into the
+future even when an application's holiday data ends. The application must
+track the range covered by its external data.
 
 <!-- card
 ```ts
-const openingHours = weekdays()
+const dispatchHours = weekdays()
   .and(timeOfDay("09:00", "17:00"))
-  .except(closesEarly)
-  .or(closesEarly.and(timeOfDay("09:00", "15:00")));
+  .except(dates("2026-12-25"));
 ```
 -->

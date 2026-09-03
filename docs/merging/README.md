@@ -1,42 +1,14 @@
 # Merging values
 
-A [cascade](../cascades/) normally resolves overlaps by precedence. The later
-layer replaces the earlier layer.
+A cascade normally uses layer priority. The last matching layer supplies the
+value. A merge strategy combines every matching value instead.
 
-Some values need to be combined. Two teams with three people each produce a
-total of six. A base tariff and a peak charge can be added together.
+Use a [tally](#count-with-a-tally) for counts. Use `merged` when you need direct
+access to the low-level strategies.
 
-Use a merge strategy to define how overlapping values combine.
+## Count with a tally
 
-## Default override behaviour
-
-```ts
-import { cascade, dates, layer, resolve, weekdays } from "@kensio/quando/core";
-
-const week = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-};
-
-const staff = cascade(layer(weekdays(), 3), layer(dates("2026-03-11"), 2));
-
-for (const { start, end, value } of resolve(staff, week)) {
-  console.log(`${start?.toPlainDate()} → ${end?.toPlainDate()}: ${value}`);
-}
-```
-
-```text
-2026-03-09 → 2026-03-11: 3
-2026-03-11 → 2026-03-12: 2
-2026-03-12 → 2026-03-14: 3
-```
-
-The second layer replaces the first on Wednesday, so the result is two.
-
-## Count with `tally`
-
-A `Tally` is a façade over a summing `Cascade<number>`. Its methods use terms
-suited to counts:
+A tally adds numeric values that cover the same time:
 
 ```ts
 import { tally, weekdays, weekends } from "@kensio/quando";
@@ -44,95 +16,60 @@ import { tally, weekdays, weekends } from "@kensio/quando";
 const staff = tally()
   .plus(weekdays(), 3)
   .plus(weekends(), 1)
-  .plus("2026-03-11", 2); // two extra that Wednesday
+  .plus("2026-03-11", 2);
 
 const wednesday = Temporal.ZonedDateTime.from(
   "2026-03-11T11:00[Europe/London]",
 );
-const saturday = Temporal.ZonedDateTime.from("2026-03-14T11:00[Europe/London]");
-const from = Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]");
-const to = Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]");
 
 console.log(staff.at(wednesday));
-console.log(staff.at(saturday));
-console.log(staff.least(from, to));
 ```
 
 ```text
 5
-1
-1
 ```
 
-`at` returns the count at one moment. `least` returns the lowest count in a
-window. `counts` returns each interval with its count:
+The tally supplies several common operations:
+
+| Method                   | Meaning                               |
+| ------------------------ | ------------------------------------- |
+| `plus(scope, amount)`    | Add an amount                         |
+| `exactly(scope, amount)` | Replace lower values within the scope |
+| `at(instant)`            | Read the amount at one instant        |
+| `least(from, to)`        | Find the lowest amount in a window    |
+| `counts(from, to?)`      | Resolve the valued intervals          |
+
+`at` and `least` treat unassigned time as zero. `counts` returns assigned
+intervals only.
+
+## Use a merge strategy directly
+
+`merged` stores the strategy in a cascade:
+
+| Strategy   | Accepted values           | Overlap result           |
+| ---------- | ------------------------- | ------------------------ |
+| `override` | Any JSON-compatible value | The later value          |
+| `sum`      | Numbers                   | The total                |
+| `max`      | Numbers                   | The largest value        |
+| `min`      | Numbers                   | The smallest value       |
+| `concat`   | Arrays                    | One array in layer order |
+
+This cascade adds two extra staff members on Wednesday:
 
 ```ts
-for (const { start, value } of staff.counts(from, to)) {
-  console.log(`${start?.toPlainDate()}: ${value}`);
-}
-```
-
-```text
-2026-03-09: 3
-2026-03-11: 5
-2026-03-12: 3
-2026-03-14: 1
-```
-
-### Replace a count with `exactly`
-
-`plus` adds to other values that cover the same time. `exactly` replaces lower
-values within its scope:
-
-```ts
-import { tally, weekdays } from "@kensio/quando";
-
-const staff = tally().plus(weekdays(), 3).exactly("2026-03-11", 1);
-
-console.log(staff.at(wednesday));
-```
-
-```text
-1
-```
-
-Using `plus` for the final line would produce four. Layers added after
-`exactly` still add to its value.
-
-### Unassigned time counts as zero
-
-```ts
-console.log(tally().plus(weekdays(), 3).least(from, to));
-```
-
-```text
-0
-```
-
-Only weekdays have a count. The weekend is unassigned, and `least` treats it as
-zero. `at` also returns zero for an unassigned moment.
-
-## Use `sum` directly
-
-`tally` builds a cascade with the `sum` strategy. Use `merged` directly when you
-need `sum`, `max`, `min`, or `concat` without the `Tally` methods.
-
-Pass the strategy name as the first argument to `merged`:
-
-```ts
-import { dates, layer, merged, resolve, weekdays } from "@kensio/quando/core";
-
-const week = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-};
+import { dates, weekdays } from "@kensio/quando";
+import { layer, merged, resolve } from "@kensio/quando/core";
 
 const staff = merged(
   "sum",
   layer(weekdays(), 3),
   layer(dates("2026-03-11"), 2),
 );
+
+const week = {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
+};
 
 for (const { start, end, value } of resolve(staff, week)) {
   console.log(`${start?.toPlainDate()} → ${end?.toPlainDate()}: ${value}`);
@@ -145,92 +82,34 @@ for (const { start, end, value } of resolve(staff, week)) {
 2026-03-12 → 2026-03-14: 3
 ```
 
-The overlapping values produce five on Wednesday. Layer order still controls
-the argument order passed to the strategy. Unassigned time remains absent, and
-the stream remains lazy.
-
-## `max` and `min`
+Layer order controls the order used by `concat`:
 
 ```ts
-import { dates, layer, merged, resolve, weekdays } from "@kensio/quando/core";
-
-const week = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-};
-
-const tariff = merged(
-  "max",
-  layer(weekdays(), 12),
-  layer(dates("2026-03-11"), 30),
-);
-
-for (const { start, end, value } of resolve(tariff, week)) {
-  console.log(`${start?.toPlainDate()} → ${end?.toPlainDate()}: ${value}`);
-}
-```
-
-```text
-2026-03-09 → 2026-03-11: 12
-2026-03-11 → 2026-03-12: 30
-2026-03-12 → 2026-03-14: 12
-```
-
-Use `max` to keep the larger number and `min` to keep the smaller number.
-
-## `concat`
-
-Use `concat` to join overlapping arrays:
-
-```ts
-import { dates, layer, merged, resolve, weekdays } from "@kensio/quando/core";
-
-const week = {
-  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
-};
-
 const onCall = merged(
   "concat",
   layer(weekdays(), ["alice"]),
   layer(dates("2026-03-11"), ["bob"]),
 );
-
-for (const { start, end, value } of resolve(onCall, week)) {
-  console.log(`${start?.toPlainDate()} → ${end?.toPlainDate()}: ${value}`);
-}
 ```
 
-```text
-2026-03-09 → 2026-03-11: alice
-2026-03-11 → 2026-03-12: alice,bob
-2026-03-12 → 2026-03-14: alice
-```
+The value on Wednesday is `["alice", "bob"]`.
 
-Wednesday contains both names in layer order.
+## Replacement and merging
 
-## Why the strategy is a name
+A replacement layer owns its whole scope. Values from lower layers do not
+participate in that region. Layers above the replacement still merge with its
+result.
 
-Merge strategies are stored in cascade JSON. A JavaScript function cannot be
-stored in JSON, so cascades use strategy names.
+A nested replacement cascade uses its own strategy. This lets an outer
+`sum` cascade contain a replacement that uses `max`, for example.
 
-The strategy names form a fixed set. Therefore,
-[`parseCascade`](../serialisation/#cascades)
-rejects unknown strategies.
+## Validation
 
-## Merge around replacement layers
+TypeScript connects each strategy to its value type. `sum`, `max`, and
+`min` accept numbers. `concat` accepts arrays.
 
-A [replacing layer](../cascades/#replace-earlier-layers-within-a-scope) claims
-its whole scope. Values from lower layers are not merged inside that scope.
-
-Layers above the replacement still merge with it.
-
-## Merge strategies validate their values
-
-The `merged` overloads connect each strategy to its value type. TypeScript
-rejects string layers passed to `sum` and scalar layers passed to `concat`.
-
-`parseCascade` applies the same check to stored documents before resolution:
+Runtime validation applies the same rules to raw layers and parsed documents.
+Invalid values fail when the cascade is constructed or parsed:
 
 ```ts
 import { asString, parseCascade } from "@kensio/quando/parsing";
@@ -249,12 +128,15 @@ parseCascade(
 TypeError: cascade.layers[0].value: sum needs numbers.
 ```
 
+Strategy names are part of the stored JSON document. `parseCascade` rejects
+unknown names.
+
 <!-- card
 ```ts
 const staff = merged(
   "sum",
   layer(weekdays(), 3),
   layer(dates("2026-03-11"), 2),
-); // → 5 on the Wednesday
+); // 5 on Wednesday
 ```
 -->
