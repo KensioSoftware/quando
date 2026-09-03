@@ -89,6 +89,10 @@ false
 `canonical`, `equals`, and `fingerprint` expect valid Quando data. Parse
 [stored data](../serialisation/) before comparing it.
 
+Use `coverageChanges` when you need semantic differences inside a time window.
+It evaluates both definitions and reports the intervals added to and removed
+from their coverage. See the [queries guide](../queries/#compare-covered-time).
+
 <!-- card
 ```ts
 const built = all(all(weekdays()), timeOfDay("09:00", "17:00"));

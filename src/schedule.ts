@@ -7,6 +7,7 @@ import { asZone } from "./validation.js";
 
 export type {
   Schedule,
+  ScheduleChanges,
   ScheduleData,
   ScheduleOptions,
 } from "./schedule-types.js";

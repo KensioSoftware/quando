@@ -10,6 +10,7 @@ It answers questions such as these:
 - When will three working hours have elapsed?
 - Where is the first two-hour gap in several people's availability?
 - Which half-hour booking slots are available?
+- Which opening times changed in a revised schedule?
 - Who is on call at a given time?
 - How many people are working during a period?
 

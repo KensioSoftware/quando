@@ -3,6 +3,7 @@
 import { valueAt } from "./assigned.js";
 import { firstGap, slots } from "./availability.js";
 import type { Cascade } from "./cascade.js";
+import { coverageChanges } from "./coverage-changes.js";
 import {
   advanceBy,
   coveredDuration,
@@ -17,6 +18,7 @@ type ScheduleQueries = Pick<
   | "opensNext"
   | "firstOpenSlot"
   | "openSlots"
+  | "changesTo"
   | "addOpenTime"
   | "openDuration"
 >;
@@ -44,6 +46,10 @@ export function scheduleQueries(document: Cascade<boolean>): ScheduleQueries {
     firstOpenSlot: (from, lasting, search) =>
       firstGap(document, lasting, { from }, searchOptions(search)),
     openSlots: (from, to, options) => slots(document, { from, to }, options),
+    changesTo: (next, from, to) => {
+      const changed = coverageChanges(document, next, { from, to });
+      return { opened: changed.added, closed: changed.removed };
+    },
     addOpenTime: (from, amount, search) =>
       advanceBy(from, amount, { during: document, ...search }),
     openDuration: (from, to) => coveredDuration(document, { from, to }),

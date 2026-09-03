@@ -74,7 +74,7 @@ Intervals are half-open. `[start, end)` includes the start and excludes the
 end. Adjacent intervals do not overlap at their shared boundary.
 
 Most applications do not need to iterate intervals directly. The common query
-functions answer six questions:
+functions answer seven questions:
 
 | Function              | Answer                                  |
 | --------------------- | --------------------------------------- |
@@ -84,9 +84,10 @@ functions answer six questions:
 | `slots`               | Candidate intervals at a fixed cadence  |
 | `coveredDuration`     | The covered time within a finite window |
 | `advanceBy`           | The result of adding only covered time  |
+| `coverageChanges`     | Time added and removed between inputs   |
 
-Schedules can be passed to all six functions. Each query also has a schedule
-method with an opening-hours name.
+Schedules can be passed to all seven functions. Schedule methods give the
+single-input queries opening-hours names. `changesTo` compares two schedules.
 
 ## Cascades attach values
 

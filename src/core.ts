@@ -14,6 +14,7 @@ export {
 } from "./interval.js";
 export type { IntervalStream } from "./interval-stream.js";
 export { clip, complement, intersect, union } from "./interval-stream.js";
+export { difference } from "./interval-difference.js";
 export { take } from "./stream.js";
 export { intervals } from "./interpret.js";
 

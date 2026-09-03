@@ -6,6 +6,7 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
+import { difference } from "./interval-difference.js";
 import { clip, complement, intersect, union } from "./interval-stream.js";
 import { duration } from "./interval.js";
 import { take } from "./stream.js";
@@ -209,6 +210,43 @@ describe("the interval algebra", () => {
       // When they are unioned.
       // Then nothing comes back.
       assertIdentical(render(union([], [])), "");
+    });
+  });
+
+  describe("difference", () => {
+    it("removes overlapping intervals from the left stream", () => {
+      // Given a working day with lunch and the late afternoon excluded.
+      const workday = [span("2026-03-16T09:00", "2026-03-16T17:00")];
+      const excluded = [
+        span("2026-03-16T12:00", "2026-03-16T13:00"),
+        span("2026-03-16T15:00", "2026-03-16T18:00"),
+      ];
+
+      // When the exclusions are subtracted.
+      const remaining = difference(workday, excluded);
+
+      // Then the uncovered morning and afternoon remain.
+      assertIdentical(
+        render(remaining),
+        "[2026-03-16T09:00:00,2026-03-16T12:00:00) " +
+          "[2026-03-16T13:00:00,2026-03-16T15:00:00)",
+      );
+    });
+
+    it("keeps an unbounded end outside the excluded interval", () => {
+      // Given all time after nine with one hour excluded.
+      const afterNine = [span("2026-03-16T09:00", undefined)];
+      const excluded = [span("2026-03-16T12:00", "2026-03-16T13:00")];
+
+      // When the exclusion is subtracted.
+      const remaining = difference(afterNine, excluded);
+
+      // Then both sides keep their original outer bounds.
+      assertIdentical(
+        render(remaining),
+        "[2026-03-16T09:00:00,2026-03-16T12:00:00) " +
+          "[2026-03-16T13:00:00,*)",
+      );
     });
   });
 

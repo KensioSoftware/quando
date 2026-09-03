@@ -158,7 +158,7 @@ can choose a different zone for one child rule.
 The root package provides the common queries:
 
 ```ts
-import { activeAt, coveredDuration } from "@kensio/quando";
+import { activeAt, coverageChanges, coveredDuration } from "@kensio/quando";
 
 const monday = Temporal.ZonedDateTime.from("2026-03-09T10:00[Europe/London]");
 const week = {
@@ -168,10 +168,11 @@ const week = {
 
 activeAt(officeHours, monday);
 coveredDuration(officeHours, week);
+coverageChanges(officeHours, officeHours.except(dates("2026-03-11")), week);
 ```
 
 See [queries](../queries/) for checking an instant, finding the next interval,
-measuring covered time, and adding covered time.
+measuring covered time, adding covered time, and comparing coverage.
 
 ## Read intervals directly
 
