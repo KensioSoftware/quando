@@ -91,7 +91,7 @@ openingHours.changesTo(
 | `.openDuration(from, to)`                | The open duration inside a finite window    |
 | `.changesTo(next, from, to)`             | Newly opened and closed intervals           |
 | `.validate(from, to)`                    | Inactive and shadowed schedule layers       |
-| `.renderTimeline(from, to, options?)`    | A text or SVG chart of the opening times    |
+| `.renderTimeline(from, to, options?)`    | JSON data or a text chart of opening times  |
 
 `opensNext`, `firstOpenSlot`, and `addOpenTime` search up to 100 years by
 default. Pass a `within` duration when finding no result is an expected
@@ -144,9 +144,9 @@ describes each rule match and the effect of layer priority automatically.
 Optional labels and comments add business context. The
 [explanations guide](../explanations/) covers the complete result.
 
-`renderTimeline` draws one row per local day and lists the exact opening times.
-Text is the default. Pass `{ format: "svg" }` for a standalone image. See the
-[timelines guide](../timelines/) for examples and the standalone renderer.
+`renderTimeline` returns JSON-compatible data with one entry per local day.
+Pass `{ format: "text" }` for a fixed-width chart built from that data. See the
+[timelines guide](../timelines/) for examples and the standalone function.
 
 ## Build a rota
 

@@ -46,7 +46,7 @@ interface LayerOptions {
 | `openDuration(from, to)`                | Measure open time in a window               |
 | `changesTo(next, from, to)`             | Return newly opened and closed intervals    |
 | `validate(from, to)`                    | Return semantic schedule diagnostics        |
-| `renderTimeline(from, to, options?)`    | Render opening times as text or SVG         |
+| `renderTimeline(from, to, options?)`    | Return opening times as JSON data or text   |
 | `toJSON()`                              | Return the stored schedule data             |
 
 `scope`, `day`, and `hours` accept a `Rule`. They also accept a date string such
@@ -173,11 +173,11 @@ function accumulate(
   unit: ElapsedUnit,
 ): number;
 
-function renderTimeline<V>(
+function renderTimeline<V, F extends TimelineFormat = "json">(
   source: Covers<V>,
   context: Context,
-  options?: TimelineOptions,
-): string;
+  options?: TimelineOptions & { readonly format?: F },
+): TimelineOutput<F>;
 ```
 
 `Covers<V>` accepts a rule, a boolean cascade, or the result of
@@ -204,13 +204,39 @@ type ElapsedUnit =
 
 const ELAPSED_UNITS: readonly ElapsedUnit[];
 
-type TimelineFormat = "text" | "svg";
+type TimelineFormat = "json" | "text";
 
 interface TimelineOptions {
   readonly format?: TimelineFormat;
 }
 
 const TIMELINE_FORMATS: readonly TimelineFormat[];
+
+interface Timeline {
+  readonly type: "timeline";
+  readonly zone: string;
+  readonly from: string;
+  readonly to: string;
+  readonly days: readonly TimelineDay[];
+}
+
+interface TimelineDay {
+  readonly date: string;
+  readonly start: string;
+  readonly end: string;
+  readonly visibleStart: string;
+  readonly visibleEnd: string;
+  readonly covered: readonly TimelineSpan[];
+}
+
+interface TimelineSpan {
+  readonly start: string;
+  readonly end: string;
+}
+
+type TimelineOutput<F extends TimelineFormat> = F extends "text"
+  ? string
+  : Timeline;
 ```
 
 `nextCoveredInterval`, `firstGap`, and `advanceBy` apply
@@ -221,8 +247,9 @@ returns a lazy stream and adds no limit.
 `accumulate` multiplies each resolved numeric value by how long it applies in
 the requested unit. Its context must have a finite end.
 
-`renderTimeline` draws one local calendar-day row for each day in the context.
-Text is the default format. SVG output is a standalone accessible image. The
+`renderTimeline` returns a JSON-compatible `Timeline` by default. Each local
+calendar day contains its visible window and exact covered spans. Pass
+`{ format: "text" }` for a fixed-width chart built from the same data. The
 context must have a finite end.
 
 ### Comparison and JSON types

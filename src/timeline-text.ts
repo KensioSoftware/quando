@@ -3,7 +3,8 @@ import {
   timelineMinute,
   timelineTime,
 } from "./timeline-position.js";
-import type { TimelineRow } from "./timeline-types.js";
+import { type TextTimelineDay, textTimelineDay } from "./timeline-text-day.js";
+import type { Timeline } from "./timeline-types.js";
 
 const COLUMNS = 48;
 
@@ -19,26 +20,26 @@ function overlaps(
   );
 }
 
-function cell(row: TimelineRow, column: number): string {
+function cell(day: TextTimelineDay, column: number): string {
   const start = (column * MINUTES_PER_DAY) / COLUMNS;
   const end = ((column + 1) * MINUTES_PER_DAY) / COLUMNS;
   const visible = overlaps(
     start,
     end,
-    timelineMinute(row.visibleStart, row),
-    timelineMinute(row.visibleEnd, row),
+    timelineMinute(day.visibleStart, day),
+    timelineMinute(day.visibleEnd, day),
   );
   if (visible === 0) {
     return " ";
   }
-  const amount = row.covered.reduce(
+  const amount = day.covered.reduce(
     (total, span) =>
       total +
       overlaps(
         start,
         end,
-        timelineMinute(span.start, row),
-        timelineMinute(span.end, row),
+        timelineMinute(span.start, day),
+        timelineMinute(span.end, day),
       ),
     0,
   );
@@ -48,9 +49,9 @@ function cell(row: TimelineRow, column: number): string {
   return amount >= visible ? "#" : "+";
 }
 
-function details(row: TimelineRow): string {
-  const spans = row.covered.map(
-    (span) => `${timelineTime(span.start, row)}-${timelineTime(span.end, row)}`,
+function details(day: TextTimelineDay): string {
+  const spans = day.covered.map(
+    (span) => `${timelineTime(span.start, day)}-${timelineTime(span.end, day)}`,
   );
   return spans.length === 0 ? "none" : spans.join(", ");
 }
@@ -70,23 +71,21 @@ function axis(): string {
 }
 
 /** Renders local calendar days as a fixed-width text chart. */
-export function renderTextTimeline(
-  rows: readonly TimelineRow[],
-  zone: string,
-): string {
-  if (rows.length === 0) {
+export function renderTextTimeline(timeline: Timeline): string {
+  const days = timeline.days.map(textTimelineDay);
+  if (days.length === 0) {
     return "No time in the requested window.";
   }
-  const labelWidth = Math.max(...rows.map((row) => row.label.length));
+  const labelWidth = Math.max(...days.map((day) => day.label.length));
   const lines = [
-    `Time zone: ${zone}`,
+    `Time zone: ${timeline.zone}`,
     axis().padStart(labelWidth + 2 + axis().length),
   ];
-  for (const row of rows) {
+  for (const day of days) {
     const cells = Array.from({ length: COLUMNS }, (_, column) =>
-      cell(row, column),
+      cell(day, column),
     ).join("");
-    lines.push(`${row.label.padEnd(labelWidth)} |${cells}| ${details(row)}`);
+    lines.push(`${day.label.padEnd(labelWidth)} |${cells}| ${details(day)}`);
   }
   lines.push("# covered  + partly covered  . uncovered");
   return lines.join("\n");

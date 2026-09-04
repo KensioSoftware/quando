@@ -29,7 +29,7 @@ Read the pages in this order if Quando is new to you:
 - [Serialisation](serialisation/) covers storage, parsing, and validation.
 - [Validation](validation/) finds inactive layers, shadowed layers, and gaps.
 - [Explanations](explanations/) gives readable reasons for resolved values.
-- [Timelines](timelines/) renders covered time as text or SVG.
+- [Timelines](timelines/) returns JSON data or a text chart of covered time.
 
 ### Custom models
 

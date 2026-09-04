@@ -1,9 +1,7 @@
 import { type Covers, covered } from "./assigned.js";
 import type { Context } from "./context.js";
 import type { Interval } from "./interval.js";
-import type { TimelineRow, TimelineSpan } from "./timeline-types.js";
-
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+import type { Timeline, TimelineDay, TimelineSpan } from "./timeline-types.js";
 
 function startOfDay(
   date: Temporal.PlainDate,
@@ -45,46 +43,55 @@ function clipped(
     end: earlier(intervalEnd, end),
   };
   return Temporal.ZonedDateTime.compare(overlap.start, overlap.end) < 0
-    ? overlap
+    ? { start: overlap.start.toString(), end: overlap.end.toString() }
     : undefined;
 }
 
-function label(date: Temporal.PlainDate): string {
-  return `${DAY_LABELS[date.dayOfWeek - 1]} ${date.toString()}`;
-}
-
-/** Splits finite covered time into local calendar-day rows. */
-export function timelineRows<V>(
+function timelineDays<V>(
   source: Covers<V>,
   context: Context & { readonly to: Temporal.ZonedDateTime },
-): readonly TimelineRow[] {
+): readonly TimelineDay[] {
   const to = context.to;
   const spans = [...covered(source, context)];
-  const rows: TimelineRow[] = [];
+  const days: TimelineDay[] = [];
   if (Temporal.ZonedDateTime.compare(context.from, to) === 0) {
-    return rows;
+    return days;
   }
   let date = context.from.toPlainDate();
 
   for (;;) {
     const start = startOfDay(date, context);
     if (Temporal.ZonedDateTime.compare(start, to) >= 0) {
-      return rows;
+      return days;
     }
     const end = startOfDay(date.add({ days: 1 }), context);
     const visibleStart = later(start, context.from);
     const visibleEnd = earlier(end, to);
-    const rowSpans = spans
+    const daySpans = spans
       .map((span) => clipped(span, visibleStart, visibleEnd))
       .filter((span) => span !== undefined);
-    rows.push({
-      label: label(date),
-      start,
-      end,
-      visibleStart,
-      visibleEnd,
-      covered: rowSpans,
+    days.push({
+      date: date.toString(),
+      start: start.toString(),
+      end: end.toString(),
+      visibleStart: visibleStart.toString(),
+      visibleEnd: visibleEnd.toString(),
+      covered: daySpans,
     });
     date = date.add({ days: 1 });
   }
+}
+
+/** Returns JSON-compatible coverage data for a finite window. */
+export function timelineData<V>(
+  source: Covers<V>,
+  context: Context & { readonly to: Temporal.ZonedDateTime },
+): Timeline {
+  return {
+    type: "timeline",
+    zone: context.from.timeZoneId,
+    from: context.from.toString(),
+    to: context.to.toString(),
+    days: timelineDays(source, context),
+  };
 }

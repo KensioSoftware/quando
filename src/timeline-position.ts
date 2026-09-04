@@ -1,13 +1,16 @@
-import type { TimelineRow } from "./timeline-types.js";
-
 export const MINUTES_PER_DAY = 24 * 60;
+
+export interface PositionedTimelineDay {
+  readonly start: Temporal.ZonedDateTime;
+  readonly end: Temporal.ZonedDateTime;
+}
 
 /** The wall-clock position of an instant in its timeline row. */
 export function timelineMinute(
   at: Temporal.ZonedDateTime,
-  row: TimelineRow,
+  day: PositionedTimelineDay,
 ): number {
-  if (Temporal.ZonedDateTime.compare(at, row.end) === 0) {
+  if (Temporal.ZonedDateTime.compare(at, day.end) === 0) {
     return MINUTES_PER_DAY;
   }
   return (
@@ -23,9 +26,9 @@ export function timelineMinute(
 /** The exact wall-clock label for an interval endpoint. */
 export function timelineTime(
   at: Temporal.ZonedDateTime,
-  row: TimelineRow,
+  day: PositionedTimelineDay,
 ): string {
-  if (Temporal.ZonedDateTime.compare(at, row.end) === 0) {
+  if (Temporal.ZonedDateTime.compare(at, day.end) === 0) {
     return "24:00";
   }
   if (

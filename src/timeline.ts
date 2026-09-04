@@ -1,37 +1,44 @@
-/** Human-readable charts of covered time. */
+/** JSON data and text charts of covered time. */
 
 import type { Covers } from "./assigned.js";
 import type { Context } from "./context.js";
-import { renderSvgTimeline } from "./timeline-svg.js";
+import { timelineData } from "./timeline-data.js";
 import { renderTextTimeline } from "./timeline-text.js";
-import { TIMELINE_FORMATS, type TimelineOptions } from "./timeline-types.js";
-import { timelineRows } from "./timeline-rows.js";
-
-export {
+import {
   TIMELINE_FORMATS,
   type TimelineFormat,
   type TimelineOptions,
+  type TimelineOutput,
+} from "./timeline-types.js";
+
+export {
+  TIMELINE_FORMATS,
+  type Timeline,
+  type TimelineDay,
+  type TimelineFormat,
+  type TimelineOptions,
+  type TimelineOutput,
+  type TimelineSpan,
 } from "./timeline-types.js";
 
 /**
- * Draws the time covered inside a finite window.
+ * Returns the time covered inside a finite window.
  *
- * Text is the default for logs, terminals, and test output. SVG produces a
- * standalone image with the same day rows and exact interval labels.
+ * JSON-compatible data is the default. Text output is derived from that data.
  */
-export function renderTimeline<V>(
+export function renderTimeline<V, F extends TimelineFormat = "json">(
   source: Covers<V>,
   context: Context,
-  options: TimelineOptions = {},
-): string {
+  options?: TimelineOptions & { readonly format?: F },
+): TimelineOutput<F> {
   const contextTo = context.to;
   if (contextTo === undefined) {
     throw new RangeError(
-      "renderTimeline() needs a window with an end: give the context a `to`.",
+      "renderTimeline() needs a window with an end. Give the context a `to`.",
     );
   }
   const to = contextTo.withTimeZone(context.from.timeZoneId);
-  const format = options.format ?? "text";
+  const format = options?.format ?? "json";
   if (!(TIMELINE_FORMATS as readonly string[]).includes(format)) {
     throw new RangeError(
       `renderTimeline() expected a format of ${TIMELINE_FORMATS.join(
@@ -40,9 +47,7 @@ export function renderTimeline<V>(
     );
   }
   const finiteContext = { ...context, to };
-  const rows = timelineRows(source, finiteContext);
-  if (format === "svg") {
-    return renderSvgTimeline(rows, context.from, to);
-  }
-  return renderTextTimeline(rows, context.from.timeZoneId);
+  const timeline = timelineData(source, finiteContext);
+  const output = format === "text" ? renderTextTimeline(timeline) : timeline;
+  return output as TimelineOutput<F>;
 }

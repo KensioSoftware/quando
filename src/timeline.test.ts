@@ -1,7 +1,10 @@
 import { inWindow, when } from "#test/intervals.js";
 import {
+  assertArrayEmpty,
+  assertArrayLength,
   assertIdentical,
   assertInstanceOf,
+  assertNonNullable,
   assertStringIncludes,
   assertStringNotIncludes,
   assertThrowsError,
@@ -10,6 +13,7 @@ import { describe, it } from "vitest";
 
 import { assigned } from "./assigned.js";
 import { timeOfDay, weekdays } from "./build.js";
+import { assertJsonValue } from "./json.js";
 import { rota } from "./rota.js";
 import { schedule } from "./schedule.js";
 import {
@@ -19,13 +23,37 @@ import {
 } from "./timeline.js";
 
 describe("rendering covered time as a timeline", () => {
-  it("draws local days with exact covered hours", () => {
+  it("returns JSON-compatible local days with exact covered hours", () => {
     // Given weekday office hours and a window containing Monday and Tuesday.
     const office = weekdays().and(timeOfDay("09:00", "17:00"));
     const twoDays = inWindow("2026-03-09T00:00", "2026-03-11T00:00");
 
-    // When the covered time is rendered using the default text format.
-    const rendered = renderTimeline(office, twoDays);
+    // When the covered time is rendered using the default JSON format.
+    const timeline = renderTimeline(office, twoDays);
+
+    // Then callers receive plain data with one entry per local day.
+    assertJsonValue(timeline);
+    assertIdentical(timeline.type, "timeline");
+    assertIdentical(timeline.zone, "Europe/London");
+    assertIdentical(timeline.from, "2026-03-09T00:00:00+00:00[Europe/London]");
+    assertIdentical(timeline.to, "2026-03-11T00:00:00+00:00[Europe/London]");
+    assertArrayLength(timeline.days, 2);
+    const monday = timeline.days[0];
+    assertNonNullable(monday);
+    const opening = monday.covered[0];
+    assertNonNullable(opening);
+    assertIdentical(monday.date, "2026-03-09");
+    assertIdentical(opening.start, "2026-03-09T09:00:00+00:00[Europe/London]");
+    assertIdentical(opening.end, "2026-03-09T17:00:00+00:00[Europe/London]");
+  });
+
+  it("draws text from the JSON timeline", () => {
+    // Given weekday office hours and a window containing Monday and Tuesday.
+    const office = weekdays().and(timeOfDay("09:00", "17:00"));
+    const twoDays = inWindow("2026-03-09T00:00", "2026-03-11T00:00");
+
+    // When the covered time is rendered as text.
+    const rendered = renderTimeline(office, twoDays, { format: "text" });
 
     // Then each day has an at-a-glance chart and its exact opening interval.
     assertIdentical(
@@ -44,7 +72,7 @@ describe("rendering covered time as a timeline", () => {
     const monday = inWindow("2026-03-09T00:00", "2026-03-10T00:00");
 
     // When the day is rendered as text.
-    const rendered = renderTimeline(shortOpening, monday);
+    const rendered = renderTimeline(shortOpening, monday, { format: "text" });
 
     // Then the cell says it is partial and the label gives exact times.
     assertStringIncludes(
@@ -59,7 +87,7 @@ describe("rendering covered time as a timeline", () => {
     const monday = inWindow("2026-03-09T00:00", "2026-03-10T00:00");
 
     // When the day is rendered.
-    const rendered = renderTimeline(precise, monday);
+    const rendered = renderTimeline(precise, monday, { format: "text" });
 
     // Then the right-hand label preserves both boundaries.
     assertStringIncludes(rendered, "09:10:15-09:20:45");
@@ -71,7 +99,7 @@ describe("rendering covered time as a timeline", () => {
     const saturday = inWindow("2026-03-14T00:00", "2026-03-15T00:00");
 
     // When the day is rendered.
-    const rendered = renderTimeline(office, saturday);
+    const rendered = renderTimeline(office, saturday, { format: "text" });
 
     // Then the empty row stays visible and is labelled clearly.
     assertStringIncludes(
@@ -86,7 +114,7 @@ describe("rendering covered time as a timeline", () => {
     const overnight = inWindow("2026-03-09T21:00", "2026-03-10T07:00");
 
     // When the coverage is rendered.
-    const rendered = renderTimeline(nights, overnight);
+    const rendered = renderTimeline(nights, overnight, { format: "text" });
 
     // Then each day row names its part of the same opening.
     assertStringIncludes(rendered, "22:00-24:00");
@@ -101,7 +129,9 @@ describe("rendering covered time as a timeline", () => {
     const monday = inWindow("2026-03-09T00:00", "2026-03-10T00:00");
 
     // When Alice's assigned time is rendered.
-    const rendered = renderTimeline(assigned(onCall, "alice"), monday);
+    const rendered = renderTimeline(assigned(onCall, "alice"), monday, {
+      format: "text",
+    });
 
     // Then only Alice's four hours appear.
     assertStringIncludes(rendered, "|..................########");
@@ -109,35 +139,21 @@ describe("rendering covered time as a timeline", () => {
     assertStringNotIncludes(rendered, "13:00-17:00");
   });
 
-  it("produces a standalone accessible SVG", () => {
-    // Given one day of office hours.
-    const office = weekdays().and(timeOfDay("09:00", "17:00"));
-    const monday = inWindow("2026-03-09T00:00", "2026-03-10T00:00");
-
-    // When the timeline is rendered as SVG.
-    const rendered = renderTimeline(office, monday, { format: "svg" });
-
-    // Then the image describes itself and draws the exact opening span.
-    assertStringIncludes(rendered, '<svg xmlns="http://www.w3.org/2000/svg"');
-    assertStringIncludes(rendered, 'aria-label="Coverage timeline"');
-    assertStringIncludes(rendered, "<title>Coverage timeline</title>");
-    assertStringIncludes(rendered, "Mon 2026-03-09");
-    assertStringIncludes(
-      rendered,
-      '<rect x="410" y="54" width="240" height="20" rx="2" class="covered"/>',
-    );
-    assertStringIncludes(rendered, "09:00-17:00");
-  });
-
-  it("says when the requested window contains no time", () => {
+  it("returns an empty JSON timeline for a window containing no time", () => {
     // Given a window whose start and end are the same instant.
     const instant = when("2026-03-09T09:00");
 
-    // When it is rendered.
-    const rendered = renderTimeline(weekdays(), { from: instant, to: instant });
+    // When it is rendered in both available formats.
+    const timeline = renderTimeline(weekdays(), { from: instant, to: instant });
+    const text = renderTimeline(
+      weekdays(),
+      { from: instant, to: instant },
+      { format: "text" },
+    );
 
-    // Then the result states why it has no rows.
-    assertIdentical(rendered, "No time in the requested window.");
+    // Then the data has no days and the text says why it has no rows.
+    assertArrayEmpty(timeline.days);
+    assertIdentical(text, "No time in the requested window.");
   });
 
   it("requires a finite window", () => {
@@ -168,9 +184,9 @@ describe("rendering covered time as a timeline", () => {
       ),
     );
 
-    // Then the supported text and SVG formats are named.
+    // Then the supported JSON and text formats are named.
     assertInstanceOf(error, RangeError);
-    assertStringIncludes(error.message, "text or svg");
+    assertStringIncludes(error.message, "json or text");
   });
 
   it("uses a schedule's declared zone for its day rows", () => {
@@ -183,12 +199,15 @@ describe("rendering covered time as a timeline", () => {
     const to = when("2026-06-01T23:00", "UTC");
 
     // When the schedule renders its timeline.
-    const rendered = office.renderTimeline(from, to);
+    const timeline = office.renderTimeline(from, to);
 
-    // Then it displays the Monday and the local hours used to define it.
-    assertStringIncludes(rendered, "Mon 2026-06-01");
-    assertStringIncludes(rendered, "Time zone: Europe/London");
-    assertStringIncludes(rendered, "09:00-17:00");
-    assertStringNotIncludes(rendered, "Sun 2026-05-31");
+    // Then it uses the Monday and local hours from the declared zone.
+    assertIdentical(timeline.zone, "Europe/London");
+    const monday = timeline.days[0];
+    assertNonNullable(monday);
+    const opening = monday.covered[0];
+    assertNonNullable(opening);
+    assertIdentical(monday.date, "2026-06-01");
+    assertIdentical(opening.start, "2026-06-01T09:00:00+01:00[Europe/London]");
   });
 });

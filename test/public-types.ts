@@ -15,6 +15,7 @@ import {
   schedule,
   type ScheduleChanges,
   slots,
+  type Timeline,
   type TimelineFormat,
   type TimelineOptions,
   TIMELINE_FORMATS,
@@ -94,14 +95,21 @@ const accumulated: number = accumulate(
   accumulationUnit,
 );
 const staffHours: number = staff.totalBetween(start, end, "hour");
-const ruleTimeline: string = renderTimeline(
+const ruleTimeline: Timeline = renderTimeline(weekdays(), {
+  from: start,
+  to: end,
+});
+const optionalTimeline: Timeline | string = renderTimeline(
   weekdays(),
   { from: start, to: end },
   timelineOptions,
 );
-const scheduleTimeline: string = office.renderTimeline(start, end, {
-  format: "svg",
-});
+const textTimeline: string = renderTimeline(
+  weekdays(),
+  { from: start, to: end },
+  { format: "text" },
+);
+const scheduleTimeline: Timeline = office.renderTimeline(start, end);
 office.validate(start, end);
 office.explain(start);
 rota().assign(weekdays(), "alice").validate(start, end);
@@ -120,6 +128,8 @@ void staffAtStart;
 void accumulated;
 void staffHours;
 void ruleTimeline;
+void optionalTimeline;
+void textTimeline;
 void scheduleTimeline;
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
