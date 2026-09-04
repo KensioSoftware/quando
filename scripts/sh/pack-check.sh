@@ -27,6 +27,7 @@ expected=(
   package/package.json
   package/README.md
   package/LICENSE
+  package/dist/cli.js
   package/dist/index.js
   package/dist/index.d.ts
   package/dist/core.js
@@ -105,6 +106,40 @@ node_modules/.bin/tsc \
     if (!restored.isOpen(monday)) throw new Error("schedule round trip failed");
   '
 )
+
+# The executable is a separate Node entry point. Running the installed bin also
+# checks the npm link that consumers receive.
+cli="$consumer/node_modules/.bin/quando"
+"$cli" --help | grep --quiet --fixed-strings 'quando timeline <file>'
+"$cli" --version | grep --quiet --extended-regexp '^[0-9]+\.[0-9]+\.[0-9]+$'
+
+error_file="$consumer/error.txt"
+if "$cli" unknown-command 2>"$error_file"; then
+  echo "Unknown CLI command succeeded." >&2
+  exit 1
+fi
+grep --quiet --fixed-strings 'quando: Unknown command "unknown-command"' \
+  "$error_file"
+
+schedule_file="$consumer/opening-hours.json"
+(
+  cd "$consumer"
+  node --input-type=module --eval '
+    import { writeFile } from "node:fs/promises";
+    import { schedule, weekdays } from "@kensio/quando";
+
+    const path = process.argv[1];
+    const openingHours = schedule({ zone: "Europe/London" }).open(
+      weekdays(),
+      "09:00-17:00",
+    );
+    await writeFile(path, JSON.stringify(openingHours));
+  ' "$schedule_file"
+)
+"$cli" timeline "$schedule_file" \
+  --from '2026-03-09T00:00[Europe/London]' \
+  --to '2026-03-10T00:00[Europe/London]' |
+  grep --quiet --fixed-strings '"type": "timeline"'
 
 # Published maps carry their source text. Debuggers do not need files outside
 # the tarball to display a source location.
