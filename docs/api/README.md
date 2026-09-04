@@ -91,6 +91,7 @@ function parseTally(value: unknown, path?: string): Tally;
 | `at(at)`                           | Return the amount at one instant       |
 | `explain(at)`                      | Explain the value at one instant       |
 | `least(from, to)`                  | Return the lowest amount in a window   |
+| `totalBetween(from, to, unit)`     | Total amounts over elapsed time        |
 | `counts(from, to?)`                | Return valued intervals                |
 | `validate(from, to)`               | Return semantic tally diagnostics      |
 | `toJSON()`                         | Return the stored tally data           |
@@ -162,6 +163,12 @@ function coverageChanges<B, A>(
   after: Covers<A>,
   context: Context,
 ): CoverageChanges;
+
+function accumulate(
+  source: CascadeLike<number>,
+  context: Context,
+  unit: ElapsedUnit,
+): number;
 ```
 
 `Covers<V>` accepts a rule, a boolean cascade, or the result of
@@ -182,12 +189,20 @@ interface CoverageChanges {
   readonly added: IntervalStream;
   readonly removed: IntervalStream;
 }
+
+type ElapsedUnit =
+  "hour" | "minute" | "second" | "millisecond" | "microsecond" | "nanosecond";
+
+const ELAPSED_UNITS: readonly ElapsedUnit[];
 ```
 
 `nextCoveredInterval`, `firstGap`, and `advanceBy` apply
 `DEFAULT_SEARCH_LIMIT` when no finite end is supplied. They throw
 `SearchLimitExceededError` if they exhaust that automatic limit. `slots`
 returns a lazy stream and adds no limit.
+
+`accumulate` multiplies each resolved numeric value by how long it applies in
+the requested unit. Its context must have a finite end.
 
 ### Comparison and JSON types
 

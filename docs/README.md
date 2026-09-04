@@ -23,6 +23,7 @@ Read the pages in this order if Quando is new to you:
 
 - [Schedules and rotas](schedules/) covers opening hours and assignments.
 - [Merging](merging/) introduces tallies and the numeric merge strategies.
+- [Accumulation](accumulation/) totals numeric values over time.
 - [Time zones](time-zones/) covers local time and daylight-saving changes.
 - [Serialisation](serialisation/) covers storage, parsing, and validation.
 - [Validation](validation/) finds inactive layers, shadowed layers, and gaps.
@@ -34,6 +35,7 @@ Read the pages in this order if Quando is new to you:
 - [Cascades](cascades/) assigns values with ordered overrides.
 - [Merging](merging/) combines overlapping values with `sum`, `max`, `min`, or
   `concat`.
+- [Accumulation](accumulation/) calculates totals such as staff-hours and cost.
 - [Comparing](comparing/) canonicalises definitions for equality and cache keys.
 
 ### Reference

@@ -1,4 +1,5 @@
 import type { Cascade } from "./cascade.js";
+import type { ElapsedUnit } from "./accumulate.js";
 import type { DefaultExplanation } from "./explain.js";
 import type { LayerOptions } from "./layer-options.js";
 import type { PlainRule } from "./plain-forms.js";
@@ -31,6 +32,11 @@ export interface Tally extends TallyData {
   readonly least: (
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
+  ) => number;
+  readonly totalBetween: (
+    from: Temporal.ZonedDateTime,
+    to: Temporal.ZonedDateTime,
+    unit: ElapsedUnit,
   ) => number;
   readonly counts: (
     from: Temporal.ZonedDateTime,

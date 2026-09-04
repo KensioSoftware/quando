@@ -1,8 +1,11 @@
 import {
+  accumulate,
   advanceBy,
   type CoverageChanges,
   coverageChanges,
   type Explanation,
+  type ElapsedUnit,
+  ELAPSED_UNITS,
   firstGap,
   type LayerOptions,
   rota,
@@ -38,6 +41,7 @@ const halfHour = Temporal.Duration.from({ minutes: 30 });
 const end = start.add({ days: 1 });
 const validationWindow: ValidationWindow = { from: start, to: end };
 const validationOptions: ValidationOptions = { requireFullCoverage: true };
+const accumulationUnit: ElapsedUnit = ELAPSED_UNITS[0];
 
 advanceBy(start, Temporal.Duration.from({ hours: 1 }), { during: office });
 firstGap(office, halfHour, { from: start });
@@ -76,6 +80,13 @@ const explainedAssignment: string | undefined = rota()
   .assign(weekdays(), "alice")
   .explain(start).value;
 const explainedCount: number = tally().plus(weekdays(), 3).explain(start).value;
+const staff = tally().plus(weekdays(), 3);
+const accumulated: number = accumulate(
+  staff,
+  { from: start, to: end },
+  accumulationUnit,
+);
+const staffHours: number = staff.totalBetween(start, end, "hour");
 office.validate(start, end);
 office.explain(start);
 rota().assign(weekdays(), "alice").validate(start, end);
@@ -90,6 +101,8 @@ void explanationSummary;
 void explainedOpen;
 void explainedAssignment;
 void explainedCount;
+void accumulated;
+void staffHours;
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
 rota().assign(weekdays(), "alice", { label: "Primary support" });
@@ -101,6 +114,9 @@ merged(
   layer(weekdays(), ["alice"] as const),
   layer(weekdays(), ["bob"] as const),
 );
+
+// @ts-expect-error Calendar units are ambiguous for elapsed-time accumulation.
+staff.totalBetween(start, end, "day");
 
 // @ts-expect-error A sum accepts numeric layers.
 merged("sum", layer(weekdays(), "alice"));
