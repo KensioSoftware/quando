@@ -124,6 +124,19 @@ is a `Rule` with non-enumerable `.and`, `.or`, and `.except` methods.
 function parseRule(value: unknown, path?: string): Built<Rule>;
 ```
 
+### Cron expressions
+
+```ts
+interface CronOptions {
+  readonly zone?: string;
+}
+
+function parseCron(expression: string, options?: CronOptions): Built<Rule>;
+```
+
+Reads a five-field POSIX cron expression as a rule covering the minute each run
+starts in. See [cron expressions](../cron/).
+
 ### Queries
 
 ```ts
