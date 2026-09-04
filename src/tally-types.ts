@@ -27,6 +27,8 @@ export interface Tally extends TallyData {
     amount: number,
     options?: LayerOptions,
   ) => Tally;
+  readonly countAt: (at: Temporal.ZonedDateTime) => number;
+  /** @deprecated Use `countAt(at)`. */
   readonly at: (at: Temporal.ZonedDateTime) => number;
   readonly explain: (at: Temporal.ZonedDateTime) => TallyExplanation;
   readonly least: (

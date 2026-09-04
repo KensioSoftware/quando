@@ -1,4 +1,3 @@
-import { valueAt } from "./assigned.js";
 import { accumulate, type ElapsedUnit } from "./accumulate.js";
 import { always } from "./build.js";
 import { cascade, type Layer, layer, replace } from "./cascade.js";
@@ -9,7 +8,7 @@ import { parseCascade } from "./parse-cascade.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
 import { resolve } from "./resolve.js";
 import { validate } from "./semantic-validation.js";
-import { leastValue } from "./tally-query.js";
+import { countAt, leastValue } from "./tally-query.js";
 import type { Tally, TallyData } from "./tally-types.js";
 
 export type { Tally, TallyData, TallyExplanation } from "./tally-types.js";
@@ -41,13 +40,16 @@ function build(data: TallyData): Tally {
         layers: [...data.cascade.layers, next],
       },
     });
+  const pointCount = (at: Temporal.ZonedDateTime): number =>
+    countAt(data.cascade, at);
 
   return withMethods(data, {
     plus: (scope: PlainRule, value: number, options?: LayerOptions) =>
       append(layer(asDays(scope), amount(value), options)),
     exactly: (scope: PlainRule, value: number, options?: LayerOptions) =>
       append(fixed(scope, value, options)),
-    at: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at) ?? 0,
+    countAt: pointCount,
+    at: pointCount,
     explain: (at: Temporal.ZonedDateTime) => explainTally(data.cascade, at),
     least: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>
       leastValue(data.cascade, from, to),

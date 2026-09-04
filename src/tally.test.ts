@@ -38,7 +38,21 @@ describe("counting how many are on", () => {
     const restored = parseTally(JSON.parse(stored)).plus("2026-03-11", 2);
 
     // Then both figures contribute to the result.
-    assertIdentical(restored.at(wednesday), 5);
+    assertIdentical(restored.countAt(wednesday), 5);
+  });
+
+  it("keeps at as a compatibility alias", () => {
+    // Given a tally created through the current API.
+    const staff = tally().plus(weekdays(), 3);
+    const previousApi: {
+      readonly at: (at: Temporal.ZonedDateTime) => number;
+    } = staff;
+
+    // When its former point-query name is used.
+    const count = previousApi.at(monday);
+
+    // Then it returns the same count as `countAt`.
+    assertIdentical(count, staff.countAt(monday));
   });
 
   describe("stored forms it refuses", () => {
@@ -106,8 +120,8 @@ describe("counting how many are on", () => {
 
       // When each day is asked.
       // Then the Wednesday has both, and the other weekdays have the crew.
-      assertIdentical(staff.at(monday), 3);
-      assertIdentical(staff.at(wednesday), 5);
+      assertIdentical(staff.countAt(monday), 3);
+      assertIdentical(staff.countAt(wednesday), 5);
     });
 
     it("is zero where nothing covers the moment", () => {
@@ -117,7 +131,7 @@ describe("counting how many are on", () => {
       // When a Saturday is asked.
       // Then the answer is nobody. A cascade leaves an unclaimed moment out
       // of its stream, and nobody rostered is nobody there.
-      assertIdentical(staff.at(saturday), 0);
+      assertIdentical(staff.countAt(saturday), 0);
     });
 
     it("explains the running count", () => {
@@ -197,8 +211,8 @@ describe("counting how many are on", () => {
 
       // When the two days are asked.
       // Then the exception replaced the figure under it.
-      assertIdentical(staff.at(monday), 3);
-      assertIdentical(staff.at(wednesday), 1);
+      assertIdentical(staff.countAt(monday), 3);
+      assertIdentical(staff.countAt(wednesday), 1);
     });
 
     it("is still added to by a line written after it", () => {
@@ -212,7 +226,7 @@ describe("counting how many are on", () => {
 
       // When the day is asked.
       // Then the later line added to the replacement.
-      assertIdentical(staff.at(wednesday), 3);
+      assertIdentical(staff.countAt(wednesday), 3);
     });
   });
 

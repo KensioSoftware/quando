@@ -89,13 +89,15 @@ function parseTally(value: unknown, path?: string): Tally;
 | ---------------------------------- | -------------------------------------- |
 | `plus(scope, amount, options?)`    | Add an amount                          |
 | `exactly(scope, amount, options?)` | Replace lower amounts within the scope |
-| `at(at)`                           | Return the amount at one instant       |
+| `countAt(at)`                      | Return the amount at one instant       |
 | `explain(at)`                      | Explain the value at one instant       |
 | `least(from, to)`                  | Return the lowest amount in a window   |
 | `totalBetween(from, to, unit)`     | Total amounts over elapsed time        |
 | `counts(from, to?)`                | Return valued intervals                |
 | `validate(from, to)`               | Return semantic tally diagnostics      |
 | `toJSON()`                         | Return the stored tally data           |
+
+`at(at)` remains available as a deprecated alias during the 1.x release line.
 
 ### Rule builders
 

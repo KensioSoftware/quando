@@ -87,6 +87,7 @@ const explainedAssignment: string | undefined = rota()
   .explain(start).value;
 const explainedCount: number = tally().plus(weekdays(), 3).explain(start).value;
 const staff = tally().plus(weekdays(), 3);
+const staffAtStart: number = staff.countAt(start);
 const accumulated: number = accumulate(
   staff,
   { from: start, to: end },
@@ -115,6 +116,7 @@ void explanationSummary;
 void explainedOpen;
 void explainedAssignment;
 void explainedCount;
+void staffAtStart;
 void accumulated;
 void staffHours;
 void ruleTimeline;
