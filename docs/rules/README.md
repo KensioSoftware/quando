@@ -24,21 +24,22 @@ store. There is no final `.build()` call.
 
 ## Rule builders
 
-| Builder                      | Covered time                                       |
-| ---------------------------- | -------------------------------------------------- |
-| `always()`                   | All time                                           |
-| `never()`                    | No time                                            |
-| `daysOfWeek(...days)`        | Whole days with the selected weekday names         |
-| `weekdays()`                 | Monday through Friday                              |
-| `weekends()`                 | Saturday and Sunday                                |
-| `daysOfMonth(...days)`       | Whole days at the selected positions in each month |
-| `monthsOfYear(...months)`    | The selected months, in full                       |
-| `timeOfDay(from, to, zone?)` | A local time range on every day                    |
-| `dates(...dates)`            | The selected calendar dates                        |
-| `all(...rules)`              | Times covered by every rule                        |
-| `any(...rules)`              | Times covered by at least one rule                 |
-| `not(rule)`                  | Times outside the rule                             |
-| `inZone(zone, rule)`         | A rule subtree evaluated in one time zone          |
+| Builder                             | Covered time                                       |
+| ----------------------------------- | -------------------------------------------------- |
+| `always()`                          | All time                                           |
+| `never()`                           | No time                                            |
+| `daysOfWeek(...days)`               | Whole days with the selected weekday names         |
+| `weekdays()`                        | Monday through Friday                              |
+| `weekends()`                        | Saturday and Sunday                                |
+| `daysOfMonth(...days)`              | Whole days at the selected positions in each month |
+| `nthDayOfWeekInMonth(nth, ...days)` | The nth Monday, Friday and so on, in each month    |
+| `monthsOfYear(...months)`           | The selected months, in full                       |
+| `timeOfDay(from, to, zone?)`        | A local time range on every day                    |
+| `dates(...dates)`                   | The selected calendar dates                        |
+| `all(...rules)`                     | Times covered by every rule                        |
+| `any(...rules)`                     | Times covered by at least one rule                 |
+| `not(rule)`                         | Times outside the rule                             |
+| `inZone(zone, rule)`                | A rule subtree evaluated in one time zone          |
 
 Builders validate their inputs immediately. Invalid weekday names, dates,
 times, and time zones fail where the rule is created.
@@ -86,6 +87,38 @@ covers the last day of one month and the first of the next as one interval.
 
 Zero and numbers beyond 31 in either direction are rejected where the rule is
 written. Calling `daysOfMonth()` with no arguments covers no time.
+
+## Select the nth day of the week in a month
+
+`nthDayOfWeekInMonth` counts occurrences of a weekday within the month. This is the
+shape of every recurring monthly meeting there is:
+
+```ts
+import { nthDayOfWeekInMonth } from "@kensio/quando";
+
+const boardMeeting = nthDayOfWeekInMonth(1, "monday");
+const patchTuesday = nthDayOfWeekInMonth(2, "tuesday");
+const payrollCutoff = nthDayOfWeekInMonth(-1, "friday");
+```
+
+The count runs from the start of the month at `1` and back from the end at
+`-1`, so the last Friday is the last one whether the month holds four or five.
+
+A month without a fifth of that weekday covers no time. `nthDayOfWeekInMonth(5, "monday")`
+matches in some months and not others, which is why `-1` is the way to write
+"the last".
+
+More than one weekday takes the same position in the month:
+
+```ts
+const firstWeekend = nthDayOfWeekInMonth(1, "saturday", "sunday");
+```
+
+The count is per weekday, so this is the first Saturday and the first Sunday.
+In a month where they fall next to each other the two join into one interval.
+
+Counts run from 1 to 5 and from -1 to -5. No month holds six of any weekday, so
+anything further is rejected where the rule is written.
 
 ## Select months
 

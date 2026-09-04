@@ -18,6 +18,7 @@ export {
   monthsOfYear,
   never,
   not,
+  nthDayOfWeekInMonth,
   timeOfDay,
   weekdays,
   weekends,

@@ -12,6 +12,7 @@ import {
   inZone,
   monthsOfYear,
   never,
+  nthDayOfWeekInMonth,
   not,
   timeOfDay,
   weekdays,
@@ -169,6 +170,33 @@ describe("putting a rule in canonical form", () => {
       // Then they stay two rules. Deciding they are one means knowing which
       // month is being asked about, and canonical form never evaluates.
       assertFalse(equals(daysOfMonth(-1), daysOfMonth(31)));
+    });
+
+    it("orders the weekdays of an occurrence and keeps the count", () => {
+      // Given the first weekend day of the month, written back to front with
+      // a repeat.
+      const monthly = nthDayOfWeekInMonth(1, "sunday", "saturday", "sunday");
+
+      // When it is canonicalised.
+      // Then the days read forwards, once each, and the count is untouched.
+      assertIdentical(
+        formOf(monthly),
+        '{"type":"nthDayOfWeekInMonth","nth":1,"days":["saturday","sunday"]}',
+      );
+    });
+
+    it("keeps a count from the end apart from one from the start", () => {
+      // Given the fourth Friday and the last Friday. They agree in a month
+      // with four Fridays and disagree in one with five.
+      // When both are canonicalised.
+      // Then they stay two rules, for the same reason the last day of the
+      // month stays apart from the 31st.
+      assertFalse(
+        equals(
+          nthDayOfWeekInMonth(-1, "friday"),
+          nthDayOfWeekInMonth(4, "friday"),
+        ),
+      );
     });
 
     it("sorts dates and drops repeats", () => {

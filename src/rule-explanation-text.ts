@@ -3,7 +3,11 @@ import {
   describeDay,
   describeTime,
 } from "./calendar-explanation-text.js";
-import { describeMonth, describeMonthDay } from "./month-explanation-text.js";
+import {
+  describeMonth,
+  describeMonthDay,
+  describeNthDayOfWeekInMonth,
+} from "./month-explanation-text.js";
 import { describeCompoundMatch } from "./compound-explanation-text.js";
 import type { Rule } from "./rule.js";
 import type { RuleExplanation } from "./rule-explanation.js";
@@ -32,6 +36,17 @@ export function describeRuleMatch(
     case "daysOfMonth": {
       return inNamedZone(
         describeMonthDay(
+          rule.days,
+          localAt(at, rule.zone ?? inheritedZone),
+          matched,
+        ),
+        rule.zone,
+      );
+    }
+    case "nthDayOfWeekInMonth": {
+      return inNamedZone(
+        describeNthDayOfWeekInMonth(
+          rule.nth,
           rule.days,
           localAt(at, rule.zone ?? inheritedZone),
           matched,

@@ -27,6 +27,7 @@ const FIELDS = new Map<string, readonly string[]>([
   ["never", []],
   ["daysOfWeek", ["days", "zone"]],
   ["daysOfMonth", ["days", "zone"]],
+  ["nthDayOfWeekInMonth", ["nth", "days", "zone"]],
   ["monthsOfYear", ["months", "zone"]],
   ["timeOfDay", ["from", "to", "zone"]],
   ["dates", ["dates", "zone"]],
@@ -77,6 +78,7 @@ function parseRuleData(value: unknown, path: string): Rule {
 
     case "daysOfWeek":
     case "daysOfMonth":
+    case "nthDayOfWeekInMonth":
     case "monthsOfYear":
     case "dates":
     case "timeOfDay": {

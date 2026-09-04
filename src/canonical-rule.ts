@@ -100,6 +100,15 @@ export function canonicalRule(rule: Rule): Rule {
       };
     }
 
+    case "nthDayOfWeekInMonth": {
+      return {
+        type: "nthDayOfWeekInMonth",
+        nth: rule.nth,
+        days: canonicalDays(rule.days),
+        ...zonePart(rule.zone),
+      };
+    }
+
     case "monthsOfYear": {
       return {
         type: "monthsOfYear",

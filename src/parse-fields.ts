@@ -57,6 +57,19 @@ export function asMonthDays(value: unknown, path: string): number[] {
   });
 }
 
+export function asNth(value: unknown, path: string): number {
+  if (typeof value !== "number") {
+    return fail(path, `expected a number, found ${shapeOf(value)}`);
+  }
+  if (!Number.isInteger(value) || value === 0 || value < -5 || value > 5) {
+    return fail(
+      path,
+      `${value} is not an occurrence in a month. Expected 1 to 5, or -1 to -5 counting back from the end`,
+    );
+  }
+  return value;
+}
+
 /** Checked by construction, so a malformed time is caught where it is written. */
 export function asTime(value: unknown, path: string): string {
   const time = asString(value, path);

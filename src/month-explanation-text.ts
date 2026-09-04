@@ -8,7 +8,7 @@
  */
 
 import { join, title } from "./explanation-phrases.js";
-import { MONTHS, type Month } from "./rule.js";
+import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
 
 /**
  * Describes a day-of-month match in calendar terms.
@@ -54,6 +54,48 @@ export function describeMonth(
     return `${name} ${matched ? "is" : "is not"} ${title(only)}.`;
   }
   return `${name} ${matched ? "is" : "is not"} included in ${join(months.map((value) => title(value)))}.`;
+}
+
+/**
+ * Describes which occurrence of a weekday a date is.
+ *
+ * The count is the fact the reader cannot see from the date, and it is the
+ * whole reason the rule matched or did not. A date on the wrong weekday has no
+ * count worth giving, so the weekday alone settles that one.
+ */
+export function describeNthDayOfWeekInMonth(
+  nth: number,
+  days: readonly Weekday[],
+  at: Temporal.ZonedDateTime,
+  matched: boolean,
+): string {
+  if (days.length === 0) {
+    return "No weekdays are listed.";
+  }
+
+  const day = WEEKDAYS[at.dayOfWeek - 1] ?? "monday";
+  if (!days.includes(day)) {
+    return `${title(day)} is not ${join(days.map((value) => title(value)))}.`;
+  }
+
+  const date = at.toPlainDate();
+  const count =
+    nth > 0
+      ? Math.ceil(date.day / 7)
+      : Math.ceil((date.daysInMonth - date.day + 1) / 7);
+  const here = `This is the ${nthName(nth > 0 ? count : -count)} ${title(day)} of the month`;
+
+  return matched
+    ? `${here}.`
+    : `${here}, and the rule wants the ${nthName(nth)}.`;
+}
+
+/** `2nd`, or `last` and `2nd-last` when counted from the end. */
+function nthName(nth: number): string {
+  if (nth > 0) {
+    return ordinal(nth);
+  }
+  return nth === -1 ? "last" : `${ordinal(-nth)}-last`;
 }
 
 const ORDINAL_SUFFIXES = new Map([
