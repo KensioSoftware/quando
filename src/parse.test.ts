@@ -72,6 +72,23 @@ describe("parsing a rule from JSON", () => {
       );
     });
 
+    it("takes the nth day of the week a stored meeting holds", () => {
+      // Given the last Friday of the month, as a database row would carry it.
+      const document = {
+        type: "nthDayOfWeekInMonth",
+        nth: -1,
+        days: ["friday"],
+        zone: "Europe/London",
+      };
+
+      // When it is parsed and serialised again.
+      // Then nothing has moved.
+      assertIdentical(
+        JSON.stringify(parseRule(document)),
+        JSON.stringify(document),
+      );
+    });
+
     it("keeps an absent zone absent rather than undefined", () => {
       // Given a rule with no zone in it.
       // When it is parsed and serialised.
@@ -126,8 +143,8 @@ describe("parsing a rule from JSON", () => {
       assertIdentical(
         complaintAbout({ type: "weekdays" }),
         'rule.type: "weekdays" is not a rule type. ' +
-          "Expected one of always, never, daysOfWeek, daysOfMonth, monthsOfYear, " +
-          "timeOfDay, dates, inZone, all, any, not",
+          "Expected one of always, never, daysOfWeek, daysOfMonth, nthDayOfWeekInMonth, " +
+          "monthsOfYear, timeOfDay, dates, inZone, all, any, not",
       );
     });
 
@@ -193,6 +210,29 @@ describe("parsing a rule from JSON", () => {
       assertIdentical(
         complaintAbout({ type: "daysOfMonth", days: ["1"] }),
         "rule.days[0]: expected a number, found string",
+      );
+    });
+
+    it("names an occurrence outside a month", () => {
+      // Given a sixth occurrence, and one written as text.
+      // When each is parsed.
+      // Then both are refused, with the range spelled out.
+      assertIdentical(
+        complaintAbout({
+          type: "nthDayOfWeekInMonth",
+          nth: 6,
+          days: ["monday"],
+        }),
+        "rule.nth: 6 is not an occurrence in a month. " +
+          "Expected 1 to 5, or -1 to -5 counting back from the end",
+      );
+      assertIdentical(
+        complaintAbout({
+          type: "nthDayOfWeekInMonth",
+          nth: "1",
+          days: ["monday"],
+        }),
+        "rule.nth: expected a number, found string",
       );
     });
 

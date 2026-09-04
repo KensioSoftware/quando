@@ -289,6 +289,126 @@ describe("reading a rule as intervals", () => {
     });
   });
 
+  describe("the nth day of the week in a month", () => {
+    it("finds the first of a weekday in each month", () => {
+      // Given the first Monday, over a quarter. This is the shape of every
+      // recurring monthly meeting there is.
+      const quarter = inWindow("2026-01-01T00:00", "2026-04-01T00:00");
+
+      // When it is read.
+      // Then one Monday comes back per month.
+      assertIdentical(
+        read(
+          { type: "nthDayOfWeekInMonth", nth: 1, days: ["monday"] },
+          quarter,
+        ),
+        "[2026-01-05T00:00:00,2026-01-06T00:00:00) " +
+          "[2026-02-02T00:00:00,2026-02-03T00:00:00) " +
+          "[2026-03-02T00:00:00,2026-03-03T00:00:00)",
+      );
+    });
+
+    it("counts back from the end for a negative occurrence", () => {
+      // Given the last Friday of the month, over a quarter. January 2026 has
+      // five Fridays and February has four, so a fixed count would miss one.
+      const quarter = inWindow("2026-01-01T00:00", "2026-04-01T00:00");
+
+      // When it is read.
+      // Then each month gives up its own final Friday.
+      assertIdentical(
+        read(
+          { type: "nthDayOfWeekInMonth", nth: -1, days: ["friday"] },
+          quarter,
+        ),
+        "[2026-01-30T00:00:00,2026-01-31T00:00:00) " +
+          "[2026-02-27T00:00:00,2026-02-28T00:00:00) " +
+          "[2026-03-27T00:00:00,2026-03-28T00:00:00)",
+      );
+    });
+
+    it("covers nothing in a month without a fifth of that weekday", () => {
+      // Given the fifth Monday, over a quarter. Only some months have one.
+      const quarter = inWindow("2026-01-01T00:00", "2026-04-01T00:00");
+
+      // When it is read.
+      // Then the months without a fifth Monday contribute nothing rather than
+      // falling back to the fourth.
+      assertIdentical(
+        read(
+          { type: "nthDayOfWeekInMonth", nth: 5, days: ["monday"] },
+          quarter,
+        ),
+        "[2026-03-30T00:00:00,2026-03-31T00:00:00)",
+      );
+    });
+
+    it("takes more than one weekday at the same position", () => {
+      // Given the first Saturday and the first Sunday, which is how a monthly
+      // weekend event is written.
+      const january = inWindow("2026-01-01T00:00", "2026-02-01T00:00");
+
+      // When January is read. Its first Saturday is the 3rd and its first
+      // Sunday is the 4th, so the two are consecutive.
+      // Then they come back as one interval, the way any two touching days do.
+      assertIdentical(
+        read(
+          { type: "nthDayOfWeekInMonth", nth: 1, days: ["saturday", "sunday"] },
+          january,
+        ),
+        "[2026-01-03T00:00:00,2026-01-05T00:00:00)",
+      );
+    });
+
+    it("covers nothing when no weekdays are selected", () => {
+      // Given no days at all and a context with no end.
+      const endless = intervals(
+        { type: "nthDayOfWeekInMonth", nth: 1, days: [] },
+        inWindow("2026-03-09T00:00"),
+      );
+
+      // When one interval is asked for.
+      // Then nothing comes back, at once.
+      assertIdentical(render(take(endless, 1)), "");
+    });
+
+    it("is endless without a window", () => {
+      // Given the second Tuesday over a context with no end. This is patch
+      // Tuesday, which is the rule most people meet it as.
+      const endless = intervals(
+        { type: "nthDayOfWeekInMonth", nth: 2, days: ["tuesday"] },
+        inWindow("2026-03-09T00:00"),
+      );
+
+      // When two are taken.
+      // Then March's and April's arrive.
+      assertIdentical(
+        render(take(endless, 2)),
+        "[2026-03-10T00:00:00,2026-03-11T00:00:00) " +
+          "[2026-04-14T00:00:00,2026-04-15T00:00:00)",
+      );
+    });
+
+    it("reads a day in its own zone", () => {
+      // Given the first Monday in Tokyo, read from a London context.
+      const january = inWindow("2026-01-05T00:00", "2026-01-07T00:00");
+
+      // When it is read.
+      // Then the interval is Tokyo's day, reported on London's clock.
+      assertIdentical(
+        read(
+          {
+            type: "nthDayOfWeekInMonth",
+            nth: 1,
+            days: ["monday"],
+            zone: "Asia/Tokyo",
+          },
+          january,
+        ),
+        "[2026-01-05T00:00:00,2026-01-05T15:00:00)",
+      );
+    });
+  });
+
   describe("months of the year", () => {
     it("covers a named month whole", () => {
       // Given August, over the second half of 2026.

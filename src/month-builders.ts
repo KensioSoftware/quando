@@ -9,8 +9,19 @@
  */
 
 import { build, type Built } from "./built-rule.js";
-import type { DaysOfMonthRule, Month, MonthsOfYearRule } from "./rule.js";
-import { asDayOfMonth, asMonth } from "./validation.js";
+import type {
+  DaysOfMonthRule,
+  Month,
+  MonthsOfYearRule,
+  NthDayOfWeekInMonthRule,
+  Weekday,
+} from "./rule.js";
+import {
+  asDayOfMonth,
+  asMonth,
+  asNthOfMonth,
+  asWeekday,
+} from "./validation.js";
 
 /** Whole days, by position in the month. Negative days count from the end. */
 export function daysOfMonth(
@@ -29,5 +40,23 @@ export function monthsOfYear(
   return build({
     type: "monthsOfYear",
     months: months.map((month, index) => asMonth(month, `months[${index}]`)),
+  });
+}
+
+/**
+ * Whole days, by which occurrence of their weekday they are in the month.
+ *
+ * `nthDayOfWeekInMonth(1, "monday")` is the first Monday of every month, and
+ * `nthDayOfWeekInMonth(-1, "friday")` is the last Friday. Negative counts from the
+ * end, so the last one is the last whether the month holds four or five.
+ */
+export function nthDayOfWeekInMonth(
+  nth: number,
+  ...days: readonly Weekday[]
+): Built<NthDayOfWeekInMonthRule> {
+  return build({
+    type: "nthDayOfWeekInMonth",
+    nth: asNthOfMonth(nth, "nth"),
+    days: days.map((day, index) => asWeekday(day, `days[${index}]`)),
   });
 }

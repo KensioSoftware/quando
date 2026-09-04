@@ -9,7 +9,7 @@
 import { matchingDays } from "./calendar-walk.js";
 import { type Context, zoneOf } from "./context.js";
 import type { IntervalStream } from "./interval-stream.js";
-import { MONTHS, type Month } from "./rule.js";
+import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
 
 /**
  * Whole days selected by position in the month.
@@ -60,4 +60,34 @@ export function monthIntervals(
   return matchingDays(context, zoneOf(context, zone), (date) =>
     wanted.has(date.month),
   );
+}
+
+/**
+ * Whole days selected by which occurrence of their weekday they are.
+ *
+ * Which occurrence a date is falls out of its day of the month: the 1st to
+ * the 7th hold the first of every weekday, the 8th to the 14th the second,
+ * and so on. Counting back from the end works the same way against the days
+ * remaining in the month.
+ */
+export function nthDayOfWeekInMonthIntervals(
+  context: Context,
+  nth: number,
+  days: readonly Weekday[],
+  zone?: string,
+): IntervalStream {
+  const wanted = new Set(days.map((day) => WEEKDAYS.indexOf(day) + 1));
+
+  if (wanted.size === 0) {
+    return [];
+  }
+
+  return matchingDays(context, zoneOf(context, zone), (date) => {
+    if (!wanted.has(date.dayOfWeek)) {
+      return false;
+    }
+    const fromStart = Math.ceil(date.day / 7);
+    const fromEnd = Math.ceil((date.daysInMonth - date.day + 1) / 7);
+    return nth > 0 ? fromStart === nth : fromEnd === -nth;
+  });
 }

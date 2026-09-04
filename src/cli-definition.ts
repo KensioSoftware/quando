@@ -17,6 +17,7 @@ const RULE_TYPES = new Set([
   "never",
   "daysOfWeek",
   "daysOfMonth",
+  "nthDayOfWeekInMonth",
   "monthsOfYear",
   "timeOfDay",
   "dates",

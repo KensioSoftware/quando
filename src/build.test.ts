@@ -17,6 +17,7 @@ import {
   inZone,
   monthsOfYear,
   never,
+  nthDayOfWeekInMonth,
   not,
   timeOfDay,
   weekdays,
@@ -136,6 +137,16 @@ describe("the builder", () => {
       assertThrowsError(() => daysOfMonth(0));
       assertThrowsError(() => daysOfMonth(-32));
       assertThrowsError(() => daysOfMonth(1.5));
+    });
+
+    it("refuses an occurrence no month can hold", () => {
+      // Given a sixth occurrence, which no month has of any weekday, and the
+      // zero a caller writes when they have an off-by-one.
+      // When each is passed to the builder.
+      // Then each fails where it is written.
+      assertThrowsError(() => nthDayOfWeekInMonth(6, "monday"));
+      assertThrowsError(() => nthDayOfWeekInMonth(0, "monday"));
+      assertThrowsError(() => nthDayOfWeekInMonth(-6, "monday"));
     });
 
     it("refuses a month that is not one", () => {

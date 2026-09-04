@@ -70,6 +70,7 @@ function childConditions(
     case "daysOfMonth":
     case "daysOfWeek":
     case "monthsOfYear":
+    case "nthDayOfWeekInMonth":
     case "never":
     case "timeOfDay": {
       return [];

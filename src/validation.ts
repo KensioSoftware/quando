@@ -35,6 +35,21 @@ export function asDayOfMonth(value: number, path: string): number {
   return value;
 }
 
+/**
+ * Reads and validates an occurrence within a month.
+ *
+ * Five either way, because no month holds six of any weekday. Zero is
+ * rejected for the same reason a zero day of the month is.
+ */
+export function asNthOfMonth(value: number, path: string): number {
+  if (!Number.isInteger(value) || value === 0 || value < -5 || value > 5) {
+    throw new RangeError(
+      `${path} is not an occurrence in a month: ${value}. Expected 1 to 5, or -1 to -5 counting back from the end.`,
+    );
+  }
+  return value;
+}
+
 /** Reads and normalises a wall-clock time. */
 export function asTime(value: string, path: string): string {
   try {

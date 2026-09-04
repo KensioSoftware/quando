@@ -56,6 +56,7 @@ export type Rule =
   | NeverRule
   | DaysOfWeekRule
   | DaysOfMonthRule
+  | NthDayOfWeekInMonthRule
   | MonthsOfYearRule
   | TimeOfDayRule
   | DatesRule
@@ -94,6 +95,21 @@ export interface DaysOfMonthRule {
   readonly type: "daysOfMonth";
   readonly days: readonly number[];
   /** Overrides the context's zone, for a rule about a particular place. */
+  readonly zone?: string;
+}
+
+/**
+ * Whole days, by which occurrence of their weekday they are in the month.
+ *
+ * The first Monday, the last Friday. Counted from the start of the month at
+ * `1` and from the end at `-1`, so the last Friday is the last one whether the
+ * month holds four or five. A month with only four of a weekday has no fifth,
+ * and `5` covers no time in it.
+ */
+export interface NthDayOfWeekInMonthRule {
+  readonly type: "nthDayOfWeekInMonth";
+  readonly nth: number;
+  readonly days: readonly Weekday[];
   readonly zone?: string;
 }
 

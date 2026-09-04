@@ -18,6 +18,7 @@ import {
   inZone,
   monthsOfYear,
   never,
+  nthDayOfWeekInMonth,
   not,
   timeOfDay,
   weekdays,
@@ -246,6 +247,58 @@ describe("explaining why a rule matches", () => {
     assertFalse(one.matched);
     assertIdentical(one.description, "August is not January.");
     assertIdentical(none.description, "No months are listed.");
+  });
+
+  it("counts which occurrence of the weekday a date is", () => {
+    // Given the second Tuesday of the month, explained on the second Tuesday
+    // of March 2026 and on the third.
+    const patchTuesday = nthDayOfWeekInMonth(2, "tuesday");
+
+    // When both are explained.
+    const onTheDay = explainRule(patchTuesday, when("2026-03-10T10:00"));
+    const aWeekLater = explainRule(patchTuesday, when("2026-03-17T10:00"));
+
+    // Then the count is stated either way. It is the fact the reader cannot
+    // see from the date, and it is the whole reason the rule matched or not.
+    assertTrue(onTheDay.matched);
+    assertIdentical(
+      onTheDay.description,
+      "This is the 2nd Tuesday of the month.",
+    );
+    assertFalse(aWeekLater.matched);
+    assertIdentical(
+      aWeekLater.description,
+      "This is the 3rd Tuesday of the month, and the rule wants the 2nd.",
+    );
+  });
+
+  it("counts back from the end of the month for a negative occurrence", () => {
+    // Given the last Friday of the month, explained on it.
+    const monthEnd = nthDayOfWeekInMonth(-1, "friday");
+
+    // When 27 March 2026 is explained. March has four Fridays and this is the
+    // last of them.
+    const explanation = explainRule(monthEnd, when("2026-03-27T10:00"));
+
+    // Then the account counts from the end, the way the rule does.
+    assertTrue(explanation.matched);
+    assertIdentical(
+      explanation.description,
+      "This is the last Friday of the month.",
+    );
+  });
+
+  it("settles a weekday mismatch without counting", () => {
+    // Given the first Monday, explained on a Wednesday, and an empty selector.
+    const wednesday = when("2026-03-11T10:00");
+    const wrongDay = explainRule(nthDayOfWeekInMonth(1, "monday"), wednesday);
+    const none = explainRule(nthDayOfWeekInMonth(1), wednesday);
+
+    // Then the weekday alone settles it. Counting Mondays on a Wednesday
+    // would be an answer to a question nobody asked.
+    assertFalse(wrongDay.matched);
+    assertIdentical(wrongDay.description, "Wednesday is not Monday.");
+    assertIdentical(none.description, "No weekdays are listed.");
   });
 
   it("describes an overnight window at a precise time", () => {

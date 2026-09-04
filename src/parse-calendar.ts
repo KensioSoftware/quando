@@ -11,6 +11,7 @@ import {
   asDays,
   asMonthDays,
   asMonths,
+  asNth,
   asTime,
   zonePart,
 } from "./parse-fields.js";
@@ -21,6 +22,7 @@ import type { Rule } from "./rule.js";
 export type CalendarRuleType =
   | "daysOfWeek"
   | "daysOfMonth"
+  | "nthDayOfWeekInMonth"
   | "monthsOfYear"
   | "dates"
   | "timeOfDay";
@@ -43,6 +45,15 @@ export function parseCalendarRule(
       return {
         type: "daysOfMonth",
         days: asMonthDays(node["days"], `${path}.days`),
+        ...zonePart(node, path),
+      };
+    }
+
+    case "nthDayOfWeekInMonth": {
+      return {
+        type: "nthDayOfWeekInMonth",
+        nth: asNth(node["nth"], `${path}.nth`),
+        days: asDays(node["days"], `${path}.days`),
         ...zonePart(node, path),
       };
     }
