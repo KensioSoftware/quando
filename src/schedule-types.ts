@@ -6,6 +6,7 @@ import type { LayerOptions } from "./layer-options.js";
 import type { PlainRule } from "./plain-forms.js";
 import type { Search } from "./query.js";
 import type { ValidationDiagnostic } from "./semantic-validation.js";
+import type { TimelineOptions } from "./timeline.js";
 
 /** The stored form of opening hours. */
 export interface ScheduleData {
@@ -69,6 +70,11 @@ export interface Schedule extends ScheduleData {
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
   ) => Temporal.Duration;
+  readonly renderTimeline: (
+    from: Temporal.ZonedDateTime,
+    to: Temporal.ZonedDateTime,
+    options?: TimelineOptions,
+  ) => string;
   readonly toJSON: () => ScheduleData;
 }
 

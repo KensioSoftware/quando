@@ -46,6 +46,7 @@ interface LayerOptions {
 | `openDuration(from, to)`                | Measure open time in a window               |
 | `changesTo(next, from, to)`             | Return newly opened and closed intervals    |
 | `validate(from, to)`                    | Return semantic schedule diagnostics        |
+| `renderTimeline(from, to, options?)`    | Render opening times as text or SVG         |
 | `toJSON()`                              | Return the stored schedule data             |
 
 `scope`, `day`, and `hours` accept a `Rule`. They also accept a date string such
@@ -169,6 +170,12 @@ function accumulate(
   context: Context,
   unit: ElapsedUnit,
 ): number;
+
+function renderTimeline<V>(
+  source: Covers<V>,
+  context: Context,
+  options?: TimelineOptions,
+): string;
 ```
 
 `Covers<V>` accepts a rule, a boolean cascade, or the result of
@@ -194,6 +201,14 @@ type ElapsedUnit =
   "hour" | "minute" | "second" | "millisecond" | "microsecond" | "nanosecond";
 
 const ELAPSED_UNITS: readonly ElapsedUnit[];
+
+type TimelineFormat = "text" | "svg";
+
+interface TimelineOptions {
+  readonly format?: TimelineFormat;
+}
+
+const TIMELINE_FORMATS: readonly TimelineFormat[];
 ```
 
 `nextCoveredInterval`, `firstGap`, and `advanceBy` apply
@@ -203,6 +218,10 @@ returns a lazy stream and adds no limit.
 
 `accumulate` multiplies each resolved numeric value by how long it applies in
 the requested unit. Its context must have a finite end.
+
+`renderTimeline` draws one local calendar-day row for each day in the context.
+Text is the default format. SVG output is a standalone accessible image. The
+context must have a finite end.
 
 ### Comparison and JSON types
 

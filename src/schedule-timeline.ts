@@ -1,0 +1,18 @@
+import type { Cascade } from "./cascade.js";
+import { renderTimeline, type TimelineOptions } from "./timeline.js";
+
+/** Renders a schedule in its declared zone, or in the caller's zone. */
+export function renderScheduleTimeline(
+  document: Cascade<boolean>,
+  zone: string | undefined,
+  from: Temporal.ZonedDateTime,
+  to: Temporal.ZonedDateTime,
+  options: TimelineOptions | undefined,
+): string {
+  const inZone = zone ?? from.timeZoneId;
+  return renderTimeline(
+    document,
+    { from: from.withTimeZone(inZone), to: to.withTimeZone(inZone) },
+    options,
+  );
+}

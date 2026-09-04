@@ -8,12 +8,16 @@ import {
   ELAPSED_UNITS,
   firstGap,
   type LayerOptions,
+  renderTimeline,
   rota,
   type RuleExplanation,
   type SkippedLayer,
   schedule,
   type ScheduleChanges,
   slots,
+  type TimelineFormat,
+  type TimelineOptions,
+  TIMELINE_FORMATS,
   type ValidationDiagnostic,
   type ValidationOptions,
   type ValidationWindow,
@@ -42,6 +46,8 @@ const end = start.add({ days: 1 });
 const validationWindow: ValidationWindow = { from: start, to: end };
 const validationOptions: ValidationOptions = { requireFullCoverage: true };
 const accumulationUnit: ElapsedUnit = ELAPSED_UNITS[0];
+const timelineFormat: TimelineFormat = TIMELINE_FORMATS[0];
+const timelineOptions: TimelineOptions = { format: timelineFormat };
 
 advanceBy(start, Temporal.Duration.from({ hours: 1 }), { during: office });
 firstGap(office, halfHour, { from: start });
@@ -87,6 +93,14 @@ const accumulated: number = accumulate(
   accumulationUnit,
 );
 const staffHours: number = staff.totalBetween(start, end, "hour");
+const ruleTimeline: string = renderTimeline(
+  weekdays(),
+  { from: start, to: end },
+  timelineOptions,
+);
+const scheduleTimeline: string = office.renderTimeline(start, end, {
+  format: "svg",
+});
 office.validate(start, end);
 office.explain(start);
 rota().assign(weekdays(), "alice").validate(start, end);
@@ -103,6 +117,8 @@ void explainedAssignment;
 void explainedCount;
 void accumulated;
 void staffHours;
+void ruleTimeline;
+void scheduleTimeline;
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
 rota().assign(weekdays(), "alice", { label: "Primary support" });

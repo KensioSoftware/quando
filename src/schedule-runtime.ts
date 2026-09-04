@@ -67,7 +67,7 @@ export function restoreSchedule(data: ScheduleData): Schedule {
       append(closure(scope, zone, options)),
     hoursOn: (day: PlainRule, hours: PlainRule, options?: LayerOptions) =>
       append(changedHours(day, hours, zone, options)),
-    ...scheduleQueries(document),
+    ...scheduleQueries(document, zone),
     toJSON: () => ({ ...data }),
   });
 }

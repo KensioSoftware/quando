@@ -36,6 +36,9 @@ export { coverageChanges } from "./coverage-changes.js";
 export type { ElapsedUnit } from "./accumulate.js";
 export { accumulate, ELAPSED_UNITS } from "./accumulate.js";
 
+export type { TimelineFormat, TimelineOptions } from "./timeline.js";
+export { renderTimeline, TIMELINE_FORMATS } from "./timeline.js";
+
 export type {
   AssignmentStep,
   Explanation,
