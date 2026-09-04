@@ -1,4 +1,5 @@
 import { valueAt } from "./assigned.js";
+import { accumulate, type ElapsedUnit } from "./accumulate.js";
 import { always } from "./build.js";
 import { cascade, type Layer, layer, replace } from "./cascade.js";
 import { explainTally } from "./explain.js";
@@ -50,6 +51,11 @@ function build(data: TallyData): Tally {
     explain: (at: Temporal.ZonedDateTime) => explainTally(data.cascade, at),
     least: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>
       leastValue(data.cascade, from, to),
+    totalBetween: (
+      from: Temporal.ZonedDateTime,
+      to: Temporal.ZonedDateTime,
+      unit: ElapsedUnit,
+    ) => accumulate(data.cascade, { from, to }, unit),
     counts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>
       resolve(data.cascade, to === undefined ? { from } : { from, to }),
     validate: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>

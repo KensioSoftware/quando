@@ -1,4 +1,4 @@
-import { rota, schedule, weekdays } from "@kensio/quando";
+import { accumulate, rota, schedule, tally, weekdays } from "@kensio/quando";
 import { explainRule, layer, merged } from "@kensio/quando/core";
 import { parseSchedule } from "@kensio/quando/parsing";
 
@@ -13,6 +13,21 @@ const office = schedule({ zone: "Europe/London" }).open(
   { label: "Regular office hours" },
 );
 const staffing = merged("sum", layer(weekdays(), 2));
+const staffHours = tally()
+  .plus(weekdays(), 2)
+  .totalBetween(
+    Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+    Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
+    "hour",
+  );
+const accumulated = accumulate(
+  staffing,
+  {
+    from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+    to: Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
+  },
+  "hour",
+);
 const rotaWithInterface = rota<Duty>().assign(weekdays(), {
   person: "alice",
   level: 2,
@@ -25,4 +40,12 @@ const weekdayExplanation = explainRule(
 // @ts-expect-error The sum strategy only accepts numeric layer values.
 merged("sum", layer(weekdays(), "two"));
 
-void [office, staffing, rotaWithInterface, weekdayExplanation, parseSchedule];
+void [
+  office,
+  staffing,
+  staffHours,
+  accumulated,
+  rotaWithInterface,
+  weekdayExplanation,
+  parseSchedule,
+];

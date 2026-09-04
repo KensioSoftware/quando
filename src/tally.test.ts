@@ -9,7 +9,7 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { weekdays, weekends } from "./build.js";
+import { dates, timeOfDay, weekdays, weekends } from "./build.js";
 import { equals } from "./canonical.js";
 import { cascade, layer, merged, replace } from "./cascade.js";
 import { parseTally, tally } from "./tally.js";
@@ -264,6 +264,22 @@ describe("counting how many are on", () => {
         ),
         0,
       );
+    });
+  });
+
+  describe("totalBetween", () => {
+    it("returns staff-hours without exposing the interval stream", () => {
+      // Given three people on each eight-hour weekday shift and two extra
+      // people throughout Wednesday's shift.
+      const workingHours = weekdays().and(timeOfDay("09:00", "17:00"));
+      const wednesdayHours = workingHours.and(dates("2026-03-11"));
+      const staff = tally().plus(workingHours, 3).plus(wednesdayHours, 2);
+
+      // When the tally is totalled over the week.
+      const total = staff.totalBetween(weekStart, weekEnd, "hour");
+
+      // Then the high-level result is the 136 staff-hours worked.
+      assertIdentical(total, 136);
     });
   });
 

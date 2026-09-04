@@ -33,6 +33,9 @@ export { validate } from "./semantic-validation.js";
 export type { CoverageChanges } from "./coverage-changes.js";
 export { coverageChanges } from "./coverage-changes.js";
 
+export type { ElapsedUnit } from "./accumulate.js";
+export { accumulate, ELAPSED_UNITS } from "./accumulate.js";
+
 export type {
   AssignmentStep,
   Explanation,

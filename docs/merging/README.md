@@ -38,12 +38,13 @@ The tally supplies several common operations:
 | `at(instant)`                      | Read the amount at one instant        |
 | `explain(instant)`                 | Explain how the matching lines add up |
 | `least(from, to)`                  | Find the lowest amount in a window    |
+| `totalBetween(from, to, unit)`     | Total the amount over elapsed time    |
 | `counts(from, to?)`                | Resolve the valued intervals          |
 | `validate(from, to)`               | Find inactive and shadowed lines      |
 
 `at` and `least` treat unassigned time as zero. `counts` returns assigned
 intervals only. See [explanations](../explanations/) for the trace returned by
-`explain`.
+`explain`. See [accumulation](../accumulation/) for totals such as staff-hours.
 
 ## Use a merge strategy directly
 
