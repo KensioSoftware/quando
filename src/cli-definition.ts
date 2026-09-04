@@ -21,6 +21,7 @@ const RULE_TYPES = new Set([
   "monthsOfYear",
   "timeOfDay",
   "dates",
+  "dateRange",
   "inZone",
   "all",
   "any",

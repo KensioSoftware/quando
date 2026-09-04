@@ -43,6 +43,8 @@ function written(
 
 export const canonicalTime = (value: string): string => written(value, asTime);
 
+export const canonicalDate = (value: string): string => written(value, asDate);
+
 export function canonicalDays(days: readonly Weekday[]): Weekday[] {
   return [...new Set(days)].toSorted(
     (a, b) => (DAY_ORDER.get(a) ?? 0) - (DAY_ORDER.get(b) ?? 0),

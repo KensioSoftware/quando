@@ -1,0 +1,86 @@
+/**
+ * Writing the leaves of a rule the one way.
+ *
+ * The rules that name a day, a month, a date or a time, normalised field by
+ * field. [canonical-rule.ts](./canonical-rule.ts) keeps the structure around
+ * them and hands the leaves here, the way `parse.ts` hands them to
+ * `parse-calendar.ts`.
+ */
+
+import {
+  canonicalDate,
+  canonicalDates,
+  canonicalDays,
+  canonicalMonthDays,
+  canonicalMonths,
+  canonicalTime,
+} from "./canonical-leaves.js";
+import type { CalendarRule, Rule } from "./rule.js";
+
+/** Present or absent, never present-and-undefined. */
+function zonePart(zone: string | undefined): { zone?: string } {
+  return zone === undefined ? {} : { zone };
+}
+
+export function canonicalCalendarRule(rule: CalendarRule): Rule {
+  switch (rule.type) {
+    case "daysOfWeek": {
+      return {
+        type: "daysOfWeek",
+        days: canonicalDays(rule.days),
+        ...zonePart(rule.zone),
+      };
+    }
+
+    case "daysOfMonth": {
+      return {
+        type: "daysOfMonth",
+        days: canonicalMonthDays(rule.days),
+        ...zonePart(rule.zone),
+      };
+    }
+
+    case "nthDayOfWeekInMonth": {
+      return {
+        type: "nthDayOfWeekInMonth",
+        nth: rule.nth,
+        days: canonicalDays(rule.days),
+        ...zonePart(rule.zone),
+      };
+    }
+
+    case "monthsOfYear": {
+      return {
+        type: "monthsOfYear",
+        months: canonicalMonths(rule.months),
+        ...zonePart(rule.zone),
+      };
+    }
+
+    case "dates": {
+      return {
+        type: "dates",
+        dates: canonicalDates(rule.dates),
+        ...zonePart(rule.zone),
+      };
+    }
+
+    case "dateRange": {
+      return {
+        type: "dateRange",
+        ...(rule.from === undefined ? {} : { from: canonicalDate(rule.from) }),
+        ...(rule.to === undefined ? {} : { to: canonicalDate(rule.to) }),
+        ...zonePart(rule.zone),
+      };
+    }
+
+    case "timeOfDay": {
+      return {
+        type: "timeOfDay",
+        from: canonicalTime(rule.from),
+        to: canonicalTime(rule.to),
+        ...zonePart(rule.zone),
+      };
+    }
+  }
+}

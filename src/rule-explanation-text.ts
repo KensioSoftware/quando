@@ -1,5 +1,6 @@
 import {
   describeDate,
+  describeDateRange,
   describeDay,
   describeTime,
 } from "./calendar-explanation-text.js";
@@ -57,6 +58,17 @@ export function describeRuleMatch(
     case "monthsOfYear": {
       return inNamedZone(
         describeMonth(rule.months, localAt(at, rule.zone ?? inheritedZone)),
+        rule.zone,
+      );
+    }
+    case "dateRange": {
+      return inNamedZone(
+        describeDateRange(
+          rule.from,
+          rule.to,
+          localAt(at, rule.zone ?? inheritedZone),
+          matched,
+        ),
         rule.zone,
       );
     }

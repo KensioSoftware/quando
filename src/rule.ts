@@ -60,10 +60,26 @@ export type Rule =
   | MonthsOfYearRule
   | TimeOfDayRule
   | DatesRule
+  | DateRangeRule
   | InZoneRule
   | AllRule
   | AnyRule
   | NotRule;
+
+/**
+ * The rules that name something on a calendar or a clock and hold no others.
+ *
+ * The leaves. Several operations over the rule language split along this line,
+ * because the leaves are where the vocabulary lives and the rest is structure.
+ */
+export type CalendarRule =
+  | DaysOfWeekRule
+  | DaysOfMonthRule
+  | NthDayOfWeekInMonthRule
+  | MonthsOfYearRule
+  | TimeOfDayRule
+  | DatesRule
+  | DateRangeRule;
 
 /** All time. The identity for intersection. */
 export interface AlwaysRule {
@@ -134,6 +150,21 @@ export interface TimeOfDayRule {
   readonly type: "timeOfDay";
   readonly from: string;
   readonly to: string;
+  readonly zone?: string;
+}
+
+/**
+ * Every day from one date to another, both ends included.
+ *
+ * A date names a whole day here, the way it does in `dates`, so a range from
+ * `"2026-04-01"` to `"2026-04-30"` covers the whole of both. Either end may be
+ * left out for a bound open in that direction, and leaving out both is refused
+ * rather than read as all of time.
+ */
+export interface DateRangeRule {
+  readonly type: "dateRange";
+  readonly from?: string;
+  readonly to?: string;
   readonly zone?: string;
 }
 

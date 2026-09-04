@@ -31,6 +31,7 @@ const FIELDS = new Map<string, readonly string[]>([
   ["monthsOfYear", ["months", "zone"]],
   ["timeOfDay", ["from", "to", "zone"]],
   ["dates", ["dates", "zone"]],
+  ["dateRange", ["from", "to", "zone"]],
   ["inZone", ["zone", "rule"]],
   ["all", ["rules"]],
   ["any", ["rules"]],
@@ -81,6 +82,7 @@ function parseRuleData(value: unknown, path: string): Rule {
     case "nthDayOfWeekInMonth":
     case "monthsOfYear":
     case "dates":
+    case "dateRange":
     case "timeOfDay": {
       return parseCalendarRule(type, node, path);
     }

@@ -6,6 +6,7 @@ import {
   all,
   always,
   any,
+  between,
   dates,
   daysOfMonth,
   daysOfWeek,
@@ -14,10 +15,12 @@ import {
   never,
   nthDayOfWeekInMonth,
   not,
+  onOrAfter,
   timeOfDay,
   weekdays,
 } from "./build.js";
 import { canonical, equals, fingerprint } from "./canonical.js";
+import { parseRule } from "./parse.js";
 import { cascade, layer, merged, replace, whenever } from "./cascade.js";
 import type { Rule } from "./rule.js";
 
@@ -209,6 +212,24 @@ describe("putting a rule in canonical form", () => {
       assertIdentical(
         formOf(holidays),
         '{"type":"dates","dates":["2026-12-25","2026-12-26"]}',
+      );
+    });
+
+    it("writes the ends of a range one way", () => {
+      // Given the same range with one end written the long way round.
+      const written = between("2026-04-01", "2026-04-30");
+      const same = parseRule({
+        type: "dateRange",
+        from: "2026-04-01",
+        to: "2026-04-30",
+      });
+
+      // When both are canonicalised.
+      // Then they compare equal, and an open end stays absent.
+      assertTrue(equals(written, same));
+      assertIdentical(
+        formOf(onOrAfter("2026-04-01")),
+        '{"type":"dateRange","from":"2026-04-01"}',
       );
     });
 

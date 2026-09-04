@@ -11,6 +11,7 @@ import {
   all,
   always,
   any,
+  between,
   dates,
   daysOfMonth,
   daysOfWeek,
@@ -19,6 +20,8 @@ import {
   never,
   nthDayOfWeekInMonth,
   not,
+  onOrAfter,
+  onOrBefore,
   timeOfDay,
   weekdays,
   weekends,
@@ -147,6 +150,58 @@ describe("the builder", () => {
       assertThrowsError(() => nthDayOfWeekInMonth(6, "monday"));
       assertThrowsError(() => nthDayOfWeekInMonth(0, "monday"));
       assertThrowsError(() => nthDayOfWeekInMonth(-6, "monday"));
+    });
+
+    it("refuses a range that ends before it starts", () => {
+      // Given two dates the wrong way round, and a date that is not one.
+      // When each is passed to a builder.
+      // Then each fails where it is written. A backwards range covers no time
+      // and almost always means the arguments were swapped.
+      assertThrowsError(() => between("2026-04-30", "2026-04-01"));
+      assertThrowsError(() => onOrAfter("Christmas"));
+      assertThrowsError(() => onOrBefore("2026-13-45"));
+    });
+
+    it("takes a range of one day", () => {
+      // Given the same date at both ends, which a generated range can produce.
+      // When one day is read.
+      // Then it covers that whole day rather than nothing.
+      const april = inWindow("2026-04-01T00:00", "2026-05-01T00:00");
+      assertIdentical(
+        read(between("2026-04-10", "2026-04-10"), april),
+        "[2026-04-10T00:00:00,2026-04-11T00:00:00)",
+      );
+    });
+
+    it("takes a zone for the range, so a date means a day there", () => {
+      // Given one day in Tokyo, read from a London context. Tokyo is nine
+      // hours ahead, so its day opens while London is still on the evening
+      // before.
+      const april = inWindow("2026-04-01T00:00", "2026-04-03T00:00");
+
+      // When it is read.
+      // Then the interval is Tokyo's day on London's clock.
+      assertIdentical(
+        read(between("2026-04-01", "2026-04-01", "Asia/Tokyo"), april),
+        "[2026-04-01T00:00:00,2026-04-01T16:00:00)",
+      );
+    });
+
+    it("bounds opening hours to a season", () => {
+      // Given weekend hours that only run over the summer, which is the shape
+      // this rule exists for.
+      const summerOnly = weekends().and(between("2026-06-01", "2026-08-31"));
+      const may = inWindow("2026-05-01T00:00", "2026-06-01T00:00");
+      const june = inWindow("2026-06-01T00:00", "2026-06-15T00:00");
+
+      // When each month is read.
+      // Then May covers nothing and June covers its weekends.
+      assertIdentical(read(summerOnly, may), "");
+      assertIdentical(
+        read(summerOnly, june),
+        "[2026-06-06T00:00:00,2026-06-08T00:00:00) " +
+          "[2026-06-13T00:00:00,2026-06-15T00:00:00)",
+      );
     });
 
     it("refuses a month that is not one", () => {

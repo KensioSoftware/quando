@@ -85,17 +85,22 @@ export function asTime(value: unknown, path: string): string {
 }
 
 export function asDates(value: unknown, path: string): string[] {
-  return asStrings(value, path).map((date, index) => {
-    try {
-      Temporal.PlainDate.from(date);
-    } catch {
-      return fail(
-        `${path}[${index}]`,
-        `"${date}" is not a date. Expected something like "2026-03-14"`,
-      );
-    }
-    return date;
-  });
+  return asStrings(value, path).map((date, index) =>
+    asDate(date, `${path}[${index}]`),
+  );
+}
+
+export function asDate(value: unknown, path: string): string {
+  const date = asString(value, path);
+  try {
+    Temporal.PlainDate.from(date);
+  } catch {
+    return fail(
+      path,
+      `"${date}" is not a date. Expected something like "2026-03-14"`,
+    );
+  }
+  return date;
 }
 
 /**

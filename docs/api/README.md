@@ -113,6 +113,9 @@ function parseTally(value: unknown, path?: string): Tally;
 | `monthsOfYear(...months)`           | Whole named months                    |
 | `timeOfDay(from, to, zone?)`        | A daily wall-clock window             |
 | `dates(...dates)`                   | Whole named dates                     |
+| `onOrAfter(date, zone?)`            | Every day from a date onwards         |
+| `onOrBefore(date, zone?)`           | Every day up to a date                |
+| `between(from, to, zone?)`          | Every day from one date to another    |
 | `all(...rules)`                     | Times covered by every rule           |
 | `any(...rules)`                     | Times covered by at least one rule    |
 | `not(rule)`                         | Times outside a rule                  |

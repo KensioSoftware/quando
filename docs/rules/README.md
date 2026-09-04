@@ -36,6 +36,9 @@ store. There is no final `.build()` call.
 | `monthsOfYear(...months)`           | The selected months, in full                       |
 | `timeOfDay(from, to, zone?)`        | A local time range on every day                    |
 | `dates(...dates)`                   | The selected calendar dates                        |
+| `onOrAfter(date, zone?)`            | Every day from a date onwards                      |
+| `onOrBefore(date, zone?)`           | Every day up to a date                             |
+| `between(from, to, zone?)`          | Every day from one date to another                 |
 | `all(...rules)`                     | Times covered by every rule                        |
 | `any(...rules)`                     | Times covered by at least one rule                 |
 | `not(rule)`                         | Times outside the rule                             |
@@ -102,7 +105,7 @@ const payrollCutoff = nthDayOfWeekInMonth(-1, "friday");
 ```
 
 The count runs from the start of the month at `1` and back from the end at
-`-1`, so the last Friday is the last one whether the month holds four or five.
+`-1`. The last Friday is the last one whether the month holds four or five.
 
 A month without a fifth of that weekday covers no time. `nthDayOfWeekInMonth(5, "monday")`
 matches in some months and not others, which is why `-1` is the way to write
@@ -114,8 +117,8 @@ More than one weekday takes the same position in the month:
 const firstWeekend = nthDayOfWeekInMonth(1, "saturday", "sunday");
 ```
 
-The count is per weekday, so this is the first Saturday and the first Sunday.
-In a month where they fall next to each other the two join into one interval.
+The count is per weekday. This is the first Saturday and the first Sunday, and
+in a month where the two fall next to each other they join into one interval.
 
 Counts run from 1 to 5 and from -1 to -5. No month holds six of any weekday, so
 anything further is rejected where the rule is written.
@@ -188,6 +191,30 @@ evaluation. It does not provide holiday data. Pass dates from your application
 or a calendar package.
 
 Calling `dates()` with no arguments covers no time.
+
+## Bound a stretch of the calendar
+
+Every rule above recurs forever. `onOrAfter`, `onOrBefore` and `between` bound
+one. A schedule can then start on a date, stop on a date, or run for a season:
+
+```ts
+import { between, onOrAfter, weekdays, weekends } from "@kensio/quando";
+
+const newHours = weekdays().and(onOrAfter("2026-04-01"));
+const summerWeekends = weekends().and(between("2026-06-01", "2026-08-31"));
+```
+
+`newHours` covers no weekday before 1 April and every weekday from then on.
+
+Both ends are included. A date names a whole day here, the way it does in
+`dates`, so `between("2026-04-01", "2026-04-30")` covers the whole of 30 April
+and `between(d, d)` covers that one day.
+
+An unbounded end stays unbounded. Read `onOrAfter("2026-04-01")` over a context
+with no end and one interval comes back, open at the far end.
+
+A range that ends before it starts is rejected where it is written. It covers
+no time, and it almost always means the two arguments were swapped.
 
 ## Combine rules
 

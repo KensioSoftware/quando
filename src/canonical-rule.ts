@@ -19,23 +19,12 @@
  * more total than strict, and `parseRule` is the place that refuses.
  */
 
-import {
-  canonicalDates,
-  canonicalDays,
-  canonicalMonthDays,
-  canonicalMonths,
-  canonicalTime,
-} from "./canonical-leaves.js";
+import { canonicalCalendarRule } from "./canonical-calendar.js";
 import type { Rule } from "./rule.js";
 
 /** A rule's stable string form, which is what sorting and equality compare. */
 function key(rule: Rule): string {
   return JSON.stringify(rule);
-}
-
-/** Present or absent, never present-and-undefined. */
-function zonePart(zone: string | undefined): { zone?: string } {
-  return zone === undefined ? {} : { zone };
 }
 
 /**
@@ -84,54 +73,14 @@ export function canonicalRule(rule: Rule): Rule {
       return { type: rule.type };
     }
 
-    case "daysOfWeek": {
-      return {
-        type: "daysOfWeek",
-        days: canonicalDays(rule.days),
-        ...zonePart(rule.zone),
-      };
-    }
-
-    case "daysOfMonth": {
-      return {
-        type: "daysOfMonth",
-        days: canonicalMonthDays(rule.days),
-        ...zonePart(rule.zone),
-      };
-    }
-
-    case "nthDayOfWeekInMonth": {
-      return {
-        type: "nthDayOfWeekInMonth",
-        nth: rule.nth,
-        days: canonicalDays(rule.days),
-        ...zonePart(rule.zone),
-      };
-    }
-
-    case "monthsOfYear": {
-      return {
-        type: "monthsOfYear",
-        months: canonicalMonths(rule.months),
-        ...zonePart(rule.zone),
-      };
-    }
-
-    case "dates": {
-      return {
-        type: "dates",
-        dates: canonicalDates(rule.dates),
-        ...zonePart(rule.zone),
-      };
-    }
-
+    case "daysOfWeek":
+    case "daysOfMonth":
+    case "nthDayOfWeekInMonth":
+    case "monthsOfYear":
+    case "dates":
+    case "dateRange":
     case "timeOfDay": {
-      return {
-        type: "timeOfDay",
-        from: canonicalTime(rule.from),
-        to: canonicalTime(rule.to),
-        ...zonePart(rule.zone),
-      };
+      return canonicalCalendarRule(rule);
     }
 
     case "inZone": {
