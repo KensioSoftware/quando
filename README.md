@@ -97,6 +97,20 @@ const restored = parseSchedule(JSON.parse(stored));
 restored.isOpen(placed);
 ```
 
+## Command line
+
+The installed `quando` command reads stored definitions. It can return a
+timeline, explain one instant, or validate a finite window.
+
+```bash
+npx quando timeline opening-hours.json \
+  --from '2026-03-09T00:00[Europe/London]' \
+  --to '2026-03-10T00:00[Europe/London]'
+```
+
+Commands return JSON by default. Pass `--format text` for terminal output. The
+[command-line guide](docs/cli/) lists the accepted documents and options.
+
 ## Documentation
 
 Start with the [getting started guide](docs/getting-started/). The remaining
@@ -107,6 +121,7 @@ guides cover:
 - [Queries](docs/queries/)
 - [Validation](docs/validation/)
 - [Explanations](docs/explanations/)
+- [Command line](docs/cli/)
 - [Time zones](docs/time-zones/)
 - [Serialisation](docs/serialisation/)
 - [Cascades](docs/cascades/) and [merging](docs/merging/)

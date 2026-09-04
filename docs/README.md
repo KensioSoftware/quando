@@ -17,6 +17,8 @@ Read the pages in this order if Quando is new to you:
 7. [Explanations](explanations/) shows why rules applied and how layers produced
    a value.
 8. [Timelines](timelines/) draws covered time for people to inspect.
+9. [Command line](cli/) runs timelines, explanations, and validation from
+   stored definitions.
 
 ## Guides by task
 
@@ -30,6 +32,7 @@ Read the pages in this order if Quando is new to you:
 - [Validation](validation/) finds inactive layers, shadowed layers, and gaps.
 - [Explanations](explanations/) gives readable reasons for resolved values.
 - [Timelines](timelines/) returns JSON data or a text chart of covered time.
+- [Command line](cli/) reads stored definitions from a terminal.
 
 ### Custom models
 
