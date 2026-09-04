@@ -167,9 +167,10 @@ const fortnightly = every(2, "weeks", { anchor: "2026-03-09" }).and(
 Periods are `"days"`, `"weeks"`, `"months"` and `"years"`. The `PERIODS` export
 lists them.
 
-The whole of each selected period is covered, so `every(2, "weeks")` on its own
-covers seven days out of every fourteen. Intersect it with something narrower
-for the day within them, as above.
+The whole of each selected period is covered. On its own,
+`every(2, "weeks", { anchor: "2026-03-09" })` covers seven days out of every
+fourteen. Intersect it with something narrower for the day within them, as
+above.
 
 Weeks are seven-day blocks measured from the anchor. A cycle anchored on a
 Wednesday has weeks running Wednesday to Wednesday. Months and years are counted
