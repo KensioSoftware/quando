@@ -12,6 +12,16 @@
 import type { Context } from "./context.js";
 import type { IntervalStream } from "./interval-stream.js";
 
+/**
+ * Midnight on a date, in a zone.
+ *
+ * A zone that skips a whole calendar date (Pacific/Apia crossed the date line
+ * in 2011 and had no 30 December) has no midnight to return, and the
+ * disambiguation rolls forward to the next instant that exists. That instant
+ * is also what the day after returns, so a run covering only the skipped date
+ * has equal ends. An empty half-open interval covers no time and the
+ * intersection in `clip` drops it, which is the answer that rule wanted.
+ */
 export function startOfDay(
   date: Temporal.PlainDate,
   zone: string,

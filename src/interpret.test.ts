@@ -192,6 +192,22 @@ describe("reading a rule as intervals", () => {
       );
     });
 
+    it("covers nothing on a date the zone skipped", () => {
+      // Given Samoa's move across the date line, which took the country from
+      // 29 December 2011 to 31 December. There was no 30th.
+      const apia = inWindow(
+        "2011-12-01T00:00",
+        "2012-01-05T00:00",
+        "Pacific/Apia",
+      );
+
+      // When the 30th of the month is read over it.
+      // Then December contributes nothing. A skipped date has no elapsed time,
+      // so the day and the day after it start at the same instant and the
+      // empty interval between them is dropped.
+      assertIdentical(read({ type: "daysOfMonth", days: [30] }, apia), "");
+    });
+
     it("merges days that land next to each other", () => {
       // Given the 1st and the last day of the month, over two months. The last
       // day of January and the first of February are consecutive.
