@@ -216,6 +216,11 @@ with no end and one interval comes back, open at the far end.
 A range that ends before it starts is rejected where it is written. It covers
 no time, and it almost always means the two arguments were swapped.
 
+A range needs at least one end. The rule type is two shapes rather than one
+with two optional fields, so `{ type: "dateRange" }` will not compile, and
+`parseRule` refuses the same document arriving as stored JSON. Use `always()`
+for all of time.
+
 ## Combine rules
 
 Built rules have `.and`, `.or`, and `.except` methods:

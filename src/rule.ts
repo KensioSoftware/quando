@@ -157,15 +157,31 @@ export interface TimeOfDayRule {
  * Every day from one date to another, both ends included.
  *
  * A date names a whole day here, the way it does in `dates`, so a range from
- * `"2026-04-01"` to `"2026-04-30"` covers the whole of both. Either end may be
- * left out for a bound open in that direction, and leaving out both is refused
- * rather than read as all of time.
+ * `"2026-04-01"` to `"2026-04-30"` covers the whole of both.
+ *
+ * Either end may be left out for a bound open in that direction. Leaving out
+ * both is all of time written the long way, and `always` already says that, so
+ * the type is two shapes rather than one with two optional fields. A rule
+ * holding neither bound will not compile, and `parseRule` refuses the same
+ * document coming the other way.
  */
-export interface DateRangeRule {
+export type DateRangeRule = DateRangeFrom | DateRangeTo;
+
+interface DateRangeBound {
   readonly type: "dateRange";
-  readonly from?: string;
-  readonly to?: string;
   readonly zone?: string;
+}
+
+/** Bounded below, and optionally above. */
+interface DateRangeFrom extends DateRangeBound {
+  readonly from: string;
+  readonly to?: string;
+}
+
+/** Bounded above, and optionally below. */
+interface DateRangeTo extends DateRangeBound {
+  readonly to: string;
+  readonly from?: string;
 }
 
 /** Whole days, by date: `"2026-03-14"`. */

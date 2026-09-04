@@ -8,6 +8,7 @@ import {
 import { describe, it } from "vitest";
 
 import { intervals } from "./interpret.js";
+import { parseRule } from "./parse.js";
 import type { Rule } from "./rule.js";
 import { take } from "./stream.js";
 
@@ -674,6 +675,28 @@ describe("reading a rule as intervals", () => {
       assertIdentical(
         read(trial, march),
         "[2026-03-09T00:00:00,2026-03-12T00:00:00)",
+      );
+    });
+
+    it("will not compile without a bound, and is refused if one arrives", () => {
+      // Given a range document with neither end, which the rule type has no
+      // shape for. A rule literal writing it does not compile:
+      //
+      //   const boundless: Rule = { type: "dateRange" };
+      //   // Type '{ type: "dateRange"; }' is not assignable to type 'Rule'.
+      //
+      // So it can only arrive as unchecked JSON, and `parseRule` is where that
+      // is caught. Without both, the rule would quietly cover all of time.
+      const boundless: unknown = { type: "dateRange" };
+
+      // When it is parsed.
+      const error = assertThrowsError(() => parseRule(boundless));
+
+      // Then it is refused rather than read as `always`.
+      assertInstanceOf(error, TypeError);
+      assertIdentical(
+        error.message,
+        "rule: a date range needs a from, a to, or both",
       );
     });
 

@@ -187,6 +187,23 @@ describe("the builder", () => {
       );
     });
 
+    it("takes a zone on a one-sided bound too", () => {
+      // Given a start and an end in Tokyo, which is nine hours ahead. Both
+      // one-sided builders take a zone the way `between` does.
+      const twoDays = inWindow("2026-04-01T00:00", "2026-04-03T00:00");
+
+      // When each is read from a London context.
+      // Then each turns over on Tokyo's midnight rather than London's.
+      assertIdentical(
+        read(onOrAfter("2026-04-02", "Asia/Tokyo"), twoDays),
+        "[2026-04-01T16:00:00,2026-04-03T00:00:00)",
+      );
+      assertIdentical(
+        read(onOrBefore("2026-04-01", "Asia/Tokyo"), twoDays),
+        "[2026-04-01T00:00:00,2026-04-01T16:00:00)",
+      );
+    });
+
     it("bounds opening hours to a season", () => {
       // Given weekend hours that only run over the summer, which is the shape
       // this rule exists for.

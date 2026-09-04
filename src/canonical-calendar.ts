@@ -66,11 +66,14 @@ export function canonicalCalendarRule(rule: CalendarRule): Rule {
     }
 
     case "dateRange": {
+      // Spread from the rule rather than rebuilt end by end. The two ends are
+      // not a discriminant, so narrowing on one tells TypeScript nothing about
+      // the other, and rebuilding would need a branch that cannot happen. The
+      // spread carries the zone, so there is nothing for `zonePart` to add.
       return {
-        type: "dateRange",
+        ...rule,
         ...(rule.from === undefined ? {} : { from: canonicalDate(rule.from) }),
         ...(rule.to === undefined ? {} : { to: canonicalDate(rule.to) }),
-        ...zonePart(rule.zone),
       };
     }
 
