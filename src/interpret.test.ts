@@ -596,6 +596,185 @@ describe("reading a rule as intervals", () => {
     });
   });
 
+  describe("every nth period", () => {
+    it("covers the whole of each selected period", () => {
+      // Given every other week, anchored on Monday 2026-03-09.
+      const threeWeeks = inWindow("2026-03-09T00:00", "2026-03-30T00:00");
+
+      // When three weeks are read.
+      // Then seven days out of every fourteen come back, whole. Narrowing to a
+      // day within them is what intersecting with another rule is for.
+      assertIdentical(
+        read(
+          {
+            type: "every",
+            interval: 2,
+            period: "weeks",
+            anchor: "2026-03-09",
+          },
+          threeWeeks,
+        ),
+        "[2026-03-09T00:00:00,2026-03-16T00:00:00) " +
+          "[2026-03-23T00:00:00,2026-03-30T00:00:00)",
+      );
+    });
+
+    it("gives every other Monday when narrowed to a weekday", () => {
+      // Given the fortnightly cycle intersected with Mondays, which is the
+      // shape a real fortnightly meeting has.
+      const month = inWindow("2026-03-09T00:00", "2026-04-13T00:00");
+      const fortnightly = {
+        type: "all",
+        rules: [
+          { type: "every", interval: 2, period: "weeks", anchor: "2026-03-09" },
+          { type: "daysOfWeek", days: ["monday"] },
+        ],
+      } as const;
+
+      // When five weeks are read.
+      // Then the Mondays come every fortnight.
+      assertIdentical(
+        read(fortnightly, month),
+        "[2026-03-09T00:00:00,2026-03-10T00:00:00) " +
+          "[2026-03-23T00:00:00,2026-03-24T00:00:00) " +
+          "[2026-04-06T00:00:00,2026-04-07T00:00:00)",
+      );
+    });
+
+    it("counts backwards from the anchor as well as forwards", () => {
+      // Given a cycle anchored in April, read over the March before it. The
+      // anchor sets the phase and is not a bound, so the earlier weeks of the
+      // same cycle are covered too.
+      const before = inWindow("2026-03-16T00:00", "2026-03-30T00:00");
+
+      // When March is read.
+      // Then the week two before the anchor comes back, on the same phase.
+      assertIdentical(
+        read(
+          {
+            type: "every",
+            interval: 2,
+            period: "weeks",
+            anchor: "2026-04-06",
+          },
+          before,
+        ),
+        "[2026-03-23T00:00:00,2026-03-30T00:00:00)",
+      );
+    });
+
+    it("steps through months on the calendar", () => {
+      // Given a quarterly cycle anchored in January.
+      const halfYear = inWindow("2026-01-01T00:00", "2026-07-01T00:00");
+
+      // When six months are read.
+      // Then January and April come back whole, and the months between do not.
+      // A month is however long the calendar makes it.
+      assertIdentical(
+        read(
+          {
+            type: "every",
+            interval: 3,
+            period: "months",
+            anchor: "2026-01-15",
+          },
+          halfYear,
+        ),
+        "[2026-01-01T00:00:00,2026-02-01T00:00:00) " +
+          "[2026-04-01T00:00:00,2026-05-01T00:00:00)",
+      );
+    });
+
+    it("steps through years", () => {
+      // Given a leap-year cycle anchored on 2024.
+      const threeYears = inWindow("2027-01-01T00:00", "2029-01-01T00:00");
+
+      // When two years are read.
+      // Then 2028 comes back and 2027 does not.
+      assertIdentical(
+        read(
+          {
+            type: "every",
+            interval: 4,
+            period: "years",
+            anchor: "2024-02-29",
+          },
+          threeYears,
+        ),
+        "[2028-01-01T00:00:00,2029-01-01T00:00:00)",
+      );
+    });
+
+    it("steps through days", () => {
+      // Given every third day.
+      const week = inWindow("2026-03-09T00:00", "2026-03-16T00:00");
+
+      // When a week is read.
+      // Then three days come back, two apart.
+      assertIdentical(
+        read(
+          { type: "every", interval: 3, period: "days", anchor: "2026-03-09" },
+          week,
+        ),
+        "[2026-03-09T00:00:00,2026-03-10T00:00:00) " +
+          "[2026-03-12T00:00:00,2026-03-13T00:00:00) " +
+          "[2026-03-15T00:00:00,2026-03-16T00:00:00)",
+      );
+    });
+
+    it("covers everything at an interval of one", () => {
+      // Given the interval RRULE leaves out, which is one.
+      const week = inWindow("2026-03-09T00:00", "2026-03-16T00:00");
+
+      // When a week is read.
+      // Then every period matches, so the window comes back whole.
+      assertIdentical(
+        read(
+          { type: "every", interval: 1, period: "weeks", anchor: "2026-03-09" },
+          week,
+        ),
+        "[2026-03-09T00:00:00,2026-03-16T00:00:00)",
+      );
+    });
+
+    it("keeps the week aligned to the anchor day", () => {
+      // Given a cycle anchored on a Wednesday. Weeks run from the anchor
+      // rather than from whichever day a locale calls first.
+      const twoWeeks = inWindow("2026-03-11T00:00", "2026-03-25T00:00");
+
+      // When it is read.
+      // Then the covered week is Wednesday to Wednesday.
+      assertIdentical(
+        read(
+          {
+            type: "every",
+            interval: 2,
+            period: "weeks",
+            anchor: "2026-03-11",
+          },
+          twoWeeks,
+        ),
+        "[2026-03-11T00:00:00,2026-03-18T00:00:00)",
+      );
+    });
+
+    it("is endless without a window", () => {
+      // Given a fortnightly cycle over a context with no end.
+      const endless = intervals(
+        { type: "every", interval: 2, period: "weeks", anchor: "2026-03-09" },
+        inWindow("2026-03-09T00:00"),
+      );
+
+      // When two are taken.
+      // Then this cycle and the next arrive, a fortnight apart.
+      assertIdentical(
+        render(take(endless, 2)),
+        "[2026-03-09T00:00:00,2026-03-16T00:00:00) " +
+          "[2026-03-23T00:00:00,2026-03-30T00:00:00)",
+      );
+    });
+  });
+
   describe("a bounded stretch of the calendar", () => {
     it("covers both named days whole", () => {
       // Given a range naming two dates. A date names a whole day here, the

@@ -68,6 +68,7 @@ function childConditions(
     case "always":
     case "dates":
     case "dateRange":
+    case "every":
     case "daysOfMonth":
     case "daysOfWeek":
     case "monthsOfYear":

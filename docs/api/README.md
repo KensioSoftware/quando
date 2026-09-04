@@ -111,6 +111,7 @@ function parseTally(value: unknown, path?: string): Tally;
 | `daysOfMonth(...days)`              | Whole days at positions in each month |
 | `nthDayOfWeekInMonth(nth, ...days)` | The nth named weekday in each month   |
 | `monthsOfYear(...months)`           | Whole named months                    |
+| `every(n, period, options)`         | Every nth day, week, month or year    |
 | `timeOfDay(from, to, zone?)`        | A daily wall-clock window             |
 | `dates(...dates)`                   | Whole named dates                     |
 | `onOrAfter(date, zone?)`            | Every day from a date onwards         |
@@ -125,8 +126,22 @@ Each builder validates its arguments and returns a `Built<R>`. A built rule
 is a `Rule` with non-enumerable `.and`, `.or`, and `.except` methods.
 
 ```ts
+interface EveryOptions {
+  readonly anchor: string;
+  readonly zone?: string;
+}
+
+function every(
+  interval: number,
+  period: Period,
+  options: EveryOptions,
+): Built<EveryRule>;
+
 function parseRule(value: unknown, path?: string): Built<Rule>;
 ```
+
+`Period` is `"days"`, `"weeks"`, `"months"` or `"years"`, listed in `PERIODS`.
+The anchor fixes the phase of the cycle and does not bound it.
 
 ### Cron expressions
 

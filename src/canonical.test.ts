@@ -10,6 +10,7 @@ import {
   dates,
   daysOfMonth,
   daysOfWeek,
+  every,
   inZone,
   monthsOfYear,
   never,
@@ -212,6 +213,34 @@ describe("putting a rule in canonical form", () => {
       assertIdentical(
         formOf(holidays),
         '{"type":"dates","dates":["2026-12-25","2026-12-26"]}',
+      );
+    });
+
+    it("writes the anchor of a cycle one way", () => {
+      // Given the same fortnightly cycle with the anchor written the long way.
+      const written = every(2, "weeks", { anchor: "2026-03-09" });
+      const same = parseRule({
+        type: "every",
+        interval: 2,
+        period: "weeks",
+        anchor: "2026-03-09",
+      });
+
+      // When both are canonicalised.
+      // Then they compare equal.
+      assertTrue(equals(written, same));
+    });
+
+    it("keeps two cycles on different phases apart", () => {
+      // Given the same interval and period anchored a week apart. They select
+      // opposite fortnights and cover no time in common.
+      // When both are canonicalised.
+      // Then they stay two rules. The anchor is part of what the rule says.
+      assertFalse(
+        equals(
+          every(2, "weeks", { anchor: "2026-03-09" }),
+          every(2, "weeks", { anchor: "2026-03-16" }),
+        ),
       );
     });
 

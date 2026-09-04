@@ -15,6 +15,7 @@ import {
   dates,
   daysOfMonth,
   daysOfWeek,
+  every,
   inZone,
   monthsOfYear,
   never,
@@ -28,7 +29,7 @@ import {
 } from "./build.js";
 import { intervals } from "./interpret.js";
 import { parseRule } from "./parse.js";
-import type { Month, Rule, Weekday } from "./rule.js";
+import type { Month, Period, Rule, Weekday } from "./rule.js";
 
 describe("the builder", () => {
   /** Monday 2026-03-09 to the Monday after it. */
@@ -160,6 +161,71 @@ describe("the builder", () => {
       assertThrowsError(() => between("2026-04-30", "2026-04-01"));
       assertThrowsError(() => onOrAfter("Christmas"));
       assertThrowsError(() => onOrBefore("2026-13-45"));
+    });
+
+    it("refuses an interval or period that is not one", () => {
+      // Given a zero interval, a fractional one, and a period spelled
+      // singular. Periods are plural because they follow a count.
+      // When each is passed to the builder.
+      // Then each fails where it is written.
+      const anchor = { anchor: "2026-03-09" };
+      assertThrowsError(() => every(0, "weeks", anchor));
+      assertThrowsError(() => every(1.5, "weeks", anchor));
+      assertThrowsError(() => every(-2, "weeks", anchor));
+      assertThrowsError(() => every(2, "week" as Period, anchor));
+      assertThrowsError(() => every(2, "weeks", { anchor: "Christmas" }));
+    });
+
+    it("runs a fortnightly meeting from an anchor and a weekday", () => {
+      // Given the fortnightly cycle a real meeting is written as.
+      const meeting = every(2, "weeks", { anchor: "2026-03-09" }).and(
+        daysOfWeek("monday"),
+      );
+      const month = inWindow("2026-03-09T00:00", "2026-04-13T00:00");
+
+      // When five weeks are read.
+      // Then the meeting lands every other Monday.
+      assertIdentical(
+        read(meeting, month),
+        "[2026-03-09T00:00:00,2026-03-10T00:00:00) " +
+          "[2026-03-23T00:00:00,2026-03-24T00:00:00) " +
+          "[2026-04-06T00:00:00,2026-04-07T00:00:00)",
+      );
+    });
+
+    it("bounds a cycle with a date, because the anchor does not", () => {
+      // Given the same fortnightly meeting, starting in April. The anchor sets
+      // the phase and covers time before it, so a start date is a separate
+      // rule and the two compose.
+      const meeting = every(2, "weeks", { anchor: "2026-03-09" })
+        .and(daysOfWeek("monday"))
+        .and(onOrAfter("2026-03-23"));
+      const month = inWindow("2026-03-09T00:00", "2026-04-13T00:00");
+
+      // When five weeks are read.
+      // Then the first meeting is the one on or after the start date.
+      assertIdentical(
+        read(meeting, month),
+        "[2026-03-23T00:00:00,2026-03-24T00:00:00) " +
+          "[2026-04-06T00:00:00,2026-04-07T00:00:00)",
+      );
+    });
+
+    it("takes a zone for the cycle", () => {
+      // Given a fortnightly cycle in Tokyo, read from a London context over a
+      // window that opens before Tokyo's cycle does. Tokyo is nine hours
+      // ahead, so its 9 March starts on London's 8th.
+      const days = inWindow("2026-03-08T00:00", "2026-03-10T00:00");
+
+      // When it is read.
+      // Then the cycle turns over on Tokyo's midnight rather than London's.
+      assertIdentical(
+        read(
+          every(2, "weeks", { anchor: "2026-03-09", zone: "Asia/Tokyo" }),
+          days,
+        ),
+        "[2026-03-08T15:00:00,2026-03-10T00:00:00)",
+      );
     });
 
     it("takes a range of one day", () => {

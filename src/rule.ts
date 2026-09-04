@@ -45,6 +45,17 @@ export const MONTHS = [
 export type Month = (typeof MONTHS)[number];
 
 /**
+ * The calendar periods a recurrence can step through.
+ *
+ * Plural, because they are always written after a count: `every(2, "weeks")`.
+ * These are calendar periods rather than the exact elapsed units `accumulate`
+ * takes, and a month is whatever length the calendar gives it.
+ */
+export const PERIODS = ["days", "weeks", "months", "years"] as const;
+
+export type Period = (typeof PERIODS)[number];
+
+/**
  * A rule says *when*, and nothing else. It is boolean: the times it covers and
  * the times it does not.
  *
@@ -58,6 +69,7 @@ export type Rule =
   | DaysOfMonthRule
   | NthDayOfWeekInMonthRule
   | MonthsOfYearRule
+  | EveryRule
   | TimeOfDayRule
   | DatesRule
   | DateRangeRule
@@ -77,6 +89,7 @@ export type CalendarRule =
   | DaysOfMonthRule
   | NthDayOfWeekInMonthRule
   | MonthsOfYearRule
+  | EveryRule
   | TimeOfDayRule
   | DatesRule
   | DateRangeRule;
@@ -133,6 +146,26 @@ export interface NthDayOfWeekInMonthRule {
 export interface MonthsOfYearRule {
   readonly type: "monthsOfYear";
   readonly months: readonly Month[];
+  readonly zone?: string;
+}
+
+/**
+ * Every nth period, counted from an anchor date.
+ *
+ * The whole of each selected period is covered, so `every(2, "weeks")` covers
+ * seven days out of every fourteen. Intersect it with something narrower for
+ * the day within them: with `daysOfWeek("monday")` it is every other Monday.
+ *
+ * The anchor sets the phase and nothing else. Periods are counted in both
+ * directions from it, so a rule anchored in April also covers the right weeks
+ * in March. Compose with `onOrAfter` to bound it, which keeps the two ideas
+ * apart.
+ */
+export interface EveryRule {
+  readonly type: "every";
+  readonly interval: number;
+  readonly period: Period;
+  readonly anchor: string;
   readonly zone?: string;
 }
 

@@ -3,10 +3,11 @@
 export type { Context } from "./context.js";
 export type { JsonCompatible, JsonPrimitive, JsonValue } from "./json.js";
 export type { PlainRule } from "./plain-forms.js";
-export type { Month, Rule, Weekday } from "./rule.js";
-export { MONTHS, WEEKDAYS } from "./rule.js";
+export type { Month, Period, Rule, Weekday } from "./rule.js";
+export { MONTHS, PERIODS, WEEKDAYS } from "./rule.js";
 
 export type { Built } from "./build.js";
+export type { EveryOptions } from "./every-builders.js";
 export {
   all,
   always,
@@ -15,6 +16,7 @@ export {
   dates,
   daysOfMonth,
   daysOfWeek,
+  every,
   inZone,
   monthsOfYear,
   never,

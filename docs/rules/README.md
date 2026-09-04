@@ -34,6 +34,7 @@ store. There is no final `.build()` call.
 | `daysOfMonth(...days)`              | Whole days at the selected positions in each month |
 | `nthDayOfWeekInMonth(nth, ...days)` | The nth Monday, Friday and so on, in each month    |
 | `monthsOfYear(...months)`           | The selected months, in full                       |
+| `every(n, period, options)`         | Every nth day, week, month or year                 |
 | `timeOfDay(from, to, zone?)`        | A local time range on every day                    |
 | `dates(...dates)`                   | The selected calendar dates                        |
 | `onOrAfter(date, zone?)`            | Every day from a date onwards                      |
@@ -149,6 +150,47 @@ const quarterEnds = monthsOfYear("march", "june", "september", "december").and(
 ```
 
 Calling `monthsOfYear()` with no arguments covers no time.
+
+## Repeat every nth period
+
+`every` steps through the calendar a period at a time. The anchor fixes which
+cycle counts as the first:
+
+```ts
+import { daysOfWeek, every, onOrAfter } from "@kensio/quando";
+
+const fortnightly = every(2, "weeks", { anchor: "2026-03-09" }).and(
+  daysOfWeek("monday"),
+);
+```
+
+Periods are `"days"`, `"weeks"`, `"months"` and `"years"`. The `PERIODS` export
+lists them.
+
+The whole of each selected period is covered, so `every(2, "weeks")` on its own
+covers seven days out of every fourteen. Intersect it with something narrower
+for the day within them, as above.
+
+Weeks are seven-day blocks measured from the anchor. A cycle anchored on a
+Wednesday has weeks running Wednesday to Wednesday. Months and years are counted
+on the calendar, so a quarterly cycle covers whole months whatever their length.
+
+### The anchor sets the phase
+
+Periods are counted in both directions. A cycle anchored in April also covers
+the right weeks in March, so bound it with a date when the recurrence has a
+start:
+
+```ts
+const meetings = every(2, "weeks", { anchor: "2026-03-09" })
+  .and(daysOfWeek("monday"))
+  .and(onOrAfter("2026-03-23"));
+```
+
+Keeping the two apart means one rule says what the rhythm is and the other says
+when it runs. See [bound a stretch of the calendar](#bound-a-stretch-of-the-calendar).
+
+An interval of `1` selects every period, which covers all of time.
 
 ## Select times of day
 
