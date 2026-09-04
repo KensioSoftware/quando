@@ -28,6 +28,7 @@ import {
   monthIntervals,
   nthDayOfWeekInMonthIntervals,
 } from "./month-rules.js";
+import { dateRangeIntervals } from "./range-rules.js";
 import { timeOfDayIntervals } from "./time-rules.js";
 
 /** All of time, before the window narrows it. */
@@ -96,6 +97,13 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
 
     case "dates": {
       return clip(dateIntervals(context, rule.dates, rule.zone), window);
+    }
+
+    case "dateRange": {
+      return clip(
+        dateRangeIntervals(context, rule.from, rule.to, rule.zone),
+        window,
+      );
     }
 
     case "timeOfDay": {

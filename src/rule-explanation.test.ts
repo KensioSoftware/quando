@@ -12,6 +12,7 @@ import {
   all,
   always,
   any,
+  between,
   dates,
   daysOfMonth,
   daysOfWeek,
@@ -20,6 +21,8 @@ import {
   never,
   nthDayOfWeekInMonth,
   not,
+  onOrAfter,
+  onOrBefore,
   timeOfDay,
   weekdays,
 } from "./build.js";
@@ -299,6 +302,43 @@ describe("explaining why a rule matches", () => {
     assertFalse(wrongDay.matched);
     assertIdentical(wrongDay.description, "Wednesday is not Monday.");
     assertIdentical(none.description, "No weekdays are listed.");
+  });
+
+  it("says which side of a date bound the instant falls", () => {
+    // Given a season, a start and an end, explained on a date outside all
+    // three and on one inside them.
+    const inside = when("2026-07-15T10:00");
+    const outside = when("2026-03-15T10:00");
+    const summer = between("2026-06-01", "2026-08-31");
+
+    // When each is explained.
+    const within = explainRule(summer, inside);
+    const before = explainRule(summer, outside);
+    const started = explainRule(onOrAfter("2026-06-01"), inside);
+    const notYet = explainRule(onOrAfter("2026-06-01"), outside);
+    const stillOpen = explainRule(onOrBefore("2026-08-31"), inside);
+
+    // Then each account names the bound it was measured against, which is the
+    // thing the reader cannot see from the date.
+    assertTrue(within.matched);
+    assertIdentical(
+      within.description,
+      "2026-07-15 falls within 2026-06-01 to 2026-08-31.",
+    );
+    assertFalse(before.matched);
+    assertIdentical(
+      before.description,
+      "2026-03-15 falls outside 2026-06-01 to 2026-08-31.",
+    );
+    assertIdentical(
+      started.description,
+      "2026-07-15 is on or after 2026-06-01.",
+    );
+    assertIdentical(notYet.description, "2026-03-15 is before 2026-06-01.");
+    assertIdentical(
+      stillOpen.description,
+      "2026-07-15 is on or before 2026-08-31.",
+    );
   });
 
   it("describes an overnight window at a precise time", () => {

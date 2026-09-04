@@ -60,10 +60,26 @@ export type Rule =
   | MonthsOfYearRule
   | TimeOfDayRule
   | DatesRule
+  | DateRangeRule
   | InZoneRule
   | AllRule
   | AnyRule
   | NotRule;
+
+/**
+ * The rules that name something on a calendar or a clock and hold no others.
+ *
+ * The leaves. Several operations over the rule language split along this line,
+ * because the leaves are where the vocabulary lives and the rest is structure.
+ */
+export type CalendarRule =
+  | DaysOfWeekRule
+  | DaysOfMonthRule
+  | NthDayOfWeekInMonthRule
+  | MonthsOfYearRule
+  | TimeOfDayRule
+  | DatesRule
+  | DateRangeRule;
 
 /** All time. The identity for intersection. */
 export interface AlwaysRule {
@@ -135,6 +151,37 @@ export interface TimeOfDayRule {
   readonly from: string;
   readonly to: string;
   readonly zone?: string;
+}
+
+/**
+ * Every day from one date to another, both ends included.
+ *
+ * A date names a whole day here, the way it does in `dates`, so a range from
+ * `"2026-04-01"` to `"2026-04-30"` covers the whole of both.
+ *
+ * Either end may be left out for a bound open in that direction. Leaving out
+ * both is all of time written the long way, and `always` already says that, so
+ * the type is two shapes rather than one with two optional fields. A rule
+ * holding neither bound will not compile, and `parseRule` refuses the same
+ * document coming the other way.
+ */
+export type DateRangeRule = DateRangeFrom | DateRangeTo;
+
+interface DateRangeBound {
+  readonly type: "dateRange";
+  readonly zone?: string;
+}
+
+/** Bounded below, and optionally above. */
+interface DateRangeFrom extends DateRangeBound {
+  readonly from: string;
+  readonly to?: string;
+}
+
+/** Bounded above, and optionally below. */
+interface DateRangeTo extends DateRangeBound {
+  readonly to: string;
+  readonly from?: string;
 }
 
 /** Whole days, by date: `"2026-03-14"`. */

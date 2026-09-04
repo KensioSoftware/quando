@@ -39,6 +39,24 @@ export function describeDate(
   return `${date} ${matched ? "is" : "is not"} one of ${choices}.`;
 }
 
+/** Describes a bounded stretch of the calendar in date terms. */
+export function describeDateRange(
+  from: string | undefined,
+  to: string | undefined,
+  at: Temporal.ZonedDateTime,
+  matched: boolean,
+): string {
+  const date = at.toPlainDate().toString();
+  if (from !== undefined && to !== undefined) {
+    const verb = matched ? "falls within" : "falls outside";
+    return `${date} ${verb} ${from} to ${to}.`;
+  }
+  if (from === undefined) {
+    return `${date} is ${matched ? "on or before" : "after"} ${to ?? ""}.`;
+  }
+  return `${date} is ${matched ? "on or after" : "before"} ${from}.`;
+}
+
 /** Describes a daily time-window match in clock terms. */
 export function describeTime(
   from: string,

@@ -89,6 +89,18 @@ describe("parsing a rule from JSON", () => {
       );
     });
 
+    it("takes a date range with one end open", () => {
+      // Given a schedule that starts on a date and never stops.
+      const document = { type: "dateRange", from: "2026-04-01" };
+
+      // When it is parsed and serialised again.
+      // Then the open end stays absent rather than becoming a null.
+      assertIdentical(
+        JSON.stringify(parseRule(document)),
+        '{"type":"dateRange","from":"2026-04-01"}',
+      );
+    });
+
     it("keeps an absent zone absent rather than undefined", () => {
       // Given a rule with no zone in it.
       // When it is parsed and serialised.
@@ -144,7 +156,7 @@ describe("parsing a rule from JSON", () => {
         complaintAbout({ type: "weekdays" }),
         'rule.type: "weekdays" is not a rule type. ' +
           "Expected one of always, never, daysOfWeek, daysOfMonth, nthDayOfWeekInMonth, " +
-          "monthsOfYear, timeOfDay, dates, inZone, all, any, not",
+          "monthsOfYear, timeOfDay, dates, dateRange, inZone, all, any, not",
       );
     });
 
@@ -233,6 +245,31 @@ describe("parsing a rule from JSON", () => {
           days: ["monday"],
         }),
         "rule.nth: expected a number, found string",
+      );
+    });
+
+    it("refuses a date range with neither end", () => {
+      // Given a range whose bounds were both filtered out.
+      // When it is parsed.
+      // Then it is refused. All of time written the long way is `always`, and
+      // a range with no bounds is more likely a dropped field than an intent.
+      assertIdentical(
+        complaintAbout({ type: "dateRange" }),
+        "rule: a date range needs a from, a to, or both",
+      );
+    });
+
+    it("refuses a stored date range that ends before it starts", () => {
+      // Given two dates the wrong way round in a stored document.
+      // When it is parsed.
+      // Then it is refused here rather than covering no time at query time.
+      assertIdentical(
+        complaintAbout({
+          type: "dateRange",
+          from: "2026-04-30",
+          to: "2026-04-01",
+        }),
+        "rule: a date range must not end before it starts",
       );
     });
 

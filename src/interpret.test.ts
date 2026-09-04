@@ -1,4 +1,4 @@
-import { inWindow, render } from "#test/intervals.js";
+import { inWindow, render, when } from "#test/intervals.js";
 import {
   assertArrayLength,
   assertIdentical,
@@ -8,6 +8,7 @@ import {
 import { describe, it } from "vitest";
 
 import { intervals } from "./interpret.js";
+import { parseRule } from "./parse.js";
 import type { Rule } from "./rule.js";
 import { take } from "./stream.js";
 
@@ -591,6 +592,131 @@ describe("reading a rule as intervals", () => {
         read({ type: "dates", dates: ["2026-12-25", "2026-01-01"] }, wide),
         "[2026-01-01T00:00:00,2026-01-02T00:00:00) " +
           "[2026-12-25T00:00:00,2026-12-26T00:00:00)",
+      );
+    });
+  });
+
+  describe("a bounded stretch of the calendar", () => {
+    it("covers both named days whole", () => {
+      // Given a range naming two dates. A date names a whole day here, the
+      // way it does in `dates`, so both ends are inside it.
+      const april = inWindow("2026-04-01T00:00", "2026-05-01T00:00");
+
+      // When it is read.
+      // Then the interval runs from the start of the first to the end of the
+      // last, which is the start of the day after.
+      assertIdentical(
+        read(
+          { type: "dateRange", from: "2026-04-10", to: "2026-04-12" },
+          april,
+        ),
+        "[2026-04-10T00:00:00,2026-04-13T00:00:00)",
+      );
+    });
+
+    it("covers a single day when both ends are the same date", () => {
+      // Given a range of one day, as `between(d, d)` gives.
+      const april = inWindow("2026-04-01T00:00", "2026-05-01T00:00");
+
+      // When it is read.
+      // Then that one day comes back.
+      assertIdentical(
+        read(
+          { type: "dateRange", from: "2026-04-10", to: "2026-04-10" },
+          april,
+        ),
+        "[2026-04-10T00:00:00,2026-04-11T00:00:00)",
+      );
+    });
+
+    it("runs to the unbounded future with no end", () => {
+      // Given a schedule that starts in April and never stops, over a context
+      // with no end of its own.
+      const endless = intervals(
+        { type: "dateRange", from: "2026-04-01" },
+        inWindow("2026-03-01T00:00"),
+      );
+
+      // When it is read.
+      // Then one interval comes back, open at the far end.
+      assertIdentical(render(endless), "[2026-04-01T00:00:00,*)");
+    });
+
+    it("runs from the unbounded past with no start", () => {
+      // Given everything up to the end of a financial year.
+      const endless = intervals(
+        { type: "dateRange", to: "2026-03-31" },
+        { from: when("2026-01-01T00:00") },
+      );
+
+      // When it is read.
+      // Then it ends at the start of 1 April, so the 31st is inside it. The
+      // context bounds the near end, which is what clipping is for.
+      assertIdentical(
+        render(endless),
+        "[2026-01-01T00:00:00,2026-04-01T00:00:00)",
+      );
+    });
+
+    it("bounds a recurring rule to a stretch of the calendar", () => {
+      // Given weekday opening hours that only run for one week, which is what
+      // this rule is for.
+      const march = inWindow("2026-03-01T00:00", "2026-04-01T00:00");
+      const trial = {
+        type: "all",
+        rules: [
+          { type: "daysOfWeek", days: ["monday", "tuesday", "wednesday"] },
+          { type: "dateRange", from: "2026-03-09", to: "2026-03-15" },
+        ],
+      } as const;
+
+      // When March is read.
+      // Then only that week's Monday to Wednesday come back.
+      assertIdentical(
+        read(trial, march),
+        "[2026-03-09T00:00:00,2026-03-12T00:00:00)",
+      );
+    });
+
+    it("will not compile without a bound, and is refused if one arrives", () => {
+      // Given a range document with neither end, which the rule type has no
+      // shape for. A rule literal writing it does not compile:
+      //
+      //   const boundless: Rule = { type: "dateRange" };
+      //   // Type '{ type: "dateRange"; }' is not assignable to type 'Rule'.
+      //
+      // So it can only arrive as unchecked JSON, and `parseRule` is where that
+      // is caught. Without both, the rule would quietly cover all of time.
+      const boundless: unknown = { type: "dateRange" };
+
+      // When it is parsed.
+      const error = assertThrowsError(() => parseRule(boundless));
+
+      // Then it is refused rather than read as `always`.
+      assertInstanceOf(error, TypeError);
+      assertIdentical(
+        error.message,
+        "rule: a date range needs a from, a to, or both",
+      );
+    });
+
+    it("reads a range in its own zone", () => {
+      // Given a range in Tokyo, read from a London context.
+      const april = inWindow("2026-04-01T00:00", "2026-04-03T00:00");
+
+      // When it is read.
+      // Then the day starts and ends on Tokyo's clock, reported on London's.
+      assertIdentical(
+        read(
+          {
+            type: "dateRange",
+            from: "2026-04-01",
+            to: "2026-04-01",
+            zone: "Asia/Tokyo",
+          },
+          april,
+        ),
+        "[2026-04-01T00:00:00,2026-04-01T16:00:00)",
       );
     });
   });

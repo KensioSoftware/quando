@@ -7,6 +7,7 @@
  */
 
 import {
+  asDate,
   asDates,
   asDays,
   asMonthDays,
@@ -25,6 +26,7 @@ export type CalendarRuleType =
   | "nthDayOfWeekInMonth"
   | "monthsOfYear"
   | "dates"
+  | "dateRange"
   | "timeOfDay";
 
 export function parseCalendarRule(
@@ -74,6 +76,10 @@ export function parseCalendarRule(
       };
     }
 
+    case "dateRange": {
+      return parseDateRange(node, path);
+    }
+
     case "timeOfDay": {
       const from = asTime(node["from"], `${path}.from`);
       const to = asTime(node["to"], `${path}.to`);
@@ -83,4 +89,35 @@ export function parseCalendarRule(
       return { type: "timeOfDay", from, to, ...zonePart(node, path) };
     }
   }
+}
+
+/**
+ * A bounded stretch of the calendar.
+ *
+ * At least one end has to be there. A range with neither would be all of time
+ * written the long way, and `always` already says that. The two ends are read
+ * apart rather than spread together, because the rule type carries the bound
+ * it has and refuses the shape with none.
+ */
+function parseDateRange(node: Record<string, unknown>, path: string): Rule {
+  const zone = zonePart(node, path);
+  const from =
+    node["from"] === undefined
+      ? undefined
+      : asDate(node["from"], `${path}.from`);
+  const to =
+    node["to"] === undefined ? undefined : asDate(node["to"], `${path}.to`);
+
+  if (from === undefined) {
+    return to === undefined
+      ? fail(path, "a date range needs a from, a to, or both")
+      : { type: "dateRange", to, ...zone };
+  }
+  if (to === undefined) {
+    return { type: "dateRange", from, ...zone };
+  }
+  if (Temporal.PlainDate.compare(from, to) > 0) {
+    return fail(path, "a date range must not end before it starts");
+  }
+  return { type: "dateRange", from, to, ...zone };
 }

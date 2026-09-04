@@ -67,6 +67,7 @@ function childConditions(
     }
     case "always":
     case "dates":
+    case "dateRange":
     case "daysOfMonth":
     case "daysOfWeek":
     case "monthsOfYear":

@@ -417,7 +417,7 @@ describe("parsing a cascade from JSON", () => {
         }),
         'cascade.layers[0].scope.type: "weekdays" is not a rule type. ' +
           "Expected one of always, never, daysOfWeek, daysOfMonth, nthDayOfWeekInMonth, " +
-          "monthsOfYear, timeOfDay, dates, inZone, all, any, not",
+          "monthsOfYear, timeOfDay, dates, dateRange, inZone, all, any, not",
       );
     });
 
