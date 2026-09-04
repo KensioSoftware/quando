@@ -16,6 +16,7 @@ Read the pages in this order if Quando is new to you:
 6. [Validation](validation/) finds semantic problems in a finite window.
 7. [Explanations](explanations/) shows why rules applied and how layers produced
    a value.
+8. [Timelines](timelines/) draws covered time for people to inspect.
 
 ## Guides by task
 
@@ -28,6 +29,7 @@ Read the pages in this order if Quando is new to you:
 - [Serialisation](serialisation/) covers storage, parsing, and validation.
 - [Validation](validation/) finds inactive layers, shadowed layers, and gaps.
 - [Explanations](explanations/) gives readable reasons for resolved values.
+- [Timelines](timelines/) returns JSON data or a text chart of covered time.
 
 ### Custom models
 

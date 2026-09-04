@@ -1,9 +1,18 @@
 import type { Cascade } from "./cascade.js";
+import { valueAt } from "./assigned.js";
 import { duration } from "./interval.js";
 import { resolve } from "./resolve.js";
 import { checkWindow } from "./validation.js";
 
 const ZERO_DURATION = Temporal.Duration.from({ seconds: 0 });
+
+/** Returns the tally count at one instant. */
+export function countAt(
+  document: Cascade<number>,
+  at: Temporal.ZonedDateTime,
+): number {
+  return valueAt(document, at) ?? 0;
+}
 
 /** Finds the lowest tally value across a complete time window. */
 export function leastValue(

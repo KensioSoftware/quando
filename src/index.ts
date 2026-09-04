@@ -37,6 +37,16 @@ export type { ElapsedUnit } from "./accumulate.js";
 export { accumulate, ELAPSED_UNITS } from "./accumulate.js";
 
 export type {
+  Timeline,
+  TimelineDay,
+  TimelineFormat,
+  TimelineOptions,
+  TimelineOutput,
+  TimelineSpan,
+} from "./timeline.js";
+export { renderTimeline, TIMELINE_FORMATS } from "./timeline.js";
+
+export type {
   AssignmentStep,
   Explanation,
   ExplanationStep,

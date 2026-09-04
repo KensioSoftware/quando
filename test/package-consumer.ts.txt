@@ -1,4 +1,11 @@
-import { accumulate, rota, schedule, tally, weekdays } from "@kensio/quando";
+import {
+  accumulate,
+  renderTimeline,
+  rota,
+  schedule,
+  tally,
+  weekdays,
+} from "@kensio/quando";
 import { explainRule, layer, merged } from "@kensio/quando/core";
 import { parseSchedule } from "@kensio/quando/parsing";
 
@@ -20,6 +27,9 @@ const staffHours = tally()
     Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
     "hour",
   );
+const weekdayStaff = tally()
+  .plus(weekdays(), 2)
+  .countAt(Temporal.ZonedDateTime.from("2026-03-09T11:00[Europe/London]"));
 const accumulated = accumulate(
   staffing,
   {
@@ -28,6 +38,19 @@ const accumulated = accumulate(
   },
   "hour",
 );
+const timeline = office.renderTimeline(
+  Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
+);
+const textTimeline = office.renderTimeline(
+  Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
+  { format: "text" },
+);
+const standaloneTimeline = renderTimeline(weekdays(), {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
+});
 const rotaWithInterface = rota<Duty>().assign(weekdays(), {
   person: "alice",
   level: 2,
@@ -44,7 +67,11 @@ void [
   office,
   staffing,
   staffHours,
+  weekdayStaff,
   accumulated,
+  timeline,
+  textTimeline,
+  standaloneTimeline,
   rotaWithInterface,
   weekdayExplanation,
   parseSchedule,

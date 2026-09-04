@@ -67,6 +67,10 @@ openingHours.openDuration(
   Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 );
+openingHours.renderTimeline(
+  Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
+);
 
 const revisedHours = openingHours.hoursOn("2026-03-11", "10:00-18:00");
 openingHours.changesTo(
@@ -87,6 +91,7 @@ openingHours.changesTo(
 | `.openDuration(from, to)`                | The open duration inside a finite window    |
 | `.changesTo(next, from, to)`             | Newly opened and closed intervals           |
 | `.validate(from, to)`                    | Inactive and shadowed schedule layers       |
+| `.renderTimeline(from, to, options?)`    | JSON data or a text chart of opening times  |
 
 `opensNext`, `firstOpenSlot`, and `addOpenTime` search up to 100 years by
 default. Pass a `within` duration when finding no result is an expected
@@ -138,6 +143,10 @@ time is normal schedule output. Validation reports layer problems only. See
 describes each rule match and the effect of layer priority automatically.
 Optional labels and comments add business context. The
 [explanations guide](../explanations/) covers the complete result.
+
+`renderTimeline` returns JSON-compatible data with one entry per local day.
+Pass `{ format: "text" }` for a fixed-width chart built from that data. See the
+[timelines guide](../timelines/) for examples and the standalone function.
 
 ## Build a rota
 

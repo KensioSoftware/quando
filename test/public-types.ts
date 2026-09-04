@@ -8,12 +8,17 @@ import {
   ELAPSED_UNITS,
   firstGap,
   type LayerOptions,
+  renderTimeline,
   rota,
   type RuleExplanation,
   type SkippedLayer,
   schedule,
   type ScheduleChanges,
   slots,
+  type Timeline,
+  type TimelineFormat,
+  type TimelineOptions,
+  TIMELINE_FORMATS,
   type ValidationDiagnostic,
   type ValidationOptions,
   type ValidationWindow,
@@ -42,6 +47,8 @@ const end = start.add({ days: 1 });
 const validationWindow: ValidationWindow = { from: start, to: end };
 const validationOptions: ValidationOptions = { requireFullCoverage: true };
 const accumulationUnit: ElapsedUnit = ELAPSED_UNITS[0];
+const timelineFormat: TimelineFormat = TIMELINE_FORMATS[0];
+const timelineOptions: TimelineOptions = { format: timelineFormat };
 
 advanceBy(start, Temporal.Duration.from({ hours: 1 }), { during: office });
 firstGap(office, halfHour, { from: start });
@@ -81,12 +88,28 @@ const explainedAssignment: string | undefined = rota()
   .explain(start).value;
 const explainedCount: number = tally().plus(weekdays(), 3).explain(start).value;
 const staff = tally().plus(weekdays(), 3);
+const staffAtStart: number = staff.countAt(start);
 const accumulated: number = accumulate(
   staff,
   { from: start, to: end },
   accumulationUnit,
 );
 const staffHours: number = staff.totalBetween(start, end, "hour");
+const ruleTimeline: Timeline = renderTimeline(weekdays(), {
+  from: start,
+  to: end,
+});
+const optionalTimeline: Timeline | string = renderTimeline(
+  weekdays(),
+  { from: start, to: end },
+  timelineOptions,
+);
+const textTimeline: string = renderTimeline(
+  weekdays(),
+  { from: start, to: end },
+  { format: "text" },
+);
+const scheduleTimeline: Timeline = office.renderTimeline(start, end);
 office.validate(start, end);
 office.explain(start);
 rota().assign(weekdays(), "alice").validate(start, end);
@@ -101,8 +124,13 @@ void explanationSummary;
 void explainedOpen;
 void explainedAssignment;
 void explainedCount;
+void staffAtStart;
 void accumulated;
 void staffHours;
+void ruleTimeline;
+void optionalTimeline;
+void textTimeline;
+void scheduleTimeline;
 rota().assign(weekdays(), { person: "alice", level: 2 });
 rota<Duty>().assign(weekdays(), { person: "alice", level: 2 });
 rota().assign(weekdays(), "alice", { label: "Primary support" });
