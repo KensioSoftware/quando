@@ -45,7 +45,15 @@ export function timeOfDayRule(selected: readonly number[]): Rule {
   return only ?? any(...windows);
 }
 
-/** Runs of consecutive minutes, as half-open `[from, to)` pairs. */
+/**
+ * Runs of consecutive minutes, as half-open `[from, to)` pairs.
+ *
+ * A run reaching the end of the day and a run starting at the beginning are
+ * left as two. `* 0,23 * * *` becomes 23:00 to 00:00 and 00:00 to 01:00 rather
+ * than one window wrapping from 23:00 to 01:00, and the union joins the two
+ * where they meet at midnight. Writing the wrap here would move that join
+ * earlier and change nothing about the time covered.
+ */
 function runsOf(selected: readonly number[]): [number, number][] {
   const runs: [number, number][] = [];
   for (const minute of selected) {

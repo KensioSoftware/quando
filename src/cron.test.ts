@@ -81,6 +81,22 @@ describe("reading a cron expression as a rule", () => {
       );
     });
 
+    it("joins a run at each end of the day across midnight", () => {
+      // Given every minute of the first and last hours of the day. The two
+      // sit at opposite ends of the clock and are written as two windows,
+      // 00:00 to 01:00 and 23:00 to 00:00.
+      const threeDays = inWindow("2026-03-09T00:00", "2026-03-12T00:00");
+
+      // When three days are read.
+      const runs = read("* 0,23 * * *", threeDays).split(") ");
+
+      // Then one night runs into the next morning as a single interval. The
+      // two windows touch at midnight, and the union joins them the way it
+      // joins any two intervals that meet.
+      assertArrayLength(runs, 4);
+      assertIdentical(runs[1], "[2026-03-09T23:00:00,2026-03-10T01:00:00");
+    });
+
     it("covers all of a window when it runs every minute", () => {
       // Given the expression that fires every minute of every day.
       const day = inWindow("2026-03-09T00:00", "2026-03-10T00:00");
