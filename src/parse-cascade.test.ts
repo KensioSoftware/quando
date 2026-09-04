@@ -416,8 +416,8 @@ describe("parsing a cascade from JSON", () => {
           layers: [{ scope: { type: "weekdays" }, value: "alice" }],
         }),
         'cascade.layers[0].scope.type: "weekdays" is not a rule type. ' +
-          "Expected one of always, never, daysOfWeek, timeOfDay, dates, inZone, " +
-          "all, any, not",
+          "Expected one of always, never, daysOfWeek, daysOfMonth, monthsOfYear, " +
+          "timeOfDay, dates, inZone, all, any, not",
       );
     });
 

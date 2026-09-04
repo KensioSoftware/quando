@@ -22,6 +22,29 @@ export const WEEKDAYS = [
 export type Weekday = (typeof WEEKDAYS)[number];
 
 /**
+ * Months by name rather than by number, for the same reason weekdays are.
+ *
+ * A name cannot be off by one. Month numbers are 1-based in `Temporal` and
+ * 0-based in `Date`, and a rule document is read by code that has met both.
+ */
+export const MONTHS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+] as const;
+
+export type Month = (typeof MONTHS)[number];
+
+/**
  * A rule says *when*, and nothing else. It is boolean: the times it covers and
  * the times it does not.
  *
@@ -32,6 +55,8 @@ export type Rule =
   | AlwaysRule
   | NeverRule
   | DaysOfWeekRule
+  | DaysOfMonthRule
+  | MonthsOfYearRule
   | TimeOfDayRule
   | DatesRule
   | InZoneRule
@@ -54,6 +79,28 @@ export interface DaysOfWeekRule {
   readonly type: "daysOfWeek";
   readonly days: readonly Weekday[];
   /** Overrides the context's zone, for a rule about a particular place. */
+  readonly zone?: string;
+}
+
+/**
+ * Whole days, by their position in the month.
+ *
+ * Counted from the start of the month at `1`, and from the end at `-1`, so the
+ * last day of every month is `-1` whether the month has 28 days or 31. A day
+ * the month does not reach simply does not match: `31` covers seven months of
+ * the year and February in none of them.
+ */
+export interface DaysOfMonthRule {
+  readonly type: "daysOfMonth";
+  readonly days: readonly number[];
+  /** Overrides the context's zone, for a rule about a particular place. */
+  readonly zone?: string;
+}
+
+/** Whole months, by name. */
+export interface MonthsOfYearRule {
+  readonly type: "monthsOfYear";
+  readonly months: readonly Month[];
   readonly zone?: string;
 }
 

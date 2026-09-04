@@ -1,75 +1,19 @@
 /**
  * Rules that select whole days: by weekday, and by date.
  *
- * Both uphold the stream contract — sorted, not overlapping, coalesced — and
- * the coalescing is the fiddly part. Two selected days that happen to be
- * consecutive are one interval, not two that touch at midnight, and a stream of
- * touching intervals is one the sweeps in `interval-stream.ts` read wrongly.
+ * The weekday rule walks the calendar with
+ * [calendar-walk.ts](./calendar-walk.ts) and inherits its coalescing. The date
+ * rule does its own walk, over the dates rather than over the calendar, for
+ * the reason given where it is written.
  */
 
+import { matchingDays, startOfDay } from "./calendar-walk.js";
 import { type Context, zoneOf } from "./context.js";
 import type { IntervalStream } from "./interval-stream.js";
 import { WEEKDAYS, type Weekday } from "./rule.js";
 
-function startOfDay(
-  date: Temporal.PlainDate,
-  zone: string,
-  disambiguation: Context["disambiguation"],
-): Temporal.ZonedDateTime {
-  return date.toPlainDateTime("00:00").toZonedDateTime(zone, {
-    disambiguation: disambiguation ?? "compatible",
-  });
-}
-
 function weekdayOf(date: Temporal.PlainDate): Weekday | undefined {
   return WEEKDAYS[date.dayOfWeek - 1];
-}
-
-/**
- * Whole days matching a predicate, walked forward from the context, with runs
- * of consecutive matches merged into one interval.
- *
- * Endless unless the context bounds it. The run being built is flushed when the
- * window ends, so a rule that matches every day still terminates — without
- * that, a run that never closes would never yield anything at all.
- */
-function* matchingDays(
-  context: Context,
-  zone: string,
-  matches: (date: Temporal.PlainDate) => boolean,
-): IntervalStream {
-  const stop = context.to;
-  let date = context.from.withTimeZone(zone).toPlainDate();
-  let runStart: Temporal.PlainDate | undefined;
-
-  for (;;) {
-    const dayStart = startOfDay(date, zone, context.disambiguation);
-
-    if (
-      stop !== undefined &&
-      Temporal.ZonedDateTime.compare(dayStart, stop) >= 0
-    ) {
-      if (runStart !== undefined) {
-        yield {
-          start: startOfDay(runStart, zone, context.disambiguation),
-          end: dayStart,
-        };
-      }
-      return;
-    }
-
-    if (matches(date)) {
-      runStart ??= date;
-    } else if (runStart !== undefined) {
-      yield {
-        start: startOfDay(runStart, zone, context.disambiguation),
-        end: dayStart,
-      };
-      runStart = undefined;
-    }
-
-    date = date.add({ days: 1 });
-  }
 }
 
 /** Whole days selected by day of the week. */
@@ -80,10 +24,7 @@ export function weekdayIntervals(
 ): IntervalStream {
   const wanted = new Set(days);
 
-  // Nothing can match, so there is nothing to walk the calendar for. Without
-  // this, an unbounded context sends `matchingDays` forward a day at a time
-  // until Temporal's year limit, thousands of centuries later, and reports it
-  // as a date range error rather than as the empty rule it is.
+  // Nothing to walk the calendar for. See `matchingDays` for why that matters.
   if (wanted.size === 0) {
     return [];
   }

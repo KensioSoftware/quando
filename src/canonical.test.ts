@@ -7,8 +7,10 @@ import {
   always,
   any,
   dates,
+  daysOfMonth,
   daysOfWeek,
   inZone,
+  monthsOfYear,
   never,
   not,
   timeOfDay,
@@ -131,6 +133,42 @@ describe("putting a rule in canonical form", () => {
         formOf(daysOfWeek("monday", "monday")),
         '{"type":"daysOfWeek","days":["monday"]}',
       );
+    });
+
+    it("puts months in calendar order", () => {
+      // Given the summer written back to front. Alphabetical order would put
+      // April first, which is not an order anyone reads a year in.
+      const written = monthsOfYear("august", "june", "july");
+
+      // When it is canonicalised.
+      // Then the year reads forwards.
+      assertIdentical(
+        formOf(written),
+        '{"type":"monthsOfYear","months":["june","july","august"]}',
+      );
+    });
+
+    it("orders days from the start of the month before days from the end", () => {
+      // Given a payday rule written in the order it was thought of, with a
+      // repeat from merging two sources.
+      const paydays = daysOfMonth(-1, 15, 1, 15);
+
+      // When it is canonicalised.
+      // Then the days counted forwards come first, each said once, and the day
+      // counted back from the end follows them.
+      assertIdentical(
+        formOf(paydays),
+        '{"type":"daysOfMonth","days":[1,15,-1]}',
+      );
+    });
+
+    it("keeps a day from the end apart from the date it happens to fall on", () => {
+      // Given the last day of the month and the 31st, which agree in March and
+      // disagree in February.
+      // When both are canonicalised.
+      // Then they stay two rules. Deciding they are one means knowing which
+      // month is being asked about, and canonical form never evaluates.
+      assertFalse(equals(daysOfMonth(-1), daysOfMonth(31)));
     });
 
     it("sorts dates and drops repeats", () => {

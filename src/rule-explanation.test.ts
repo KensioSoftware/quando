@@ -13,8 +13,10 @@ import {
   always,
   any,
   dates,
+  daysOfMonth,
   daysOfWeek,
   inZone,
+  monthsOfYear,
   never,
   not,
   timeOfDay,
@@ -182,6 +184,68 @@ describe("explaining why a rule matches", () => {
       manyDates.description,
       "2026-03-09 is one of 4 listed dates.",
     );
+  });
+
+  it("names the day of the month it was asked about", () => {
+    // Given the last day of the month, explained on 31 March, and the same
+    // rule explained a day earlier.
+    const monthEnd = daysOfMonth(-1);
+
+    // When both are explained.
+    const onTheDay = explainRule(monthEnd, when("2026-03-31T10:00"));
+    const theDayBefore = explainRule(monthEnd, when("2026-03-30T10:00"));
+
+    // Then the account says what was matched against rather than restating the
+    // date, which is what makes it usable in an end-user answer.
+    assertTrue(onTheDay.matched);
+    assertIdentical(onTheDay.description, "The 31st matches the last day.");
+    assertFalse(theDayBefore.matched);
+    assertIdentical(
+      theDayBefore.description,
+      "The 30th does not match the last day.",
+    );
+  });
+
+  it("describes days of the month written both ways round", () => {
+    // Given the paydays a salary run uses, and an empty selector.
+    const eleventh = when("2026-03-11T10:00");
+    const paydays = explainRule(daysOfMonth(15, -1), eleventh);
+    const none = explainRule(daysOfMonth(), eleventh);
+    const secondLast = explainRule(daysOfMonth(-2), when("2026-03-30T10:00"));
+    const many = explainRule(daysOfMonth(1, 2, 3, 4), eleventh);
+
+    // Then each reads as English, including the day counted back from the end.
+    assertIdentical(
+      paydays.description,
+      "The 11th does not match one of the 15th and the last day.",
+    );
+    assertIdentical(none.description, "No days of the month are listed.");
+    assertIdentical(
+      secondLast.description,
+      "The 30th matches the 2nd-last day.",
+    );
+    assertIdentical(
+      many.description,
+      "The 11th does not match one of 4 listed days of the month.",
+    );
+  });
+
+  it("names the month it was asked about", () => {
+    // Given the summer months and an empty selector.
+    const august = when("2026-08-14T10:00");
+    const summer = explainRule(monthsOfYear("june", "july", "august"), august);
+    const one = explainRule(monthsOfYear("january"), august);
+    const none = explainRule(monthsOfYear(), august);
+
+    // Then the month is named rather than numbered, in each shape.
+    assertTrue(summer.matched);
+    assertIdentical(
+      summer.description,
+      "August is included in June, July, and August.",
+    );
+    assertFalse(one.matched);
+    assertIdentical(one.description, "August is not January.");
+    assertIdentical(none.description, "No months are listed.");
   });
 
   it("describes an overnight window at a precise time", () => {

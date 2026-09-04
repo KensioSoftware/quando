@@ -27,6 +27,7 @@ export {
   weekdays,
   weekends,
 } from "./calendar-rules.js";
+export { daysOfMonth, monthsOfYear } from "./month-builders.js";
 
 /** All of time. */
 export function always(): Built<AlwaysRule> {

@@ -10,10 +10,11 @@
  * that JSON is the shape it claims to be and know nothing about time.
  */
 
-import { asString, asStrings, fail } from "./parse-shape.js";
-import { WEEKDAYS, type Weekday } from "./rule.js";
+import { asString, asStrings, fail, shapeOf } from "./parse-shape.js";
+import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
 
 const WEEKDAY_NAMES = new Set<string>(WEEKDAYS);
+const MONTH_NAMES = new Set<string>(MONTHS);
 
 export function asDays(value: unknown, path: string): Weekday[] {
   return asStrings(value, path).map((day, index) =>
@@ -24,6 +25,36 @@ export function asDays(value: unknown, path: string): Weekday[] {
           `"${day}" is not a day of the week. Expected one of ${WEEKDAYS.join(", ")}`,
         ),
   );
+}
+
+export function asMonths(value: unknown, path: string): Month[] {
+  return asStrings(value, path).map((month, index) =>
+    MONTH_NAMES.has(month)
+      ? (month as Month)
+      : fail(
+          `${path}[${index}]`,
+          `"${month}" is not a month. Expected one of ${MONTHS.join(", ")}`,
+        ),
+  );
+}
+
+export function asMonthDays(value: unknown, path: string): number[] {
+  if (!Array.isArray(value)) {
+    return fail(path, `expected an array, found ${shapeOf(value)}`);
+  }
+  return value.map((day, index) => {
+    const at = `${path}[${index}]`;
+    if (typeof day !== "number") {
+      return fail(at, `expected a number, found ${shapeOf(day)}`);
+    }
+    if (!Number.isInteger(day) || day === 0 || day < -31 || day > 31) {
+      return fail(
+        at,
+        `${day} is not a day of the month. Expected 1 to 31, or -1 to -31 counting back from the end`,
+      );
+    }
+    return day;
+  });
 }
 
 /** Checked by construction, so a malformed time is caught where it is written. */

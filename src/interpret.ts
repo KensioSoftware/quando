@@ -23,6 +23,7 @@ import {
 } from "./interval-stream.js";
 import type { Rule } from "./rule.js";
 import { dateIntervals, weekdayIntervals } from "./day-rules.js";
+import { dayOfMonthIntervals, monthIntervals } from "./month-rules.js";
 import { timeOfDayIntervals } from "./time-rules.js";
 
 /** All of time, before the window narrows it. */
@@ -72,6 +73,14 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
 
     case "daysOfWeek": {
       return clip(weekdayIntervals(context, rule.days, rule.zone), window);
+    }
+
+    case "daysOfMonth": {
+      return clip(dayOfMonthIntervals(context, rule.days, rule.zone), window);
+    }
+
+    case "monthsOfYear": {
+      return clip(monthIntervals(context, rule.months, rule.zone), window);
     }
 
     case "dates": {
