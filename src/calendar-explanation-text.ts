@@ -1,3 +1,4 @@
+import { join, title } from "./explanation-phrases.js";
 import { WEEKDAYS, type Weekday } from "./rule.js";
 
 /** Describes a day-of-week match in calendar terms. */
@@ -72,18 +73,4 @@ function sameDays(
     left.length === right.length &&
     left.every((day, index) => day === right[index])
   );
-}
-
-function title(value: string): string {
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
-}
-
-function join(values: readonly string[]): string {
-  if (values.length < 2) {
-    return values[0] ?? "no days";
-  }
-  if (values.length === 2) {
-    return `${values[0]} and ${values[1]}`;
-  }
-  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
 }

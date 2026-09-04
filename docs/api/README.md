@@ -101,19 +101,21 @@ function parseTally(value: unknown, path?: string): Tally;
 
 ### Rule builders
 
-| Function                     | Covered time                         |
-| ---------------------------- | ------------------------------------ |
-| `always()`                   | All time                             |
-| `never()`                    | No time                              |
-| `daysOfWeek(...days)`        | Whole days with the named weekdays   |
-| `weekdays()`                 | Monday through Friday                |
-| `weekends()`                 | Saturday and Sunday                  |
-| `timeOfDay(from, to, zone?)` | A daily wall-clock window            |
-| `dates(...dates)`            | Whole named dates                    |
-| `all(...rules)`              | Times covered by every rule          |
-| `any(...rules)`              | Times covered by at least one rule   |
-| `not(rule)`                  | Times outside a rule                 |
-| `inZone(zone, rule)`         | A rule subtree evaluated in one zone |
+| Function                     | Covered time                          |
+| ---------------------------- | ------------------------------------- |
+| `always()`                   | All time                              |
+| `never()`                    | No time                               |
+| `daysOfWeek(...days)`        | Whole days with the named weekdays    |
+| `weekdays()`                 | Monday through Friday                 |
+| `weekends()`                 | Saturday and Sunday                   |
+| `daysOfMonth(...days)`       | Whole days at positions in each month |
+| `monthsOfYear(...months)`    | Whole named months                    |
+| `timeOfDay(from, to, zone?)` | A daily wall-clock window             |
+| `dates(...dates)`            | Whole named dates                     |
+| `all(...rules)`              | Times covered by every rule           |
+| `any(...rules)`              | Times covered by at least one rule    |
+| `not(rule)`                  | Times outside a rule                  |
+| `inZone(zone, rule)`         | A rule subtree evaluated in one zone  |
 
 Each builder validates its arguments and returns a `Built<R>`. A built rule
 is a `Rule` with non-enumerable `.and`, `.or`, and `.except` methods.

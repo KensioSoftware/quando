@@ -1,4 +1,4 @@
-import { WEEKDAYS, type Weekday } from "./rule.js";
+import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
 
 /** Reads and validates a day of the week. */
 export function asWeekday(value: string, path: string): Weekday {
@@ -8,6 +8,31 @@ export function asWeekday(value: string, path: string): Weekday {
     );
   }
   return value as Weekday;
+}
+
+/** Reads and validates a month of the year. */
+export function asMonth(value: string, path: string): Month {
+  if (!MONTHS.includes(value as Month)) {
+    throw new RangeError(
+      `${path} is not a month: "${value}". Expected one of ${MONTHS.join(", ")}.`,
+    );
+  }
+  return value as Month;
+}
+
+/**
+ * Reads and validates a day of the month, counting from either end.
+ *
+ * Zero is rejected rather than treated as one, because a caller who writes it
+ * has an off-by-one somewhere and the quiet reading would hide it.
+ */
+export function asDayOfMonth(value: number, path: string): number {
+  if (!Number.isInteger(value) || value === 0 || value < -31 || value > 31) {
+    throw new RangeError(
+      `${path} is not a day of the month: ${value}. Expected 1 to 31, or -1 to -31 counting back from the end.`,
+    );
+  }
+  return value;
 }
 
 /** Reads and normalises a wall-clock time. */

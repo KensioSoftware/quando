@@ -19,10 +19,14 @@
  * more total than strict, and `parseRule` is the place that refuses.
  */
 
-import { type Rule, WEEKDAYS, type Weekday } from "./rule.js";
-
-/** Where a weekday sorts. Calendar order rather than alphabetical. */
-const DAY_ORDER = new Map(WEEKDAYS.map((day, index) => [day, index]));
+import {
+  canonicalDates,
+  canonicalDays,
+  canonicalMonthDays,
+  canonicalMonths,
+  canonicalTime,
+} from "./canonical-leaves.js";
+import type { Rule } from "./rule.js";
 
 /** A rule's stable string form, which is what sorting and equality compare. */
 function key(rule: Rule): string {
@@ -32,41 +36,6 @@ function key(rule: Rule): string {
 /** Present or absent, never present-and-undefined. */
 function zonePart(zone: string | undefined): { zone?: string } {
   return zone === undefined ? {} : { zone };
-}
-
-const asTime = (from: string): Temporal.PlainTime =>
-  Temporal.PlainTime.from(from);
-
-const asDate = (from: string): Temporal.PlainDate =>
-  Temporal.PlainDate.from(from);
-
-/**
- * A `Temporal` value written the one way, where it can be read at all.
- *
- * `"09:00"` and `"09:00:00"` are the same time of day written twice, and two
- * rules holding one each should compare equal. A string neither form can read
- * is handed back as it came, so this stays total.
- */
-function written(
-  value: string,
-  read: (from: string) => { toString: () => string },
-): string {
-  try {
-    return read(value).toString();
-  } catch {
-    return value;
-  }
-}
-
-function canonicalDays(days: readonly Weekday[]): Weekday[] {
-  return [...new Set(days)].toSorted(
-    (a, b) => (DAY_ORDER.get(a) ?? 0) - (DAY_ORDER.get(b) ?? 0),
-  );
-}
-
-function canonicalDates(dates: readonly string[]): string[] {
-  const one = dates.map((date) => written(date, asDate));
-  return [...new Set(one)].toSorted();
 }
 
 /**
@@ -123,6 +92,22 @@ export function canonicalRule(rule: Rule): Rule {
       };
     }
 
+    case "daysOfMonth": {
+      return {
+        type: "daysOfMonth",
+        days: canonicalMonthDays(rule.days),
+        ...zonePart(rule.zone),
+      };
+    }
+
+    case "monthsOfYear": {
+      return {
+        type: "monthsOfYear",
+        months: canonicalMonths(rule.months),
+        ...zonePart(rule.zone),
+      };
+    }
+
     case "dates": {
       return {
         type: "dates",
@@ -134,8 +119,8 @@ export function canonicalRule(rule: Rule): Rule {
     case "timeOfDay": {
       return {
         type: "timeOfDay",
-        from: written(rule.from, asTime),
-        to: written(rule.to, asTime),
+        from: canonicalTime(rule.from),
+        to: canonicalTime(rule.to),
         ...zonePart(rule.zone),
       };
     }

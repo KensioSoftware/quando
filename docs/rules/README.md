@@ -24,19 +24,21 @@ store. There is no final `.build()` call.
 
 ## Rule builders
 
-| Builder                      | Covered time                               |
-| ---------------------------- | ------------------------------------------ |
-| `always()`                   | All time                                   |
-| `never()`                    | No time                                    |
-| `daysOfWeek(...days)`        | Whole days with the selected weekday names |
-| `weekdays()`                 | Monday through Friday                      |
-| `weekends()`                 | Saturday and Sunday                        |
-| `timeOfDay(from, to, zone?)` | A local time range on every day            |
-| `dates(...dates)`            | The selected calendar dates                |
-| `all(...rules)`              | Times covered by every rule                |
-| `any(...rules)`              | Times covered by at least one rule         |
-| `not(rule)`                  | Times outside the rule                     |
-| `inZone(zone, rule)`         | A rule subtree evaluated in one time zone  |
+| Builder                      | Covered time                                       |
+| ---------------------------- | -------------------------------------------------- |
+| `always()`                   | All time                                           |
+| `never()`                    | No time                                            |
+| `daysOfWeek(...days)`        | Whole days with the selected weekday names         |
+| `weekdays()`                 | Monday through Friday                              |
+| `weekends()`                 | Saturday and Sunday                                |
+| `daysOfMonth(...days)`       | Whole days at the selected positions in each month |
+| `monthsOfYear(...months)`    | The selected months, in full                       |
+| `timeOfDay(from, to, zone?)` | A local time range on every day                    |
+| `dates(...dates)`            | The selected calendar dates                        |
+| `all(...rules)`              | Times covered by every rule                        |
+| `any(...rules)`              | Times covered by at least one rule                 |
+| `not(rule)`                  | Times outside the rule                             |
+| `inZone(zone, rule)`         | A rule subtree evaluated in one time zone          |
 
 Builders validate their inputs immediately. Invalid weekday names, dates,
 times, and time zones fail where the rule is created.
@@ -57,6 +59,60 @@ Consecutive selected days form one continuous interval. For example,
 `weekdays()` covers Monday midnight through Saturday midnight.
 
 Calling `daysOfWeek()` with no arguments covers no time.
+
+## Select days of the month
+
+`daysOfMonth` takes positions in the month. Positive numbers count from the
+first day, and negative numbers count back from the last:
+
+```ts
+import { daysOfMonth } from "@kensio/quando";
+
+const invoiceDay = daysOfMonth(1);
+const paydays = daysOfMonth(15, -1);
+const monthEnd = daysOfMonth(-1);
+```
+
+A negative day is resolved against whichever month it falls in. `daysOfMonth(-1)`
+covers 28 February in an ordinary year, 29 February in a leap year, and 31
+March.
+
+A positive day that a month never reaches covers no time in that month.
+`daysOfMonth(31)` covers seven months of the year, and February in none of them.
+Use `daysOfMonth(-1)` for the end of every month.
+
+Days are whole calendar days, so consecutive selections join. `daysOfMonth(1, -1)`
+covers the last day of one month and the first of the next as one interval.
+
+Zero and numbers beyond 31 in either direction are rejected where the rule is
+written. Calling `daysOfMonth()` with no arguments covers no time.
+
+## Select months
+
+`monthsOfYear` takes month names, the way `daysOfWeek` takes weekday names:
+
+```ts
+import { monthsOfYear } from "@kensio/quando";
+
+const summerBreak = monthsOfYear("july", "august");
+const financialYearEnd = monthsOfYear("march");
+```
+
+Names avoid the ambiguity that month numbers carry (`Temporal` counts from 1
+and the older `Date` counts from 0). The `MONTHS` export lists all twelve.
+
+Consecutive months form one interval, and the year wraps.
+`monthsOfYear("december", "january")` covers one stretch across the new year.
+
+Combine the two for a rule about a particular date in a particular month:
+
+```ts
+const quarterEnds = monthsOfYear("march", "june", "september", "december").and(
+  daysOfMonth(-1),
+);
+```
+
+Calling `monthsOfYear()` with no arguments covers no time.
 
 ## Select times of day
 

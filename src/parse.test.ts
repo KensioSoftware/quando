@@ -54,6 +54,24 @@ describe("parsing a rule from JSON", () => {
       );
     });
 
+    it("takes the calendar rules a stored quarter-end schedule holds", () => {
+      // Given the last day of March, as it would sit in a database row.
+      const document = {
+        type: "all",
+        rules: [
+          { type: "monthsOfYear", months: ["march", "june"] },
+          { type: "daysOfMonth", days: [-1], zone: "Europe/London" },
+        ],
+      };
+
+      // When it is parsed and serialised again.
+      // Then nothing has moved, negative day and all.
+      assertIdentical(
+        JSON.stringify(parseRule(document)),
+        JSON.stringify(document),
+      );
+    });
+
     it("keeps an absent zone absent rather than undefined", () => {
       // Given a rule with no zone in it.
       // When it is parsed and serialised.
@@ -108,7 +126,8 @@ describe("parsing a rule from JSON", () => {
       assertIdentical(
         complaintAbout({ type: "weekdays" }),
         'rule.type: "weekdays" is not a rule type. ' +
-          "Expected one of always, never, daysOfWeek, timeOfDay, dates, inZone, all, any, not",
+          "Expected one of always, never, daysOfWeek, daysOfMonth, monthsOfYear, " +
+          "timeOfDay, dates, inZone, all, any, not",
       );
     });
 
@@ -120,6 +139,60 @@ describe("parsing a rule from JSON", () => {
         complaintAbout({ type: "daysOfWeek", days: ["monday", "funday"] }),
         'rule.days[1]: "funday" is not a day of the week. ' +
           "Expected one of monday, tuesday, wednesday, thursday, friday, saturday, sunday",
+      );
+    });
+
+    it("names a bad month, and which one", () => {
+      // Given a month list where the second entry is spelled the French way.
+      // When it is parsed.
+      // Then the message carries the index and the twelve real names.
+      assertIdentical(
+        complaintAbout({
+          type: "monthsOfYear",
+          months: ["august", "octobre"],
+        }),
+        'rule.months[1]: "octobre" is not a month. Expected one of ' +
+          "january, february, march, april, may, june, july, august, " +
+          "september, october, november, december",
+      );
+    });
+
+    it("names a day of the month outside the month", () => {
+      // Given a day no month reaches, and a zero.
+      // When each is parsed.
+      // Then both are refused, with the range spelled out rather than implied.
+      assertIdentical(
+        complaintAbout({ type: "daysOfMonth", days: [1, 32] }),
+        "rule.days[1]: 32 is not a day of the month. " +
+          "Expected 1 to 31, or -1 to -31 counting back from the end",
+      );
+      assertIdentical(
+        complaintAbout({ type: "daysOfMonth", days: [0] }),
+        "rule.days[0]: 0 is not a day of the month. " +
+          "Expected 1 to 31, or -1 to -31 counting back from the end",
+      );
+    });
+
+    it("refuses a single day of the month sent without its array", () => {
+      // Given one day written bare, which is the shape a hand-edited config
+      // arrives in.
+      // When it is parsed.
+      // Then the array is asked for rather than the value being wrapped, so
+      // the document and the type agree on one shape.
+      assertIdentical(
+        complaintAbout({ type: "daysOfMonth", days: 1 }),
+        "rule.days: expected an array, found number",
+      );
+    });
+
+    it("refuses a day of the month written as a string", () => {
+      // Given a day sent as JSON text, which is how a form field arrives.
+      // When it is parsed.
+      // Then it is refused rather than coerced, because "1" and 1 reaching the
+      // same rule is how a form starts silently disagreeing with an API.
+      assertIdentical(
+        complaintAbout({ type: "daysOfMonth", days: ["1"] }),
+        "rule.days[0]: expected a number, found string",
       );
     });
 

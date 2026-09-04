@@ -12,7 +12,8 @@
  * only give the two somewhere to disagree.
  */
 
-import { asDates, asDays, asTime, zonePart } from "./parse-fields.js";
+import { parseCalendarRule } from "./parse-calendar.js";
+import { zonePart } from "./parse-fields.js";
 import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
 import { build, type Built } from "./build.js";
 import type { Rule } from "./rule.js";
@@ -25,6 +26,8 @@ const FIELDS = new Map<string, readonly string[]>([
   ["always", []],
   ["never", []],
   ["daysOfWeek", ["days", "zone"]],
+  ["daysOfMonth", ["days", "zone"]],
+  ["monthsOfYear", ["months", "zone"]],
   ["timeOfDay", ["from", "to", "zone"]],
   ["dates", ["dates", "zone"]],
   ["inZone", ["zone", "rule"]],
@@ -72,34 +75,12 @@ function parseRuleData(value: unknown, path: string): Rule {
       return { type: "never" };
     }
 
-    case "daysOfWeek": {
-      return {
-        type: "daysOfWeek",
-        days: asDays(node["days"], `${path}.days`),
-        ...zonePart(node, path),
-      };
-    }
-
-    case "dates": {
-      return {
-        type: "dates",
-        dates: asDates(node["dates"], `${path}.dates`),
-        ...zonePart(node, path),
-      };
-    }
-
+    case "daysOfWeek":
+    case "daysOfMonth":
+    case "monthsOfYear":
+    case "dates":
     case "timeOfDay": {
-      const from = asTime(node["from"], `${path}.from`);
-      const to = asTime(node["to"], `${path}.to`);
-      if (Temporal.PlainTime.compare(from, to) === 0) {
-        return fail(path, "a time-of-day window must have different endpoints");
-      }
-      return {
-        type: "timeOfDay",
-        from,
-        to,
-        ...zonePart(node, path),
-      };
+      return parseCalendarRule(type, node, path);
     }
 
     case "inZone": {

@@ -12,8 +12,10 @@ import {
   always,
   any,
   dates,
+  daysOfMonth,
   daysOfWeek,
   inZone,
+  monthsOfYear,
   never,
   not,
   timeOfDay,
@@ -22,7 +24,7 @@ import {
 } from "./build.js";
 import { intervals } from "./interpret.js";
 import { parseRule } from "./parse.js";
-import type { Rule, Weekday } from "./rule.js";
+import type { Month, Rule, Weekday } from "./rule.js";
 
 describe("the builder", () => {
   /** Monday 2026-03-09 to the Monday after it. */
@@ -123,6 +125,39 @@ describe("the builder", () => {
       assertThrowsError(() => dates("Christmas"));
       assertThrowsError(() => daysOfWeek("monday", "funday" as Weekday));
       assertThrowsError(() => inZone("Mars/Olympus", weekdays()));
+    });
+
+    it("refuses a day the month can never have", () => {
+      // Given days outside the month, either way round, and the zero a caller
+      // writes when they have an off-by-one.
+      // When each is passed to the builder.
+      // Then each fails where it is written rather than covering nothing later.
+      assertThrowsError(() => daysOfMonth(32));
+      assertThrowsError(() => daysOfMonth(0));
+      assertThrowsError(() => daysOfMonth(-32));
+      assertThrowsError(() => daysOfMonth(1.5));
+    });
+
+    it("refuses a month that is not one", () => {
+      // Given a misspelled month name.
+      // When it is passed to the builder.
+      // Then it fails immediately, the way a misspelled weekday does.
+      assertThrowsError(() => monthsOfYear("august", "octobre" as Month));
+    });
+
+    it("intersects a day of the month with a month", () => {
+      // Given the last working day pattern people write for quarter ends: the
+      // final day of March.
+      const quarterEnd = monthsOfYear("march").and(daysOfMonth(-1));
+
+      // When the first quarter of 2026 is read.
+      const quarter = inWindow("2026-01-01T00:00", "2026-04-01T00:00");
+
+      // Then only 31 March comes back.
+      assertIdentical(
+        read(quarterEnd, quarter),
+        "[2026-03-31T00:00:00,2026-04-01T00:00:00)",
+      );
     });
 
     it("ands", () => {

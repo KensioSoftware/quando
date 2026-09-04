@@ -3,6 +3,8 @@ import {
   describeDay,
   describeTime,
 } from "./calendar-explanation-text.js";
+import { describeMonth, describeMonthDay } from "./month-explanation-text.js";
+import { describeCompoundMatch } from "./compound-explanation-text.js";
 import type { Rule } from "./rule.js";
 import type { RuleExplanation } from "./rule-explanation.js";
 
@@ -27,6 +29,22 @@ export function describeRuleMatch(
         rule.zone,
       );
     }
+    case "daysOfMonth": {
+      return inNamedZone(
+        describeMonthDay(
+          rule.days,
+          localAt(at, rule.zone ?? inheritedZone),
+          matched,
+        ),
+        rule.zone,
+      );
+    }
+    case "monthsOfYear": {
+      return inNamedZone(
+        describeMonth(rule.months, localAt(at, rule.zone ?? inheritedZone)),
+        rule.zone,
+      );
+    }
     case "dates": {
       return inNamedZone(
         describeDate(
@@ -48,38 +66,11 @@ export function describeRuleMatch(
         rule.zone,
       );
     }
-    case "inZone": {
-      return `The rule uses ${rule.zone}. ${conditions[0]?.description ?? ""}`;
-    }
-    case "all": {
-      if (conditions.length === 0) {
-        return "An empty all rule always matches.";
-      }
-      return combinedDescription(
-        matched
-          ? "Every condition matches."
-          : "A required condition does not match.",
-        conditions,
-      );
-    }
-    case "any": {
-      if (conditions.length === 0) {
-        return "An empty any rule never matches.";
-      }
-      return combinedDescription(
-        matched
-          ? "At least one alternative matches."
-          : "No alternative matches.",
-        conditions,
-      );
-    }
+    case "inZone":
+    case "all":
+    case "any":
     case "not": {
-      return combinedDescription(
-        matched
-          ? "The excluded condition does not match."
-          : "The excluded condition matches.",
-        conditions,
-      );
+      return describeCompoundMatch(rule, matched, conditions);
     }
     default: {
       const unreachable: never = rule;
@@ -99,13 +90,4 @@ function inNamedZone(description: string, zone: string | undefined): string {
   return zone === undefined
     ? description
     : `The rule uses ${zone}. ${description}`;
-}
-
-function combinedDescription(
-  opening: string,
-  conditions: readonly RuleExplanation[],
-): string {
-  return [opening, ...conditions.map(({ description }) => description)].join(
-    " ",
-  );
 }

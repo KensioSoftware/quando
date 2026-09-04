@@ -16,6 +16,8 @@ const RULE_TYPES = new Set([
   "always",
   "never",
   "daysOfWeek",
+  "daysOfMonth",
+  "monthsOfYear",
   "timeOfDay",
   "dates",
   "inZone",

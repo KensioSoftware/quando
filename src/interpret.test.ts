@@ -1,5 +1,6 @@
 import { inWindow, render } from "#test/intervals.js";
 import {
+  assertArrayLength,
   assertIdentical,
   assertInstanceOf,
   assertThrowsError,
@@ -128,6 +129,244 @@ describe("reading a rule as intervals", () => {
         render(take(endless, 2)),
         "[2026-03-11T00:00:00,2026-03-12T00:00:00) " +
           "[2026-03-18T00:00:00,2026-03-19T00:00:00)",
+      );
+    });
+  });
+
+  describe("days of the month", () => {
+    /** A whole non-leap year, so month lengths vary across the window. */
+    const YEAR = inWindow("2026-01-01T00:00", "2027-01-01T00:00");
+
+    it("selects the same date in every month", () => {
+      // Given the first of the month, over a quarter.
+      const quarter = inWindow("2026-01-01T00:00", "2026-04-01T00:00");
+
+      // When it is read.
+      // Then January, February and March each contribute their first day.
+      assertIdentical(
+        read({ type: "daysOfMonth", days: [1] }, quarter),
+        "[2026-01-01T00:00:00,2026-01-02T00:00:00) " +
+          "[2026-02-01T00:00:00,2026-02-02T00:00:00) " +
+          "[2026-03-01T00:00:00,2026-03-02T00:00:00)",
+      );
+    });
+
+    it("skips a month too short to reach the day", () => {
+      // Given the 30th, over January to March 2026. February has 28 days.
+      const quarter = inWindow("2026-01-01T00:00", "2026-04-01T00:00");
+
+      // When it is read.
+      // Then February contributes nothing rather than falling back to its last
+      // day, which is what a schedule that says "the 30th" means.
+      assertIdentical(
+        read({ type: "daysOfMonth", days: [30] }, quarter),
+        "[2026-01-30T00:00:00,2026-01-31T00:00:00) " +
+          "[2026-03-30T00:00:00,2026-03-31T00:00:00)",
+      );
+    });
+
+    it("resolves a negative day against the month it lands in", () => {
+      // Given the last day of the month, over a quarter whose months are 31,
+      // 28 and 31 days long.
+      const quarter = inWindow("2026-01-01T00:00", "2026-04-01T00:00");
+
+      // When it is read.
+      // Then each month gives up its own last day, not a fixed date.
+      assertIdentical(
+        read({ type: "daysOfMonth", days: [-1] }, quarter),
+        "[2026-01-31T00:00:00,2026-02-01T00:00:00) " +
+          "[2026-02-28T00:00:00,2026-03-01T00:00:00) " +
+          "[2026-03-31T00:00:00,2026-04-01T00:00:00)",
+      );
+    });
+
+    it("finds the extra day a leap year adds", () => {
+      // Given the last day of February in 2028, which is a leap year.
+      const february = inWindow("2028-02-01T00:00", "2028-03-01T00:00");
+
+      // When the last day of the month is read.
+      // Then it is the 29th, which no fixed date would have found.
+      assertIdentical(
+        read({ type: "daysOfMonth", days: [-1] }, february),
+        "[2028-02-29T00:00:00,2028-03-01T00:00:00)",
+      );
+    });
+
+    it("covers nothing on a date the zone skipped", () => {
+      // Given Samoa's move across the date line, which took the country from
+      // 29 December 2011 to 31 December. There was no 30th.
+      const apia = inWindow(
+        "2011-12-01T00:00",
+        "2012-01-05T00:00",
+        "Pacific/Apia",
+      );
+
+      // When the 30th of the month is read over it.
+      // Then December contributes nothing. A skipped date has no elapsed time,
+      // so the day and the day after it start at the same instant and the
+      // empty interval between them is dropped.
+      assertIdentical(read({ type: "daysOfMonth", days: [30] }, apia), "");
+    });
+
+    it("merges days that land next to each other", () => {
+      // Given the 1st and the last day of the month, over two months. The last
+      // day of January and the first of February are consecutive.
+      const twoMonths = inWindow("2026-01-01T00:00", "2026-03-01T00:00");
+
+      // When they are read.
+      // Then the pair spanning the month boundary is one interval, because the
+      // stream contract has no two intervals meeting at midnight.
+      assertIdentical(
+        read({ type: "daysOfMonth", days: [1, -1] }, twoMonths),
+        "[2026-01-01T00:00:00,2026-01-02T00:00:00) " +
+          "[2026-01-31T00:00:00,2026-02-02T00:00:00) " +
+          "[2026-02-28T00:00:00,2026-03-01T00:00:00)",
+      );
+    });
+
+    it("counts payday twice a month", () => {
+      // Given the 15th and the last day, which is how salaries are often run.
+      const halfYear = inWindow("2026-01-01T00:00", "2026-07-01T00:00");
+
+      // When the paydays are counted over six months.
+      // Then there are twelve of them.
+      const paydays = [
+        ...intervals({ type: "daysOfMonth", days: [15, -1] }, halfYear),
+      ];
+      assertArrayLength(paydays, 12);
+    });
+
+    it("covers nothing when no days are selected, without walking the calendar", () => {
+      // Given no days at all and a context with no end. The same trap as an
+      // empty weekday list: a predicate nothing satisfies would walk forward to
+      // Temporal's year limit before admitting it.
+      const endless = intervals(
+        { type: "daysOfMonth", days: [] },
+        inWindow("2026-03-09T00:00"),
+      );
+
+      // When one interval is asked for.
+      // Then nothing comes back, at once.
+      assertIdentical(render(take(endless, 1)), "");
+    });
+
+    it("is endless without a window", () => {
+      // Given the 1st of the month over a context with no end.
+      const endless = intervals(
+        { type: "daysOfMonth", days: [1] },
+        inWindow("2026-03-09T00:00"),
+      );
+
+      // When two are taken.
+      // Then April and May arrive; March is already past on the 9th.
+      assertIdentical(
+        render(take(endless, 2)),
+        "[2026-04-01T00:00:00,2026-04-02T00:00:00) " +
+          "[2026-05-01T00:00:00,2026-05-02T00:00:00)",
+      );
+    });
+
+    it("reads a day in its own zone", () => {
+      // Given the 1st of the month in Tokyo, read from a London context. Tokyo
+      // is nine hours ahead, so its day starts while London is still on the
+      // previous evening.
+      const april = inWindow("2026-04-01T00:00", "2026-04-03T00:00");
+
+      // When it is read.
+      // Then the interval is Tokyo's day, reported in London's clock.
+      assertIdentical(
+        read({ type: "daysOfMonth", days: [1], zone: "Asia/Tokyo" }, april),
+        "[2026-04-01T00:00:00,2026-04-01T16:00:00)",
+      );
+    });
+
+    it("takes a whole year of month ends without missing one", () => {
+      // Given the last day of every month across 2026.
+      // When they are read.
+      // Then there are twelve, one per month.
+      const ends = [...intervals({ type: "daysOfMonth", days: [-1] }, YEAR)];
+      assertArrayLength(ends, 12);
+    });
+  });
+
+  describe("months of the year", () => {
+    it("covers a named month whole", () => {
+      // Given August, over the second half of 2026.
+      const halfYear = inWindow("2026-07-01T00:00", "2027-01-01T00:00");
+
+      // When it is read.
+      // Then the interval is the whole month, midnight to midnight.
+      assertIdentical(
+        read({ type: "monthsOfYear", months: ["august"] }, halfYear),
+        "[2026-08-01T00:00:00,2026-09-01T00:00:00)",
+      );
+    });
+
+    it("merges consecutive months into one interval", () => {
+      // Given the three summer months.
+      const year = inWindow("2026-01-01T00:00", "2027-01-01T00:00");
+
+      // When they are read.
+      // Then they are one interval and not three touching at midnight.
+      assertIdentical(
+        read(
+          { type: "monthsOfYear", months: ["june", "july", "august"] },
+          year,
+        ),
+        "[2026-06-01T00:00:00,2026-09-01T00:00:00)",
+      );
+    });
+
+    it("keeps months apart when they do not adjoin", () => {
+      // Given the quarter ends, which are three months apart.
+      const halfYear = inWindow("2026-01-01T00:00", "2026-07-01T00:00");
+
+      // When they are read.
+      // Then March and June come back separately.
+      assertIdentical(
+        read({ type: "monthsOfYear", months: ["march", "june"] }, halfYear),
+        "[2026-03-01T00:00:00,2026-04-01T00:00:00) " +
+          "[2026-06-01T00:00:00,2026-07-01T00:00:00)",
+      );
+    });
+
+    it("wraps from December into January as one interval", () => {
+      // Given December and January, over a window spanning the new year.
+      const winter = inWindow("2026-11-01T00:00", "2027-03-01T00:00");
+
+      // When they are read.
+      // Then the pair either side of the year boundary is one interval.
+      assertIdentical(
+        read({ type: "monthsOfYear", months: ["december", "january"] }, winter),
+        "[2026-12-01T00:00:00,2027-02-01T00:00:00)",
+      );
+    });
+
+    it("covers nothing when no months are selected, without walking the calendar", () => {
+      // Given no months at all and a context with no end.
+      const endless = intervals(
+        { type: "monthsOfYear", months: [] },
+        inWindow("2026-03-09T00:00"),
+      );
+
+      // When one interval is asked for.
+      // Then nothing comes back, at once.
+      assertIdentical(render(take(endless, 1)), "");
+    });
+
+    it("is endless without a window", () => {
+      // Given February over a context with no end.
+      const endless = intervals(
+        { type: "monthsOfYear", months: ["february"] },
+        inWindow("2026-03-09T00:00"),
+      );
+
+      // When two are taken.
+      // Then 2027's and 2028's arrive, the second one a day longer.
+      assertIdentical(
+        render(take(endless, 2)),
+        "[2027-02-01T00:00:00,2027-03-01T00:00:00) " +
+          "[2028-02-01T00:00:00,2028-03-01T00:00:00)",
       );
     });
   });
