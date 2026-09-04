@@ -23,6 +23,8 @@ export {
   weekends,
 } from "./build.js";
 export { canonical, equals, fingerprint } from "./canonical.js";
+export type { CronOptions } from "./cron.js";
+export { parseCron } from "./cron.js";
 export { parseRule } from "./parse.js";
 
 export type {
