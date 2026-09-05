@@ -212,7 +212,8 @@ function toRRule(rule: Rule, options?: ToRRuleOptions): RRuleExport;
 Writes a rule back out as a recurrence, when one has that form. `start` is
 DTSTART and `duration` is how long an occurrence runs, which the `DTEND` or
 `DURATION` property beside the recurrence carries. The `start` option applies
-only to a rule with no lower bound of its own.
+only to a rule with no lower bound of its own. DTSTART is the first day from
+that bound onwards that the rule covers, which is what RFC 5545 requires of it.
 
 ### Queries
 

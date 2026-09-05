@@ -129,8 +129,8 @@ parameter on `DTSTART`.
 ### Where it begins
 
 Every recurrence begins at DTSTART. A rule need not begin anywhere (a rule
-about Mondays is about every Monday there has ever been), so the start comes
-from one of two places:
+about Mondays is about every Monday there has ever been). The start comes from
+one of two places:
 
 - The rule's own lower bound, from `onOrAfter` or `between`.
 - The `start` option, for a rule that has no bound of its own.
@@ -138,15 +138,41 @@ from one of two places:
 A rule with neither comes back with `ok: false`. Choosing a date quietly would
 drop every occurrence before it.
 
+That start is where the search begins, and DTSTART is the first day from there
+that the rule covers. RFC 5545 leaves a recurrence set undefined when DTSTART
+falls outside it. Bound the Mondays from a Tuesday and the recurrence begins on
+the Monday after:
+
+```ts
+const fromTuesday = toRRule(onOrAfter("2026-03-03").and(daysOfWeek("monday")));
+
+if (fromTuesday.ok) {
+  fromTuesday.rrule; // FREQ=WEEKLY;BYDAY=MO
+  fromTuesday.start; // 2026-03-09
+}
+```
+
+A rule covering nothing from that day onwards has no first occurrence, and
+comes back with `ok: false`.
+
 ### Whole periods written out
 
 `every` covers whole periods, and a recurrence names the occurrences within
 one. So a cycle with no day named has its days written out.
 
-| The rule                                      | The recurrence                                      |
-| --------------------------------------------- | --------------------------------------------------- |
-| `every(2, "weeks")`                           | `FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU,WE,TH,FR,SA,SU` |
-| `every(2, "weeks").and(daysOfWeek("monday"))` | `FREQ=WEEKLY;INTERVAL=2;BYDAY=MO`                   |
+```ts
+const fortnight = every(2, "weeks", { anchor: "2026-03-02" });
+
+const whole = toRRule(fortnight, { start: "2026-03-02" });
+const mondays = toRRule(fortnight.and(daysOfWeek("monday")), {
+  start: "2026-03-02",
+});
+
+if (whole.ok && mondays.ok) {
+  whole.rrule; // FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU,WE,TH,FR,SA,SU
+  mondays.rrule; // FREQ=WEEKLY;INTERVAL=2;BYDAY=MO
+}
+```
 
 `WKST` is written when a cycle of weeks turns over on a day other than Monday,
 which is the day RFC 5545 assumes.

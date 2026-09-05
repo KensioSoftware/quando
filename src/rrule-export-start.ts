@@ -1,10 +1,17 @@
 /**
  * Where the recurrence begins, and where it stops.
  *
- * DTSTART is not optional in RFC 5545 and a Quando rule need not have one: a
+ * DTSTART is not optional in RFC 5545 and a Quando rule need not have one. A
  * rule about Mondays is about every Monday there has ever been. So the rule's
- * own lower bound is DTSTART where it has one, the caller says where it has
- * none, and a rule with neither is one this cannot write.
+ * own lower bound is where to start looking when it has one, the caller says
+ * where to look when it has none, and a rule with neither is one this cannot
+ * write.
+ *
+ * Looking, because a lower bound is not yet a DTSTART. RFC 5545 leaves the
+ * recurrence set undefined when DTSTART is not one of the recurrence's own
+ * occurrences, so a rule about Mondays bounded from a Tuesday has to start on
+ * the Monday after it. The rule answers that itself, which settles the cycle,
+ * the weekdays and the days of the month together.
  *
  * `UNTIL` has to be the same kind of value as DTSTART, so a whole-day
  * recurrence gets a bare date and a timed one gets the instant the last day
@@ -13,9 +20,10 @@
  */
 
 import { type Unwritable, unwritable } from "./export-result.js";
-import { onCycle, periodsBetween } from "./every-periods.js";
-import type { EveryRule } from "./rule.js";
+import { nextCoveredInterval } from "./query.js";
+import type { Rule } from "./rule.js";
 import type { RRuleSlots } from "./rrule-export-slots.js";
+import { DEFAULT_SEARCH_LIMIT } from "./search.js";
 import { asDate } from "./validation.js";
 
 /** DTSTART as it is written, and the UNTIL that bounds it. */
@@ -26,22 +34,25 @@ export interface Bounds {
 }
 
 export function boundsOf(
+  rule: Rule,
   slots: RRuleSlots,
   time: string | undefined,
   zone: string | undefined,
   given: string | undefined,
 ): Bounds | Unwritable {
-  const date =
+  const from =
     slots.from ?? (given === undefined ? undefined : asDate(given, "start"));
 
-  if (date === undefined) {
+  if (from === undefined) {
     return unwritable(
       "nothing in it says when the recurrence begins, and every recurrence starts at DTSTART. Bound the rule with `onOrAfter`, or pass `start`",
     );
   }
-  if (slots.every !== undefined && !reaches(slots.every, date)) {
+
+  const date = firstCovered(rule, from, zone ?? "UTC");
+  if (date === undefined) {
     return unwritable(
-      `it begins on ${date}, which its cycle of ${slots.every.interval} ${slots.every.period} does not reach`,
+      `it covers no time on or after ${from}, so there is no first occurrence for DTSTART to be`,
     );
   }
 
@@ -55,16 +66,28 @@ export function boundsOf(
   };
 }
 
-/** Whether a cycle covers the day the recurrence is to start on. */
-function reaches(every: EveryRule, date: string): boolean {
-  return onCycle(
-    periodsBetween(
-      Temporal.PlainDate.from(every.anchor),
-      Temporal.PlainDate.from(date),
-      every.period,
-    ),
-    every.interval,
-  );
+/**
+ * The first day on or after a date that the rule covers.
+ *
+ * Asked of the rule rather than worked out from the parts, so a cycle, a BYDAY
+ * and a BYMONTHDAY are all accounted for at once and none of them is a case to
+ * remember. The search runs to the library's own safety limit, and a rule with
+ * nothing in that span has no DTSTART to give.
+ */
+function firstCovered(
+  rule: Rule,
+  from: string,
+  zone: string,
+): string | undefined {
+  const start = Temporal.PlainDate.from(from).toZonedDateTime({
+    timeZone: zone,
+  });
+  const covered = nextCoveredInterval(rule, {
+    from: start,
+    to: start.add(DEFAULT_SEARCH_LIMIT),
+  })?.start;
+
+  return covered?.toPlainDate().toString();
 }
 
 /**

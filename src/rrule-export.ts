@@ -60,6 +60,10 @@ export type RRuleExport = WrittenRRule | Unwritable;
  * }
  * ```
  *
+ * DTSTART is the first day on or after the start that the rule covers, because
+ * RFC 5545 leaves a recurrence undefined when DTSTART is not one of its own
+ * occurrences.
+ *
  * Throws a `RangeError` for a `start` that is not a date, the way the rule
  * builders do. A rule that simply has no recurrence form comes back with
  * `ok: false` instead.
@@ -86,6 +90,7 @@ export function toRRule(rule: Rule, options: ToRRuleOptions = {}): RRuleExport {
   }
 
   const bounds = boundsOf(
+    rule,
     frequency.slots,
     clock.time,
     read.zone,

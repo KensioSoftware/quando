@@ -248,14 +248,17 @@ describe("writing a rule as a recurrence rule", () => {
       );
     });
 
-    it("refuses a start the cycle does not reach", () => {
+    it("moves the start on to the first day the cycle reaches", () => {
       // Given a fortnightly cycle and a start in the week between two of its
-      // weeks. DTSTART is the first occurrence, and that day is not one.
+      // weeks. RFC 5545 leaves a recurrence undefined when DTSTART is not one
+      // of its own occurrences.
       const fortnight = every(2, "weeks", { anchor: "2026-03-02" });
 
-      assertStringIncludes(
-        refusal(fortnight, { start: "2026-03-09" }),
-        "which its cycle of 2 weeks does not reach",
+      // When it is written out from the Monday of the week it skips.
+      // Then DTSTART is the Monday of the week after, which the cycle covers.
+      assertIdentical(
+        written(fortnight, { start: "2026-03-09" }).start,
+        "2026-03-16",
       );
     });
   });
@@ -268,7 +271,7 @@ describe("writing a rule as a recurrence rule", () => {
         ["FREQ=DAILY", "2026-03-30T09:00"],
         ["FREQ=MONTHLY;BYDAY=1MO", "2026-03-02"],
         ["FREQ=YEARLY;BYMONTH=11;BYDAY=4TH", "2026-11-26"],
-        ["FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;WKST=SU", "2026-03-01"],
+        ["FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;WKST=SU", "2026-03-02"],
         ["FREQ=DAILY;UNTIL=20261231", "2026-03-30"],
         ["FREQ=DAILY;UNTIL=20261231T235959Z", "2026-03-30T09:00"],
         ["FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=15", "2026-03-15T08:00"],
@@ -313,6 +316,20 @@ describe("writing a rule as a recurrence rule", () => {
           "[2026-03-30T09:00:00,2026-03-30T09:01:00)",
         ].join(" "),
       );
+    });
+
+    it("moves DTSTART on to a day the recurrence actually runs", () => {
+      // Given a rule about Mondays bounded from a Tuesday. 2026-03-03 is a
+      // Tuesday, and RFC 5545 leaves the recurrence set undefined when
+      // DTSTART is not one of the occurrences.
+      const mondays = onOrAfter("2026-03-03").and(daysOfWeek("monday"));
+
+      // When it is written out.
+      // Then DTSTART is the Monday after it, and the days covered are the
+      // same ones the rule covered.
+      const result = written(mondays);
+      assertIdentical(result.rrule, "FREQ=WEEKLY;BYDAY=MO");
+      assertIdentical(result.start, "2026-03-09");
     });
 
     it("moves DTSTART to the first time the recurrence runs at", () => {
@@ -460,6 +477,17 @@ describe("writing a rule as a recurrence rule", () => {
       const twice = daysOfWeek("monday").and(nthDayOfWeekInMonth(1, "tuesday"));
 
       assertStringIncludes(refusal(twice, FROM_MARCH), "it names BYDAY twice");
+    });
+
+    it("refuses a rule that covers no time from its start onwards", () => {
+      // Given the 30th of February, which no year has. There is no first
+      // occurrence for DTSTART to be.
+      const never = monthsOfYear("february").and(daysOfMonth(30));
+
+      assertStringIncludes(
+        refusal(never, FROM_MARCH),
+        "there is no first occurrence for DTSTART to be",
+      );
     });
 
     it("refuses a union of two different kinds of selection", () => {
