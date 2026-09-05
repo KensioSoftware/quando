@@ -22,7 +22,7 @@ import {
 } from "./cron-field-types.js";
 import { parseCronField } from "./cron-fields.js";
 import { type CronFields, expandedFields } from "./cron-shorthands.js";
-import { coveredMinutes, timeOfDayRule } from "./cron-times.js";
+import { coveredMinutes, timeOfDayRule } from "./minute-windows.js";
 import { daysOfMonth, monthsOfYear } from "./month-builders.js";
 import { daysOfWeek } from "./calendar-rules.js";
 import {

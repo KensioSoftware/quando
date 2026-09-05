@@ -38,6 +38,7 @@ Read the pages in this order if Quando is new to you:
 
 - [Rules](rules/) defines recurring days, times, dates, and combinations.
 - [Cron expressions](cron/) imports a cron expression as a rule.
+- [Recurrence rules](recurrence/) imports an RFC 5545 RRULE as a rule.
 - [Cascades](cascades/) assigns values with ordered overrides.
 - [Merging](merging/) combines overlapping values with `sum`, `max`, `min`, or
   `concat`.

@@ -122,7 +122,8 @@ The five-field POSIX dialect only.
   month, which is what `L` usually means.
 - `@reboot`.
 
-Writing a rule back out as cron is still to come.
+Writing a rule back out as cron is still to come. For calendar recurrences,
+see [recurrence rules](../recurrence/).
 
 <!-- card
 ```ts

@@ -156,6 +156,21 @@ function parseCron(expression: string, options?: CronOptions): Built<Rule>;
 Reads a five-field POSIX cron expression as a rule covering the minute each run
 starts in. See [cron expressions](../cron/).
 
+### Recurrence rules
+
+```ts
+interface RRuleOptions {
+  readonly start: string;
+  readonly zone?: string;
+}
+
+function parseRRule(text: string, options: RRuleOptions): Built<Rule>;
+```
+
+Reads an RFC 5545 recurrence rule. `start` is DTSTART, and supplies the time of
+day, the day the pattern repeats on when nothing names one, and the point the
+recurrence begins. See [recurrence rules](../recurrence/).
+
 ### Queries
 
 ```ts
