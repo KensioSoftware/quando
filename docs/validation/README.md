@@ -81,11 +81,21 @@ Every diagnostic has a stable `code` and a human-readable `message`.
 | Code             | Extra data | Meaning                                          |
 | ---------------- | ---------- | ------------------------------------------------ |
 | `inactive-rule`  |            | The rule covers no time in the window            |
-| `inactive-layer` | `path`     | The layer scope covers no time in the window     |
+| `inactive-layer` | `path`     | The layer covers no time in its effective region |
 | `shadowed-layer` | `path`     | Higher-priority layers fully hide the layer      |
 | `uncovered-time` | `interval` | No cascade value is assigned during the interval |
 
-Layer paths are relative to the cascade document, such as `layers[0]`.
+Layer paths are relative to the cascade document, such as `layers[0]` or
+`layers[2].replace.layers[0]` for a child of a replacement.
+
+Validation descends into replacements within the part of their scope that
+remains visible. A child that covers no time in that region is `inactive-layer`.
+A child hidden by later layers inside its cascade is `shadowed-layer`.
+Each nested cascade uses its own merge strategy.
+
+An inactive or fully shadowed replacement gets one diagnostic. Validation skips
+its descendants. A partially visible replacement has its children checked across
+all surviving intervals together.
 
 ## Choose the validation window
 
@@ -97,7 +107,7 @@ Validation requires `to`. A finite window lets Quando prove that a rule or
 layer produces no intervals. An inactive diagnostic applies only to that
 window. The same rule may match a future date.
 
-Layer reachability currently checks top-level cascade layers. Override layers
+Layer reachability includes nested replacement cascades. Override layers
 hide lower layers according to their order. Overlapping layers in `sum`, `max`,
 `min`, and `concat` cascades remain active because they participate in merging.
 Cascade order gives every layer a distinct priority.
