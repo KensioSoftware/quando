@@ -1,6 +1,6 @@
 /** Diagnostics for cascade layers inside a validation window. */
 
-import { all, any, not } from "./build.js";
+import { all, always, any, not } from "./build.js";
 import type { Cascade, Layer } from "./cascade.js";
 import { intervals } from "./interpret.js";
 import type { Rule } from "./rule.js";
@@ -9,28 +9,45 @@ import type {
   ValidationWindow,
 } from "./semantic-validation.js";
 
-/** Finds inactive and fully shadowed top-level layers. */
+/** Finds inactive and fully shadowed layers, including replacements. */
 export function layerDiagnostics(
   cascade: Cascade<unknown>,
   window: ValidationWindow,
 ): readonly ValidationDiagnostic[] {
+  return inspectLayers(cascade, window, always(), "");
+}
+
+function inspectLayers(
+  cascade: Cascade<unknown>,
+  window: ValidationWindow,
+  region: Rule,
+  prefix: string,
+): readonly ValidationDiagnostic[] {
   const diagnostics: ValidationDiagnostic[] = [];
   for (const [index, layer] of cascade.layers.entries()) {
-    const path = `layers[${index}]`;
-    if (!hasAny(intervals(layer.scope, window))) {
+    const path = `${prefix}layers[${index}]`;
+    const scope = all(region, layer.scope);
+    if (!hasAny(intervals(scope, window))) {
       diagnostics.push({
         code: "inactive-layer",
         path,
-        message: `${path} covers no time in the validation window.`,
+        message: `${path} covers no time in its effective validation region.`,
       });
       continue;
     }
-    if (!hasAny(intervals(visibleScope(cascade, layer, index), window))) {
+    const visible = all(region, visibleScope(cascade, layer, index));
+    if (!hasAny(intervals(visible, window))) {
       diagnostics.push({
         code: "shadowed-layer",
         path,
         message: `${path} is fully hidden by higher-priority layers in the validation window.`,
       });
+      continue;
+    }
+    if ("replace" in layer) {
+      diagnostics.push(
+        ...inspectLayers(layer.replace, window, visible, `${path}.replace.`),
+      );
     }
   }
   return diagnostics;
