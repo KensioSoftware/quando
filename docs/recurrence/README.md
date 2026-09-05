@@ -100,7 +100,95 @@ than ignored, because dropping one changes what a recurrence means.
 `FREQ=SECONDLY`, `MINUTELY` and `HOURLY` recur faster than a day, and Quando's
 recurrence steps through calendar periods. They are refused by name too.
 
-Writing a rule back out as an RRULE is still to come.
+## Write a rule out
+
+`toRRule` goes the other way. A recurrence is one part of a calendar entry, so
+three values come back together.
+
+```ts
+import { timeOfDay, toRRule, weekdays } from "@kensio/quando";
+
+const written = toRRule(weekdays().and(timeOfDay("09:00", "17:00")), {
+  start: "2026-03-30",
+});
+if (written.ok) {
+  written.rrule; // FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
+  written.start; // 2026-03-30T09:00
+  written.duration; // PT8H
+}
+```
+
+`start` is DTSTART, in the form `parseRRule` takes it back in. `duration` is
+how long one occurrence runs, and it belongs in the `DTEND` or `DURATION`
+property beside the recurrence. An RRULE says when something happens and never
+how long it lasts.
+
+A rule naming a zone carries it on the result as `zone`, for the `TZID`
+parameter on `DTSTART`.
+
+### Where it begins
+
+Every recurrence begins at DTSTART. A rule need not begin anywhere (a rule
+about Mondays is about every Monday there has ever been). The start comes from
+one of two places:
+
+- The rule's own lower bound, from `onOrAfter` or `between`.
+- The `start` option, for a rule that has no bound of its own.
+
+A rule with neither comes back with `ok: false`. Choosing a date quietly would
+drop every occurrence before it.
+
+That start is where the search begins, and DTSTART is the first day from there
+that the rule covers. RFC 5545 leaves a recurrence set undefined when DTSTART
+falls outside it. Bound the Mondays from a Tuesday and the recurrence begins on
+the Monday after:
+
+```ts
+const fromTuesday = toRRule(onOrAfter("2026-03-03").and(daysOfWeek("monday")));
+
+if (fromTuesday.ok) {
+  fromTuesday.rrule; // FREQ=WEEKLY;BYDAY=MO
+  fromTuesday.start; // 2026-03-09
+}
+```
+
+A rule covering nothing from that day onwards has no first occurrence, and
+comes back with `ok: false`.
+
+### Whole periods written out
+
+`every` covers whole periods, and a recurrence names the occurrences within
+one. So a cycle with no day named has its days written out.
+
+```ts
+const fortnight = every(2, "weeks", { anchor: "2026-03-02" });
+
+const whole = toRRule(fortnight, { start: "2026-03-02" });
+const mondays = toRRule(fortnight.and(daysOfWeek("monday")), {
+  start: "2026-03-02",
+});
+
+if (whole.ok && mondays.ok) {
+  whole.rrule; // FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TU,WE,TH,FR,SA,SU
+  mondays.rrule; // FREQ=WEEKLY;INTERVAL=2;BYDAY=MO
+}
+```
+
+`WKST` is written when a cycle of weeks turns over on a day other than Monday,
+which is the day RFC 5545 assumes.
+
+### What has no recurrence
+
+`ok` is `false` when a rule says something no recurrence can. `reason` names
+what stopped it.
+
+| The rule                              | Why a recurrence has no form for it               |
+| ------------------------------------- | ------------------------------------------------- |
+| `.except(…)`                          | A recurrence selects times and never removes them |
+| `dates`                               | Those are `RDATE` properties beside the RRULE     |
+| Windows of different lengths in a day | One recurrence carries one duration               |
+| Start times such as 09:00 and 14:30   | `BYHOUR` and `BYMINUTE` select every combination  |
+| An ordinal inside a daily cycle       | Counting within a month needs `FREQ=MONTHLY`      |
 
 ## Time zones
 

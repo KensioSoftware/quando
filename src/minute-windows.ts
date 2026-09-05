@@ -13,9 +13,12 @@
 import { any } from "./build.js";
 import { timeOfDay } from "./calendar-rules.js";
 import { always } from "./build.js";
+import {
+  clockOf,
+  MINUTES_IN_A_DAY,
+  MINUTES_IN_AN_HOUR,
+} from "./day-windows.js";
 import type { Rule } from "./rule.js";
-
-const MINUTES_IN_A_DAY = 24 * 60;
 
 /** The minutes of the day the hour and minute fields select together. */
 export function coveredMinutes(
@@ -25,7 +28,7 @@ export function coveredMinutes(
   const selected: number[] = [];
   for (const hour of hours) {
     for (const minute of minutes) {
-      selected.push(hour * 60 + minute);
+      selected.push(hour * MINUTES_IN_AN_HOUR + minute);
     }
   }
   return selected.toSorted((a, b) => a - b);
@@ -40,7 +43,7 @@ export function timeOfDayRule(selected: readonly number[]): Rule {
   }
 
   const windows = runsOf(selected).map(([from, to]) =>
-    timeOfDay(clock(from), clock(to)),
+    timeOfDay(clockOf(from), clockOf(to)),
   );
 
   const only = windows.length === 1 ? windows[0] : undefined;
@@ -68,18 +71,3 @@ function runsOf(selected: readonly number[]): [number, number][] {
   }
   return runs;
 }
-
-/**
- * A minute of the day as a wall clock time.
- *
- * Midnight at the end of the day is written `00:00`, and `timeOfDay` reads a
- * window ending before it starts as one that runs past midnight. The last
- * minute of the day is 23:59 to 00:00.
- */
-function clock(minuteOfDay: number): string {
-  const wrapped = minuteOfDay % MINUTES_IN_A_DAY;
-  const hour = Math.floor(wrapped / 60);
-  return `${pad(hour)}:${pad(wrapped % 60)}`;
-}
-
-const pad = (value: number): string => String(value).padStart(2, "0");

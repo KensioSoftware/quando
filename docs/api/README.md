@@ -141,7 +141,7 @@ function parseRule(value: unknown, path?: string): Built<Rule>;
 ```
 
 `Period` is `"days"`, `"weeks"`, `"months"` or `"years"`, listed in `PERIODS`.
-The anchor fixes the phase of the cycle and does not bound it.
+The anchor fixes the phase of the cycle, and `onOrAfter` bounds it.
 
 ### Cron expressions
 
@@ -155,6 +155,26 @@ function parseCron(expression: string, options?: CronOptions): Built<Rule>;
 
 Reads a five-field POSIX cron expression as a rule covering the minute each run
 starts in. See [cron expressions](../cron/).
+
+```ts
+interface Unwritable {
+  readonly ok: false;
+  readonly reason: string;
+}
+
+interface WrittenCron {
+  readonly ok: true;
+  readonly cron: string;
+  readonly zone?: string;
+}
+
+type CronExport = WrittenCron | Unwritable;
+
+function toCron(rule: Rule): CronExport;
+```
+
+Writes a rule back out as an expression, when cron has a form for it. `reason`
+says what stopped it when cron has none.
 
 ### Recurrence rules
 
@@ -170,6 +190,30 @@ function parseRRule(text: string, options: RRuleOptions): Built<Rule>;
 Reads an RFC 5545 recurrence rule. `start` is DTSTART, and supplies the time of
 day, the day the pattern repeats on when nothing names one, and the point the
 recurrence begins. See [recurrence rules](../recurrence/).
+
+```ts
+interface ToRRuleOptions {
+  readonly start?: string;
+}
+
+interface WrittenRRule {
+  readonly ok: true;
+  readonly rrule: string;
+  readonly start: string;
+  readonly duration: string;
+  readonly zone?: string;
+}
+
+type RRuleExport = WrittenRRule | Unwritable;
+
+function toRRule(rule: Rule, options?: ToRRuleOptions): RRuleExport;
+```
+
+Writes a rule back out as a recurrence, when one has that form. `start` is
+DTSTART and `duration` is how long an occurrence runs, which the `DTEND` or
+`DURATION` property beside the recurrence carries. The `start` option applies
+only to a rule with no lower bound of its own. DTSTART is the first day from
+that bound onwards that the rule covers, which is what RFC 5545 requires of it.
 
 ### Queries
 
