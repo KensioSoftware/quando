@@ -37,8 +37,8 @@ Read the pages in this order if Quando is new to you:
 ### Custom models
 
 - [Rules](rules/) defines recurring days, times, dates, and combinations.
-- [Cron expressions](cron/) imports a cron expression as a rule.
-- [Recurrence rules](recurrence/) imports an RFC 5545 RRULE as a rule.
+- [Cron expressions](cron/) reads and writes cron expressions as rules.
+- [Recurrence rules](recurrence/) reads and writes RFC 5545 RRULEs as rules.
 - [Cascades](cascades/) assigns values with ordered overrides.
 - [Merging](merging/) combines overlapping values with `sum`, `max`, `min`, or
   `concat`.

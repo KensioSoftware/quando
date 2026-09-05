@@ -74,6 +74,51 @@ wide use follows it.
 A star leaves a field open. A field naming every day restricts it, so
 `0 0 13 * 0-6` runs every day.
 
+## Write a rule out
+
+`toCron` goes the other way. Cron says less than a rule can, so the answer is
+an expression or the reason there is none.
+
+```ts
+import { timeOfDay, toCron, weekdays } from "@kensio/quando";
+
+const written = toCron(weekdays().and(timeOfDay("06:00", "06:01")));
+if (written.ok) {
+  written.cron; // 0 6 * * 1-5
+}
+```
+
+A rule covering more than a minute at a time comes out as every minute of it.
+Office hours become `* 9-16 * * *`. That matches the reading an expression gets
+on the way in, where a run covers the minute it starts in.
+
+A rule naming a zone carries it on the result as `zone`. Cron has no field for
+one, and the daemon has to be told some other way.
+
+### What has no expression
+
+`ok` is `false` when cron has no way to say what the rule says. `reason` names
+what stopped it.
+
+```ts
+const written = toCron(daysOfMonth(13).and(daysOfWeek("friday")));
+// written.reason: it needs a day of the month and a day of the week to match
+// together, and cron reads two restricted day fields as either one matching
+```
+
+Friday the 13th is the sharpest case. The expression that looks right,
+`0 0 13 * 5`, is the union, and it fires on about five days a month.
+
+| The rule                                 | Why cron has no form for it                        |
+| ---------------------------------------- | -------------------------------------------------- |
+| `.except(…)`                             | Cron selects times and never removes them          |
+| `dates`, `onOrAfter`, `between`          | Cron has no year field                             |
+| `every`                                  | Cron's steps restart within each month             |
+| `nthDayOfWeekInMonth`                    | `#` is a Quartz extension                          |
+| `daysOfMonth(-1)`                        | POSIX cron has no `L`                              |
+| A day of the month and a weekday at once | Two restricted day fields mean either one matches  |
+| A window such as 09:30 to 17:30          | The clock fields select hours crossed with minutes |
+
 ## Shorthands
 
 | Shorthand              | Expression  |
@@ -122,8 +167,10 @@ The five-field POSIX dialect only.
   month, which is what `L` usually means.
 - `@reboot`.
 
-Writing a rule back out as cron is still to come. For calendar recurrences,
-see [recurrence rules](../recurrence/).
+For calendar recurrences, see [recurrence rules](../recurrence/).
+
+An expression comes back from `toCron` in values and ranges. Steps such as
+`*/15` are read on the way in and written out as `0,15,30,45`.
 
 <!-- card
 ```ts
