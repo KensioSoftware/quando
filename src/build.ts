@@ -32,6 +32,8 @@ export {
   monthsOfYear,
   nthDayOfWeekInMonth,
 } from "./month-builders.js";
+export type { EveryOptions } from "./every-builders.js";
+export { every } from "./every-builders.js";
 export { between, onOrAfter, onOrBefore } from "./range-builders.js";
 
 /** All of time. */

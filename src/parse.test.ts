@@ -89,6 +89,24 @@ describe("parsing a rule from JSON", () => {
       );
     });
 
+    it("takes a stored recurrence", () => {
+      // Given a fortnightly cycle as a database row would carry it.
+      const document = {
+        type: "every",
+        interval: 2,
+        period: "weeks",
+        anchor: "2026-03-09",
+        zone: "Europe/London",
+      };
+
+      // When it is parsed and serialised again.
+      // Then nothing has moved.
+      assertIdentical(
+        JSON.stringify(parseRule(document)),
+        JSON.stringify(document),
+      );
+    });
+
     it("takes a date range with one end open", () => {
       // Given a schedule that starts on a date and never stops.
       const document = { type: "dateRange", from: "2026-04-01" };
@@ -156,7 +174,7 @@ describe("parsing a rule from JSON", () => {
         complaintAbout({ type: "weekdays" }),
         'rule.type: "weekdays" is not a rule type. ' +
           "Expected one of always, never, daysOfWeek, daysOfMonth, nthDayOfWeekInMonth, " +
-          "monthsOfYear, timeOfDay, dates, dateRange, inZone, all, any, not",
+          "monthsOfYear, every, timeOfDay, dates, dateRange, inZone, all, any, not",
       );
     });
 
@@ -245,6 +263,30 @@ describe("parsing a rule from JSON", () => {
           days: ["monday"],
         }),
         "rule.nth: expected a number, found string",
+      );
+    });
+
+    it("names a bad period and a bad interval", () => {
+      // Given a period written singular, and an interval of zero.
+      // When each is parsed.
+      // Then each is refused with what would have worked.
+      assertIdentical(
+        complaintAbout({
+          type: "every",
+          interval: 2,
+          period: "week",
+          anchor: "2026-03-09",
+        }),
+        'rule.period: "week" is not a period. Expected one of days, weeks, months, years',
+      );
+      assertIdentical(
+        complaintAbout({
+          type: "every",
+          interval: 0,
+          period: "weeks",
+          anchor: "2026-03-09",
+        }),
+        "rule.interval: 0 is not an interval. Expected 1 or more",
       );
     });
 

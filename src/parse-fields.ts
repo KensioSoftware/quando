@@ -10,8 +10,15 @@
  * that JSON is the shape it claims to be and know nothing about time.
  */
 
-import { asString, asStrings, fail, shapeOf } from "./parse-shape.js";
-import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
+import { asString, asStrings, fail } from "./parse-shape.js";
+import {
+  MONTHS,
+  type Month,
+  PERIODS,
+  type Period,
+  WEEKDAYS,
+  type Weekday,
+} from "./rule.js";
 
 const WEEKDAY_NAMES = new Set<string>(WEEKDAYS);
 const MONTH_NAMES = new Set<string>(MONTHS);
@@ -38,36 +45,14 @@ export function asMonths(value: unknown, path: string): Month[] {
   );
 }
 
-export function asMonthDays(value: unknown, path: string): number[] {
-  if (!Array.isArray(value)) {
-    return fail(path, `expected an array, found ${shapeOf(value)}`);
-  }
-  return value.map((day, index) => {
-    const at = `${path}[${index}]`;
-    if (typeof day !== "number") {
-      return fail(at, `expected a number, found ${shapeOf(day)}`);
-    }
-    if (!Number.isInteger(day) || day === 0 || day < -31 || day > 31) {
-      return fail(
-        at,
-        `${day} is not a day of the month. Expected 1 to 31, or -1 to -31 counting back from the end`,
+export function asPeriod(value: unknown, path: string): Period {
+  const period = asString(value, path);
+  return PERIODS.includes(period as Period)
+    ? (period as Period)
+    : fail(
+        path,
+        `"${period}" is not a period. Expected one of ${PERIODS.join(", ")}`,
       );
-    }
-    return day;
-  });
-}
-
-export function asNth(value: unknown, path: string): number {
-  if (typeof value !== "number") {
-    return fail(path, `expected a number, found ${shapeOf(value)}`);
-  }
-  if (!Number.isInteger(value) || value === 0 || value < -5 || value > 5) {
-    return fail(
-      path,
-      `${value} is not an occurrence in a month. Expected 1 to 5, or -1 to -5 counting back from the end`,
-    );
-  }
-  return value;
 }
 
 /** Checked by construction, so a malformed time is caught where it is written. */

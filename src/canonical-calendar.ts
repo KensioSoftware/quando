@@ -65,6 +65,16 @@ export function canonicalCalendarRule(rule: CalendarRule): Rule {
       };
     }
 
+    case "every": {
+      return {
+        type: "every",
+        interval: rule.interval,
+        period: rule.period,
+        anchor: canonicalDate(rule.anchor),
+        ...zonePart(rule.zone),
+      };
+    }
+
     case "dateRange": {
       // Spread from the rule rather than rebuilt end by end. The two ends are
       // not a discriminant, so narrowing on one tells TypeScript nothing about

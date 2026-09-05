@@ -1,4 +1,11 @@
-import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
+import {
+  MONTHS,
+  type Month,
+  PERIODS,
+  type Period,
+  WEEKDAYS,
+  type Weekday,
+} from "./rule.js";
 
 /** Reads and validates a day of the week. */
 export function asWeekday(value: string, path: string): Weekday {
@@ -45,6 +52,26 @@ export function asNthOfMonth(value: number, path: string): number {
   if (!Number.isInteger(value) || value === 0 || value < -5 || value > 5) {
     throw new RangeError(
       `${path} is not an occurrence in a month: ${value}. Expected 1 to 5, or -1 to -5 counting back from the end.`,
+    );
+  }
+  return value;
+}
+
+/** Reads and validates a calendar period. */
+export function asPeriod(value: string, path: string): Period {
+  if (!PERIODS.includes(value as Period)) {
+    throw new RangeError(
+      `${path} is not a period: "${value}". Expected one of ${PERIODS.join(", ")}.`,
+    );
+  }
+  return value as Period;
+}
+
+/** Reads and validates how many periods a recurrence steps through. */
+export function asInterval(value: number, path: string): number {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new RangeError(
+      `${path} is not an interval: ${value}. Expected a whole number of 1 or more.`,
     );
   }
   return value;

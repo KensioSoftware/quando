@@ -10,12 +10,12 @@ import {
   asDate,
   asDates,
   asDays,
-  asMonthDays,
   asMonths,
-  asNth,
+  asPeriod,
   asTime,
   zonePart,
 } from "./parse-fields.js";
+import { asInterval, asMonthDays, asNth } from "./parse-numbers.js";
 import { fail } from "./parse-shape.js";
 import type { Rule } from "./rule.js";
 
@@ -25,6 +25,7 @@ export type CalendarRuleType =
   | "daysOfMonth"
   | "nthDayOfWeekInMonth"
   | "monthsOfYear"
+  | "every"
   | "dates"
   | "dateRange"
   | "timeOfDay";
@@ -72,6 +73,16 @@ export function parseCalendarRule(
       return {
         type: "dates",
         dates: asDates(node["dates"], `${path}.dates`),
+        ...zonePart(node, path),
+      };
+    }
+
+    case "every": {
+      return {
+        type: "every",
+        interval: asInterval(node["interval"], `${path}.interval`),
+        period: asPeriod(node["period"], `${path}.period`),
+        anchor: asDate(node["anchor"], `${path}.anchor`),
         ...zonePart(node, path),
       };
     }

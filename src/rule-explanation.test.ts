@@ -16,6 +16,7 @@ import {
   dates,
   daysOfMonth,
   daysOfWeek,
+  every,
   inZone,
   monthsOfYear,
   never,
@@ -302,6 +303,65 @@ describe("explaining why a rule matches", () => {
     assertFalse(wrongDay.matched);
     assertIdentical(wrongDay.description, "Wednesday is not Monday.");
     assertIdentical(none.description, "No weekdays are listed.");
+  });
+
+  it("says which cycle of a recurrence the instant is in", () => {
+    // Given a fortnightly cycle anchored on Monday 9 March, explained on the
+    // anchor, one week later, and two weeks later.
+    const fortnightly = every(2, "weeks", { anchor: "2026-03-09" });
+
+    // When each is explained.
+    const onAnchor = explainRule(fortnightly, when("2026-03-09T10:00"));
+    const weekAfter = explainRule(fortnightly, when("2026-03-16T10:00"));
+    const fortnightAfter = explainRule(fortnightly, when("2026-03-23T10:00"));
+
+    // Then the count of periods from the anchor is stated, which is the fact
+    // the reader cannot get from the date.
+    assertTrue(onAnchor.matched);
+    assertIdentical(
+      onAnchor.description,
+      "This is in the same week as 2026-03-09, so it is on every 2 weeks.",
+    );
+    assertFalse(weekAfter.matched);
+    assertIdentical(
+      weekAfter.description,
+      "This is 1 week after 2026-03-09, so it is not on every 2 weeks.",
+    );
+    assertTrue(fortnightAfter.matched);
+    assertIdentical(
+      fortnightAfter.description,
+      "This is 2 weeks after 2026-03-09, so it is on every 2 weeks.",
+    );
+  });
+
+  it("counts back when the instant is before the anchor", () => {
+    // Given a quarterly cycle anchored in April, explained on a date before
+    // it. The anchor sets the phase and is not a bound.
+    const quarterly = every(3, "months", { anchor: "2026-04-01" });
+
+    // When January is explained.
+    const explanation = explainRule(quarterly, when("2026-01-15T10:00"));
+
+    // Then the account counts backwards and the cycle still matches.
+    assertTrue(explanation.matched);
+    assertIdentical(
+      explanation.description,
+      "This is 3 months before 2026-04-01, so it is on every 3 months.",
+    );
+  });
+
+  it("says every day rather than every 1 days", () => {
+    // Given the interval RRULE leaves out.
+    const daily = every(1, "days", { anchor: "2026-03-09" });
+
+    // When a later day is explained.
+    const explanation = explainRule(daily, when("2026-03-10T10:00"));
+
+    // Then the count reads as English rather than as the field it came from.
+    assertIdentical(
+      explanation.description,
+      "This is 1 day after 2026-03-09, so it is on every day.",
+    );
   });
 
   it("says which side of a date bound the instant falls", () => {

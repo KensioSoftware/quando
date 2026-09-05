@@ -28,6 +28,7 @@ import {
   monthIntervals,
   nthDayOfWeekInMonthIntervals,
 } from "./month-rules.js";
+import { everyIntervals } from "./every-rules.js";
 import { dateRangeIntervals } from "./range-rules.js";
 import { timeOfDayIntervals } from "./time-rules.js";
 
@@ -97,6 +98,19 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
 
     case "dates": {
       return clip(dateIntervals(context, rule.dates, rule.zone), window);
+    }
+
+    case "every": {
+      return clip(
+        everyIntervals(
+          context,
+          rule.interval,
+          rule.period,
+          rule.anchor,
+          rule.zone,
+        ),
+        window,
+      );
     }
 
     case "dateRange": {
