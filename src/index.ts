@@ -31,6 +31,8 @@ export {
 export { canonical, equals, fingerprint } from "./canonical.js";
 export type { CronOptions } from "./cron.js";
 export { parseCron } from "./cron.js";
+export type { RRuleOptions } from "./rrule.js";
+export { parseRRule } from "./rrule.js";
 export { parseRule } from "./parse.js";
 
 export type {

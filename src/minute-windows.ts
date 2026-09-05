@@ -1,11 +1,13 @@
 /**
- * Turning cron's hour and minute fields into the time of day they cover.
+ * Turning a set of hours and minutes into the time of day they cover.
  *
- * Cron fires at an instant and Quando covers intervals, so a firing time
- * becomes the minute that starts there. `0 9 * * *` covers 09:00 until 09:01.
+ * Cron and RRULE both name the times a thing runs and both fire at an instant,
+ * where Quando covers intervals. A firing time becomes the minute that starts
+ * there, so 9 o'clock covers 09:00 until 09:01.
  *
- * The two fields are a cross product, and neighbouring minutes are joined, so
- * `* 9 * * *` is one window from 09:00 to 10:00 rather than sixty of them.
+ * The hours and minutes are a cross product, and neighbouring minutes are
+ * joined, so every minute of the 9 o'clock hour is one window from 09:00 to
+ * 10:00 rather than sixty of them.
  */
 
 import { any } from "./build.js";
