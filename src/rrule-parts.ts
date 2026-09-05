@@ -47,11 +47,7 @@ export function rruleParts(text: string): Map<string, string> {
   const body = text.trim().replace(/^RRULE:/iu, "");
   const parts = new Map<string, string>();
 
-  for (const piece of body.split(";")) {
-    if (piece === "") {
-      continue;
-    }
-
+  for (const piece of separated(body, ";", "rrule")) {
     const equals = piece.indexOf("=");
     if (equals === -1) {
       return fail("rrule", `"${piece}" is not a NAME=VALUE part`);
@@ -79,4 +75,26 @@ export function rruleParts(text: string): Map<string, string> {
     return fail("rrule", "FREQ is required");
   }
   return parts;
+}
+
+/**
+ * The pieces between separators, with a trailing separator forgiven.
+ *
+ * Generated calendar data often ends a list with one, and nothing is missing
+ * when it does. A separator in the middle is a different thing: something was
+ * meant to be there. Skipping it quietly would accept a recurrence one part
+ * short and say nothing about it.
+ */
+export function separated(
+  text: string,
+  separator: string,
+  path: string,
+): string[] {
+  const pieces = text.split(separator);
+  while (pieces.at(-1) === "") {
+    pieces.pop();
+  }
+  return pieces.some((piece) => piece === "")
+    ? fail(path, `"${text}" has an empty entry`)
+    : pieces;
 }

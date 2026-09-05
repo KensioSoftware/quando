@@ -68,6 +68,16 @@ parseRRule("FREQ=DAILY", { start: "2026-03-11" });
 the month and `BYDAY=-1FR` is the last Friday. Counted and bare entries mix, so
 `BYDAY=1MO,FR` is the first Monday and every Friday.
 
+A count also works under `FREQ=YEARLY` when `BYMONTH` gives it a month to count
+within, which is how most yearly recurrences are written:
+
+```ts
+parseRRule("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH", { start: "2026-01-01" });
+```
+
+That is the fourth Thursday of November. Without `BYMONTH` the count would run
+over the whole year, which has no rule to map onto, and is refused.
+
 ```ts
 parseRRule("FREQ=MONTHLY;BYDAY=-1FR;UNTIL=20260630", { start: "2026-01-01" });
 ```
@@ -106,8 +116,16 @@ const tokyoStandup = parseRRule("FREQ=WEEKLY;BYDAY=MO", {
 
 Without a zone the rule follows the query context, the same as any other rule.
 
-`UNTIL` is written in UTC. It is converted to the day it falls on in the
-recurrence's own zone, so a bound late on the 14th UTC is the 15th in Tokyo.
+`UNTIL` bounds by whole days, and RFC 5545 writes it three ways.
+
+| Written            | Read as                                                               |
+| ------------------ | --------------------------------------------------------------------- |
+| `20261231`         | That calendar date                                                    |
+| `20261231T235959`  | That calendar date. No `Z` means local time                           |
+| `20261231T235959Z` | An instant, converted to the day it falls on in the recurrence's zone |
+
+So a bound of `20260314T230000Z` is the 15th in Tokyo, and `20260314T230000`
+is the 14th wherever it is read.
 
 ## Errors
 

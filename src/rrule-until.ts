@@ -1,10 +1,14 @@
 /**
  * The day an `UNTIL` bounds a recurrence at.
  *
- * RFC 5545 writes it as a UTC timestamp or a bare date, and Quando bounds by
- * whole days. So the time is read, used to settle which day the instant lands
- * on where the recurrence is read, and then dropped. The named day is
- * included, which is what `UNTIL` means.
+ * Quando bounds by whole days, so the job is to work out which day the value
+ * names. RFC 5545 writes it three ways and two of them are already that day:
+ * a bare date is one, and a timestamp without a `Z` is local time, so the day
+ * it names is the one written.
+ *
+ * A timestamp ending in `Z` is an instant, and which day it lands on depends
+ * on where the recurrence is read. That one is converted. The named day is
+ * included either way, which is what `UNTIL` means.
  */
 
 import { fail } from "./parse-shape.js";
@@ -16,7 +20,9 @@ import { fail } from "./parse-shape.js";
  * days, so the time is read and then dropped, and the named day is included.
  */
 export function parseUntil(value: string, zone: string): string {
-  const match = /^(?<date>\d{8})(T(?<time>\d{6})Z?)?$/u.exec(value.trim());
+  const match = /^(?<date>\d{8})(T(?<time>\d{6})(?<utc>Z)?)?$/u.exec(
+    value.trim(),
+  );
   const date = match?.groups?.["date"];
   if (date === undefined) {
     return fail(
@@ -27,7 +33,7 @@ export function parseUntil(value: string, zone: string): string {
 
   const iso = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
   const time = match?.groups?.["time"];
-  if (time === undefined) {
+  if (time === undefined || match?.groups?.["utc"] === undefined) {
     return checkedDate(iso, value);
   }
 

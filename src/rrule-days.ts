@@ -14,7 +14,20 @@ import { fail } from "./parse-shape.js";
 import type { Period, Rule } from "./rule.js";
 import type { ByDay } from "./rrule-values.js";
 
-export function byDayRule(entries: readonly ByDay[], period: Period): Rule {
+/**
+ * `monthRestricted` says whether a `BYMONTH` narrows the recurrence.
+ *
+ * It is what makes an ordinal work under `FREQ=YEARLY`. `BYDAY=4TH` on its own
+ * counts Thursdays through the whole year, which has no rule to map onto, but
+ * with `BYMONTH=11` it counts them within November and
+ * `nthDayOfWeekInMonth` says exactly that. Thanksgiving is written that way,
+ * and so is most of what `FREQ=YEARLY` is used for.
+ */
+export function byDayRule(
+  entries: readonly ByDay[],
+  period: Period,
+  monthRestricted: boolean,
+): Rule {
   // Flattened rather than filtered, so the ordinal is a number from here on
   // and there is no absent one to fall back from.
   const counted = entries.flatMap((entry) =>
@@ -22,14 +35,17 @@ export function byDayRule(entries: readonly ByDay[], period: Period): Rule {
       ? []
       : [{ day: entry.day, ordinal: entry.ordinal }],
   );
-  if (counted.length > 0 && period !== "months") {
+  if (counted.length > 0 && !countable(period, monthRestricted)) {
     return fail(
       "BYDAY",
-      `an ordinal counts a weekday within a month, so it needs FREQ=MONTHLY`,
+      period === "years"
+        ? "an ordinal under FREQ=YEARLY counts a weekday within the whole year, which has no rule to map onto. Add BYMONTH to count it within a month"
+        : "an ordinal counts a weekday within a month, so it needs FREQ=MONTHLY or FREQ=YEARLY with BYMONTH",
     );
   }
 
   const plain = entries.filter((entry) => entry.ordinal === undefined);
+
   const rules: Rule[] = counted.map((entry) =>
     nthDayOfWeekInMonth(entry.ordinal, entry.day),
   );
@@ -39,4 +55,9 @@ export function byDayRule(entries: readonly ByDay[], period: Period): Rule {
 
   const only = rules.length === 1 ? rules[0] : undefined;
   return only ?? any(...rules);
+}
+
+/** Where an ordinal has a month to count within. */
+function countable(period: Period, monthRestricted: boolean): boolean {
+  return period === "months" || (period === "years" && monthRestricted);
 }

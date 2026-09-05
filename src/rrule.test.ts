@@ -3,8 +3,8 @@ import {
   assertArrayLength,
   assertIdentical,
   assertInstanceOf,
+  assertStringStartsWith,
   assertThrowsError,
-  assertTrue,
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
@@ -171,16 +171,27 @@ describe("reading a recurrence rule as a rule", () => {
     });
 
     it("takes WKST as the day it names", () => {
-      // Given the same recurrence with weeks starting on Sunday.
+      // Given a fortnightly recurrence on Sundays and Mondays, which are the
+      // two days a week boundary falls between. Grouping them into weeks that
+      // start on Monday puts them in different weeks, and starting on Sunday
+      // puts them in the same one, so the two settings cannot agree.
       const month = inWindow("2026-03-01T00:00", "2026-04-06T00:00");
-
-      // When five weeks are read.
-      // Then the grouping shifts with the week, which is the whole reason
-      // WKST is in the format.
-      assertIdentical(
-        days("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,FR;WKST=SU", "2026-03-11", month),
-        "2026-03-13 2026-03-23 2026-03-27",
+      const byMonday = days(
+        "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU,MO",
+        "2026-03-11",
+        month,
       );
+      const bySunday = days(
+        "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU,MO;WKST=SU",
+        "2026-03-11",
+        month,
+      );
+
+      // When five weeks are read under each.
+      // Then they select different days, which is the whole reason WKST is in
+      // the format.
+      assertIdentical(byMonday, "2026-03-15 2026-03-23 2026-03-29");
+      assertIdentical(bySunday, "2026-03-22 2026-03-23 2026-04-05");
     });
 
     it("steps through months", () => {
@@ -243,6 +254,20 @@ describe("reading a recurrence rule as a rule", () => {
       assertIdentical(
         days("FREQ=MONTHLY;BYDAY=1MO,FR", "2026-03-01", month),
         "2026-03-02 2026-03-06 2026-03-13 2026-03-20 2026-03-27",
+      );
+    });
+
+    it("counts a weekday within a month named by BYMONTH", () => {
+      // Given the fourth Thursday of November, which is how Thanksgiving is
+      // written and how most yearly recurrences with an ordinal are. BYMONTH
+      // gives the ordinal a month to count within.
+      const years = inWindow("2026-01-01T00:00", "2029-01-01T00:00");
+
+      // When three years are read.
+      // Then it lands once a year, in November.
+      assertIdentical(
+        days("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH", "2026-01-01", years),
+        "2026-11-26 2027-11-25 2028-11-23",
       );
     });
 
@@ -369,6 +394,33 @@ describe("reading a recurrence rule as a rule", () => {
     });
   });
 
+  describe("a floating UNTIL", () => {
+    it("keeps the day it was written with, rather than converting it", () => {
+      // Given an UNTIL late on the 14th with no Z, read in Tokyo. RFC 5545
+      // reads a timestamp without a Z as local time, so the day it names is
+      // the one written. Read as a UTC instant it would land on the 15th.
+      const month = inWindow(
+        "2026-03-01T00:00",
+        "2026-04-01T00:00",
+        "Asia/Tokyo",
+      );
+      const floating = parseRRule("FREQ=DAILY;UNTIL=20260314T230000", {
+        start: "2026-03-11",
+        zone: "Asia/Tokyo",
+      });
+      const instant = parseRRule("FREQ=DAILY;UNTIL=20260314T230000Z", {
+        start: "2026-03-11",
+        zone: "Asia/Tokyo",
+      });
+
+      // When each is read.
+      // Then the floating one stops on the 14th and the UTC one runs to the
+      // 15th, because that is the day the instant falls on in Tokyo.
+      assertIdentical(daysOf(floating, month).split(" ").at(-1), "2026-03-14");
+      assertIdentical(daysOf(instant, month).split(" ").at(-1), "2026-03-15");
+    });
+  });
+
   describe("refusing a recurrence", () => {
     it("requires a frequency", () => {
       // Given a recurrence with no FREQ, which RFC 5545 requires.
@@ -393,19 +445,21 @@ describe("reading a recurrence rule as a rule", () => {
       // When each is parsed.
       // Then each is refused by name, so a reader learns which one and why
       // rather than finding the recurrence quietly means something else.
-      assertTrue(
-        complaintAbout("FREQ=DAILY;COUNT=10").startsWith(
-          "COUNT: a count of occurrences is not something a rule can express",
-        ),
+      assertStringStartsWith(
+        complaintAbout("FREQ=DAILY;COUNT=10"),
+        "COUNT: a count of occurrences is not something a rule can express",
       );
-      assertTrue(
-        complaintAbout("FREQ=MONTHLY;BYSETPOS=-1").startsWith("BYSETPOS:"),
+      assertStringStartsWith(
+        complaintAbout("FREQ=MONTHLY;BYSETPOS=-1"),
+        "BYSETPOS:",
       );
-      assertTrue(
-        complaintAbout("FREQ=YEARLY;BYWEEKNO=20").startsWith("BYWEEKNO:"),
+      assertStringStartsWith(
+        complaintAbout("FREQ=YEARLY;BYWEEKNO=20"),
+        "BYWEEKNO:",
       );
-      assertTrue(
-        complaintAbout("FREQ=YEARLY;BYYEARDAY=100").startsWith("BYYEARDAY:"),
+      assertStringStartsWith(
+        complaintAbout("FREQ=YEARLY;BYYEARDAY=100"),
+        "BYYEARDAY:",
       );
       assertIdentical(
         complaintAbout("FREQ=DAILY;BYSECOND=30"),
@@ -413,14 +467,45 @@ describe("reading a recurrence rule as a rule", () => {
       );
     });
 
-    it("refuses an ordinal outside a monthly recurrence", () => {
-      // Given a weekly recurrence counting Mondays. An ordinal counts within a
-      // month, so a weekly frequency has nothing to count it in.
-      // When it is parsed.
-      // Then it is refused rather than the ordinal being dropped.
+    it("refuses an ordinal with no month to count within", () => {
+      // Given a weekly recurrence counting Mondays, and a yearly one with no
+      // BYMONTH. An ordinal counts a weekday within a month, and neither of
+      // those has one.
+      // When each is parsed.
+      // Then each is refused rather than the ordinal being dropped, and the
+      // yearly one is told what would make it work.
       assertIdentical(
         complaintAbout("FREQ=WEEKLY;BYDAY=1MO"),
-        "BYDAY: an ordinal counts a weekday within a month, so it needs FREQ=MONTHLY",
+        "BYDAY: an ordinal counts a weekday within a month, so it needs FREQ=MONTHLY or FREQ=YEARLY with BYMONTH",
+      );
+      assertStringStartsWith(
+        complaintAbout("FREQ=YEARLY;BYDAY=4TH"),
+        "BYDAY: an ordinal under FREQ=YEARLY counts a weekday within the whole year",
+      );
+    });
+
+    it("refuses a day of the month under a weekly recurrence", () => {
+      // Given the pair RFC 5545 forbids. A week has no day of the month to
+      // select, so intersecting the two would mean something the recurrence
+      // never said.
+      // When it is parsed.
+      // Then it is refused.
+      assertIdentical(
+        complaintAbout("FREQ=WEEKLY;BYMONTHDAY=15"),
+        "BYMONTHDAY: has no meaning under FREQ=WEEKLY",
+      );
+    });
+
+    it("refuses an empty entry in the middle", () => {
+      // Given a doubled separator in the parts and in a value. Something was
+      // meant to be there, and skipping it quietly would accept a recurrence
+      // one part short.
+      // When each is parsed.
+      // Then each is refused.
+      assertStringStartsWith(complaintAbout("FREQ=WEEKLY;;BYDAY=MO"), "rrule:");
+      assertStringStartsWith(
+        complaintAbout("FREQ=WEEKLY;BYDAY=MO,,WE"),
+        "BYDAY:",
       );
     });
 
@@ -436,10 +521,9 @@ describe("reading a recurrence rule as a rule", () => {
         complaintAbout("FREQ=DAILY;INTERVAL=2;INTERVAL=3"),
         "INTERVAL: is given twice",
       );
-      assertTrue(
-        complaintAbout("FREQ=DAILY;BYFORTNIGHT=2").startsWith(
-          'rrule: "BYFORTNIGHT" is not a recurrence rule part.',
-        ),
+      assertStringStartsWith(
+        complaintAbout("FREQ=DAILY;BYFORTNIGHT=2"),
+        'rrule: "BYFORTNIGHT" is not a recurrence rule part.',
       );
     });
 
@@ -455,15 +539,13 @@ describe("reading a recurrence rule as a rule", () => {
         complaintAbout("FREQ=MONTHLY;BYMONTHDAY=32"),
         'BYMONTHDAY: "32" is out of range. Expected 1 to 31, or -1 to -31 counting back from the end',
       );
-      assertTrue(
-        complaintAbout("FREQ=WEEKLY;BYDAY=XX").startsWith(
-          'BYDAY: "XX" is not a weekday.',
-        ),
+      assertStringStartsWith(
+        complaintAbout("FREQ=WEEKLY;BYDAY=XX"),
+        'BYDAY: "XX" is not a weekday.',
       );
-      assertTrue(
-        complaintAbout("FREQ=DAILY;UNTIL=soon").startsWith(
-          'UNTIL: "soon" is not a date.',
-        ),
+      assertStringStartsWith(
+        complaintAbout("FREQ=DAILY;UNTIL=soon"),
+        'UNTIL: "soon" is not a date.',
       );
     });
 
@@ -480,8 +562,13 @@ describe("reading a recurrence rule as a rule", () => {
         complaintAbout("FREQ=DAILY;UNTIL=20261345T120000Z"),
         'UNTIL: "20261345T120000Z" is not a date and time',
       );
+      // Checked wherever it appears, not only where it changes the answer.
       assertIdentical(
         complaintAbout("FREQ=WEEKLY;INTERVAL=2;WKST=XX"),
+        'WKST: "XX" is not a weekday',
+      );
+      assertIdentical(
+        complaintAbout("FREQ=WEEKLY;WKST=XX"),
         'WKST: "XX" is not a weekday',
       );
     });
@@ -490,10 +577,9 @@ describe("reading a recurrence rule as a rule", () => {
       // Given a sixth Monday, which no month has.
       // When it is parsed.
       // Then it is refused with the range that works.
-      assertTrue(
-        complaintAbout("FREQ=MONTHLY;BYDAY=6MO").startsWith(
-          'BYDAY: "6MO" counts an occurrence no month holds.',
-        ),
+      assertStringStartsWith(
+        complaintAbout("FREQ=MONTHLY;BYDAY=6MO"),
+        'BYDAY: "6MO" counts an occurrence no month holds.',
       );
     });
 
@@ -514,10 +600,9 @@ describe("reading a recurrence rule as a rule", () => {
       // Given a start Temporal cannot read.
       // When it is parsed.
       // Then the message shows both shapes that work.
-      assertTrue(
-        complaintAbout("FREQ=DAILY", "next Tuesday").startsWith(
-          'start: "next Tuesday" is not a date.',
-        ),
+      assertStringStartsWith(
+        complaintAbout("FREQ=DAILY", "next Tuesday"),
+        'start: "next Tuesday" is not a date.',
       );
     });
   });

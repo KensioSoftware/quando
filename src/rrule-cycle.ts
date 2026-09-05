@@ -22,15 +22,18 @@ export function cycleRule(
   start: Temporal.PlainDate,
   zone: string | undefined,
 ): Rule {
+  // Read before the early return below. An interval of one does not need the
+  // answer, and a WKST that is not a weekday is still wrong.
+  const weekStart = weekStartOf(parts);
   const interval = intervalOf(parts);
+
   if (interval === 1) {
     // Every period, which narrows nothing. Left out of the rule document
     // rather than written as a cycle that always holds.
     return always();
   }
 
-  const anchor =
-    period === "weeks" ? weekAnchor(start, weekStartOf(parts)) : start;
+  const anchor = period === "weeks" ? weekAnchor(start, weekStart) : start;
   // The zone stays absent when the caller gave none, so the cycle turns over
   // on the same midnight as every other rule in the recurrence. Pinning it to
   // one zone while the rest follow the query's put the two an hour apart

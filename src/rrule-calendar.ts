@@ -10,6 +10,7 @@
 import { daysOfWeek } from "./build.js";
 import { daysOfMonth, monthsOfYear } from "./month-builders.js";
 import { MONTHS, type Period, type Rule, WEEKDAYS } from "./rule.js";
+import { fail } from "./parse-shape.js";
 import { byDayRule } from "./rrule-days.js";
 import { impliedBy } from "./rrule-frequency.js";
 import { parseByDay, partNumbers } from "./rrule-values.js";
@@ -37,9 +38,16 @@ function calendarRules(
     month: byMonth !== undefined,
   });
 
+  if (byMonthDay !== undefined && period === "weeks") {
+    // RFC 5545 forbids the pair, and the reason is that a week has no day of
+    // the month to select. Refused rather than intersected into something the
+    // recurrence never meant.
+    return fail("BYMONTHDAY", "has no meaning under FREQ=WEEKLY");
+  }
+
   const rules: Rule[] = [];
   if (byDay !== undefined) {
-    rules.push(byDayRule(byDay, period));
+    rules.push(byDayRule(byDay, period, byMonth !== undefined));
   } else if (implied.weekday) {
     // Filtered rather than indexed, so there is no miss to fall back from.
     rules.push(

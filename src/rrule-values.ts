@@ -7,6 +7,7 @@
  */
 
 import { fail } from "./parse-shape.js";
+import { separated } from "./rrule-parts.js";
 import type { Weekday } from "./rule.js";
 
 /** RFC 5545 writes the week starting on Sunday, in two-letter codes. */
@@ -103,6 +104,6 @@ export function partNumbers(
 }
 
 function splitValue(value: string, name: string): string[] {
-  const entries = value.split(",").filter((entry) => entry !== "");
+  const entries = separated(value, ",", name);
   return entries.length === 0 ? fail(name, "is empty") : entries;
 }
