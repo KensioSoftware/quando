@@ -44,6 +44,7 @@ store. There is no final `.build()` call.
 | `any(...rules)`                     | Times covered by at least one rule                 |
 | `not(rule)`                         | Times outside the rule                             |
 | `inZone(zone, rule)`                | A rule subtree evaluated in one time zone          |
+| `inCalendar(calendar, rule)`        | A rule subtree counted on one calendar             |
 | `custom(name, options?, zone?)`     | A rule type the application supplies               |
 
 Builders validate their inputs immediately. Invalid weekday names, dates,
@@ -318,6 +319,76 @@ const londonOffice = inZone(
 The weekday and time-of-day parts now use London local time. A nested `inZone`
 can choose a different zone for one child rule.
 
+## Set a calendar
+
+Rules count on the ISO calendar by default. `inCalendar` reads one subtree on
+any calendar `Temporal` implements, so "the first day of the month" can mean
+Rosh Chodesh rather than the first of January.
+
+```ts
+import { daysOfMonth, inCalendar } from "@kensio/quando";
+import { intervals } from "@kensio/quando/core";
+
+const roshChodesh = inCalendar("hebrew", daysOfMonth(1));
+
+const window = {
+  from: Temporal.ZonedDateTime.from("2026-01-01T00:00[Asia/Jerusalem]"),
+  to: Temporal.ZonedDateTime.from("2026-06-01T00:00[Asia/Jerusalem]"),
+};
+
+console.log(
+  [...intervals(roshChodesh, window)]
+    .map((interval) => interval.start?.toPlainDate().toString())
+    .join(" "),
+);
+```
+
+```text
+2026-01-19 2026-02-18 2026-03-19 2026-04-18 2026-05-17
+```
+
+The instants do not move. What changes is the year, month and day a rule reads
+off a date, so `daysOfMonth`, `nthDayOfWeekInMonth` and a cycle of days or
+weeks all answer on the calendar named. Weekdays are the same seven-day cycle
+on these calendars and need no wrapper.
+
+Answers come back on the calendar the query was asked in, the same way they
+come back in the query's zone. Which calendar a rule counted on is how it was
+written rather than part of the answer.
+
+Calendars nest and combine with zones. The innermost `inCalendar` wins, and a
+rule outside the wrapper keeps counting on the ISO calendar:
+
+```ts
+const workingRoshChodesh = inCalendar("hebrew", daysOfMonth(1)).and(weekdays());
+```
+
+### Months stay Gregorian
+
+`monthsOfYear` names the twelve Gregorian months, and `every(n, "months")` and
+`every(n, "years")` count them. Another calendar names its months differently
+and a Hebrew leap year holds thirteen of them, which moves the index a
+Gregorian name would map to. Both are refused under `inCalendar` rather than
+answered wrongly:
+
+```ts
+inCalendar("hebrew", monthsOfYear("january"));
+```
+
+```text
+RangeError: monthsOfYear() names Gregorian months, so it cannot be read on the hebrew calendar. Another calendar names its months differently, and may hold thirteen of them.
+```
+
+Select the days instead, with `daysOfMonth`, or name the dates with `dates`.
+
+`dates` and `between` name ISO dates whatever calendar surrounds them. Note
+that a calendar annotation on a date string does not name a date on that
+calendar. `Temporal.PlainDate.from("5786-07-15[u-ca=hebrew]")` reads the fields
+as ISO and then relabels them, giving Hebrew year 9546.
+
+`toCron` and `toRRule` refuse a rule read on another calendar, because both
+notations count Gregorian months and years.
+
 ## Query a rule
 
 The root package provides the common queries:
@@ -436,7 +507,7 @@ between tests.
 ### The document holds a name, not a function
 
 A `custom` rule stores and travels like every other rule. Only evaluating one
-needs the registry, so a service can hold, forward and canonicalise a schedule
+needs the registry. A service can hold, forward and canonicalise a schedule
 whose rules it cannot itself run.
 
 ```ts
@@ -447,7 +518,7 @@ console.log(JSON.stringify(custom("easter", { offset: 1 })));
 {"type":"custom","name":"easter","options":{"offset":1}}
 ```
 
-Options are stored, so they must survive a JSON round trip. `parseRule` refuses
+Options are stored and must survive a JSON round trip. `parseRule` refuses
 anything that would not. Evaluating a rule whose name the registry does not
 hold throws `UnknownCustomRuleError`, which names what was asked for and what
 the context does hold.
@@ -460,19 +531,19 @@ contract every interval stream keeps. Touching intervals are merged for you.
 Out-of-order or overlapping intervals throw `CustomRuleStreamError`, because
 repairing those means holding the whole stream in memory.
 
-Quando clips the result to the query window, so a rule type may yield forever.
+Quando clips the result to the query window, and a rule type may yield forever.
 The example above still terminates on an unbounded context because the
 interpreter stops pulling.
 
 A `zone` argument reads the rule the way `inZone` does. The same instants
-arrive displayed in that zone, so a rule type reads
-`context.from.timeZoneId` and never handles the field itself.
+arrive displayed in that zone. A rule type reads `context.from.timeZoneId` and
+never handles the field itself.
 
 ### What a custom rule cannot do
 
 `toCron` and `toRRule` refuse a rule holding a custom type, and say why. A
 notation carries what the document says, and this document says a name. The
-command line cannot evaluate custom rules either, for the same reason: it reads
+command line cannot evaluate custom rules either, for the same reason. It reads
 stored documents and has nowhere to take code from.
 
 ## Store a rule

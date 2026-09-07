@@ -6,17 +6,28 @@
  * the account of each child is already written by the time it gets here.
  */
 
-import type { AllRule, AnyRule, InZoneRule, NotRule } from "./rule.js";
+import type {
+  AllRule,
+  AnyRule,
+  InCalendarRule,
+  InZoneRule,
+  NotRule,
+} from "./rule.js";
 import type { RuleExplanation } from "./rule-explanation.js";
 
 export function describeCompoundMatch(
-  rule: AllRule | AnyRule | NotRule | InZoneRule,
+  rule: AllRule | AnyRule | NotRule | InZoneRule | InCalendarRule,
   matched: boolean,
   conditions: readonly RuleExplanation[],
 ): string {
   switch (rule.type) {
     case "inZone": {
       return `The rule uses ${rule.zone}. ${conditions[0]?.description ?? ""}`;
+    }
+    case "inCalendar": {
+      return `The rule counts on the ${rule.calendar} calendar. ${
+        conditions[0]?.description ?? ""
+      }`;
     }
     case "all": {
       if (conditions.length === 0) {

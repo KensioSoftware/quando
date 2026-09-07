@@ -76,6 +76,7 @@ export type Rule =
   | DatesRule
   | DateRangeRule
   | CustomRule
+  | InCalendarRule
   | InZoneRule
   | AllRule
   | AnyRule
@@ -117,6 +118,23 @@ export interface CustomRule {
 
   /** Reads the rule in this zone, the way `inZone` would. */
   readonly zone?: string;
+}
+
+/**
+ * Evaluates a rule subtree on a named calendar.
+ *
+ * The instants do not move. What changes is the year, month and day a rule
+ * reads off a date, so `daysOfMonth(1)` under `"hebrew"` covers Rosh Chodesh
+ * and under the ISO calendar covers the first of each Gregorian month.
+ *
+ * Any calendar `Temporal` implements. Quando's month *names* are Gregorian, so
+ * `monthsOfYear` and a cycle of months or years are refused on another
+ * calendar rather than answered wrongly.
+ */
+export interface InCalendarRule {
+  readonly type: "inCalendar";
+  readonly calendar: string;
+  readonly rule: Rule;
 }
 
 /** All time. The identity for intersection. */

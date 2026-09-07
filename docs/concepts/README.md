@@ -126,6 +126,10 @@ provide holiday datasets. A rule the vocabulary cannot say, such as Easter or
 sunset, is supplied by the application through
 [custom rule types](../rules/#supply-your-own-rule-type).
 
+Rules count on the ISO calendar unless `inCalendar` names another. Month names
+stay Gregorian there, so `monthsOfYear` and a cycle of months or years are
+refused on another calendar. See [rules](../rules/#set-a-calendar).
+
 Every rule describes a set of times independently. Constraints that depend on
 previous occurrences need a different model. Examples include a minimum gap
 between doses, a maximum number of requests per minute, and a rolling total.

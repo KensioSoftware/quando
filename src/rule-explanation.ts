@@ -57,6 +57,9 @@ function childConditions(
     case "inZone": {
       return [explainInZone(rule.rule, at, context, rule.zone)];
     }
+    case "inCalendar": {
+      return [explainInZone(rule.rule, at, context, inheritedZone)];
+    }
     case "all":
     case "any": {
       return rule.rules.map((child) =>

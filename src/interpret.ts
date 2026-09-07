@@ -13,7 +13,13 @@
  */
 
 import { checkWindow } from "./validation.js";
-import { contextInZone, type Context, windowOf } from "./context.js";
+import {
+  calendarOf,
+  contextInCalendar,
+  contextInZone,
+  type Context,
+  windowOf,
+} from "./context.js";
 import { calendarIntervals } from "./calendar-intervals.js";
 import { customIntervals } from "./custom-rules.js";
 import {
@@ -43,17 +49,30 @@ const EMPTY: IntervalStream = [];
  * from a Tokyo context would otherwise hand back an interval whose two halves
  * disagree about what time it is. The instants are unaffected either way; this
  * only settles which zone reads them back.
+ *
+ * The calendar is normalised back the same way and for the same reason. A
+ * subtree read on the Hebrew calendar would otherwise hand back instants that
+ * print as `[u-ca=hebrew]`, which is a detail of how the rule was written
+ * rather than anything about the answer.
  */
 export function intervals(rule: Rule, context: Context): IntervalStream {
   checkWindow(context.from, context.to);
-  return readIn(evaluate(rule, context), context.from.timeZoneId);
+  return readIn(
+    evaluate(rule, context),
+    context.from.timeZoneId,
+    calendarOf(context),
+  );
 }
 
-function* readIn(stream: IntervalStream, zone: string): IntervalStream {
+function* readIn(
+  stream: IntervalStream,
+  zone: string,
+  calendar: string,
+): IntervalStream {
   for (const interval of stream) {
     yield {
-      start: interval.start?.withTimeZone(zone),
-      end: interval.end?.withTimeZone(zone),
+      start: interval.start?.withTimeZone(zone).withCalendar(calendar),
+      end: interval.end?.withTimeZone(zone).withCalendar(calendar),
     };
   }
 }
@@ -86,6 +105,10 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
       // clipping buys, and a third-party stream is the one place it cannot be
       // assumed.
       return clip(customIntervals(rule, context), window);
+    }
+
+    case "inCalendar": {
+      return evaluate(rule.rule, contextInCalendar(context, rule.calendar));
     }
 
     case "inZone": {

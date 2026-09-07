@@ -15,6 +15,8 @@ import {
   type ElapsedUnit,
   ELAPSED_UNITS,
   firstGap,
+  inCalendar,
+  type InCalendarRule,
   type LayerOptions,
   type OpenDayOptions,
   renderTimeline,
@@ -128,6 +130,8 @@ const shutdown: CustomRuleType = {
 };
 const registry: RuleRegistry = { shutdown };
 const customRule: CustomRule = custom("shutdown", { region: "gb" });
+const hebrewRule: InCalendarRule = inCalendar("hebrew", weekdays());
+void hebrewRule;
 const customInZone: CustomRule = custom("shutdown", undefined, "Europe/London");
 const closedForWorks: boolean = activeAt(customRule, start, {
   rules: registry,
@@ -199,6 +203,9 @@ office.addOpenDays(start, 3, { startingDay: "clear" });
 
 // @ts-expect-error Custom rule options are stored, so they must be JSON.
 custom("shutdown", { at: () => start });
+
+// @ts-expect-error A calendar is named by string, like a zone.
+inCalendar(7, weekdays());
 
 // @ts-expect-error A sum accepts numeric layers.
 merged("sum", layer(weekdays(), "alice"));
