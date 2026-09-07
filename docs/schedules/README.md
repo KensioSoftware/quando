@@ -67,6 +67,11 @@ openingHours.openDuration(
   Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 );
+openingHours.addOpenDays(friday, 3);
+openingHours.openDayCount(
+  Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
+);
 openingHours.renderTimeline(
   Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
@@ -89,12 +94,14 @@ openingHours.changesTo(
 | `.openSlots(from, to, options)`          | Candidate slots inside a finite window      |
 | `.addOpenTime(from, amount, search?)`    | The instant reached after open time elapses |
 | `.openDuration(from, to)`                | The open duration inside a finite window    |
+| `.addOpenDays(from, count, options?)`    | The instant reached after whole open days   |
+| `.openDayCount(from, to)`                | The open days inside a finite window        |
 | `.changesTo(next, from, to)`             | Newly opened and closed intervals           |
 | `.validate(from, to)`                    | Inactive and shadowed schedule layers       |
 | `.renderTimeline(from, to, options?)`    | JSON data or a text chart of opening times  |
 
-`opensNext`, `firstOpenSlot`, and `addOpenTime` search up to 100 years by
-default. Pass a `within` duration when finding no result is an expected
+`opensNext`, `firstOpenSlot`, `addOpenTime`, and `addOpenDays` search up to 100
+years by default. Pass a `within` duration when finding no result is an expected
 outcome:
 
 ```ts
@@ -120,6 +127,26 @@ const afternoonSlots = openingHours.openSlots(
   },
 );
 ```
+
+`addOpenDays` counts whole days where `addOpenTime` counts elapsed hours. Three
+working days from a Friday afternoon is the following Wednesday, and the answer
+is the instant the schedule opens that morning:
+
+```ts
+const delivery = openingHours.addOpenDays(friday, 3);
+
+console.log(delivery?.toString());
+```
+
+```text
+2026-03-18T09:00:00+00:00[Europe/London]
+```
+
+A day counts when the schedule is open for any part of it, so a half-day is a
+whole open day. Both day methods read dates on the schedule's own calendar, the
+zone given to `schedule({ zone })`, matching `renderTimeline`. The
+[queries guide](../queries/#which-day-the-count-starts-on) covers the
+`startingDay` convention and clear days.
 
 `changesTo` compares the old schedule with a new one inside a finite window.
 It returns lazy `opened` and `closed` interval streams:

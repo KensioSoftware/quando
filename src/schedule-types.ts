@@ -5,6 +5,7 @@ import type { Interval } from "./interval.js";
 import type { LayerOptions } from "./layer-options.js";
 import type { PlainRule } from "./plain-forms.js";
 import type { Search } from "./query.js";
+import type { OpenDayOptions } from "./schedule-days.js";
 import type { ValidationDiagnostic } from "./semantic-validation.js";
 import type {
   TimelineFormat,
@@ -74,6 +75,15 @@ export interface Schedule extends ScheduleData {
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
   ) => Temporal.Duration;
+  readonly addOpenDays: (
+    from: Temporal.ZonedDateTime,
+    count: number,
+    options?: OpenDayOptions,
+  ) => Temporal.ZonedDateTime | undefined;
+  readonly openDayCount: (
+    from: Temporal.ZonedDateTime,
+    to: Temporal.ZonedDateTime,
+  ) => number;
   readonly renderTimeline: <F extends TimelineFormat = "json">(
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,

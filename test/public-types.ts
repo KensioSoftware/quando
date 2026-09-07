@@ -1,6 +1,9 @@
 import {
   accumulate,
   advanceBy,
+  advanceByCoveredDays,
+  type CoveredDayOptions,
+  coveredDayCount,
   type CoverageChanges,
   coverageChanges,
   type Explanation,
@@ -8,6 +11,7 @@ import {
   ELAPSED_UNITS,
   firstGap,
   type LayerOptions,
+  type OpenDayOptions,
   renderTimeline,
   rota,
   type RuleExplanation,
@@ -15,6 +19,7 @@ import {
   schedule,
   type ScheduleChanges,
   slots,
+  type StartingDay,
   type Timeline,
   type TimelineFormat,
   type TimelineOptions,
@@ -110,6 +115,26 @@ const textTimeline: string = renderTimeline(
   { format: "text" },
 );
 const scheduleTimeline: Timeline = office.renderTimeline(start, end);
+const startingDay: StartingDay = "included";
+const openDayOptions: OpenDayOptions = { startingDay };
+const dayOptions: CoveredDayOptions<boolean> = {
+  during: office,
+  startingDay,
+  within: Temporal.Duration.from({ days: 30 }),
+};
+const openDays: number = coveredDayCount(office, { from: start, to: end });
+const workingDay: Temporal.ZonedDateTime | undefined = advanceByCoveredDays(
+  start,
+  3,
+  dayOptions,
+);
+const scheduleOpenDays: number = office.openDayCount(start, end);
+const scheduleWorkingDay: Temporal.ZonedDateTime | undefined =
+  office.addOpenDays(start, 3, openDayOptions);
+void openDays;
+void workingDay;
+void scheduleOpenDays;
+void scheduleWorkingDay;
 office.validate(start, end);
 office.explain(start);
 rota().assign(weekdays(), "alice").validate(start, end);
@@ -145,6 +170,9 @@ merged(
 
 // @ts-expect-error Calendar units are ambiguous for elapsed-time accumulation.
 staff.totalBetween(start, end, "day");
+
+// @ts-expect-error A day count has only the two conventions.
+office.addOpenDays(start, 3, { startingDay: "clear" });
 
 // @ts-expect-error A sum accepts numeric layers.
 merged("sum", layer(weekdays(), "alice"));

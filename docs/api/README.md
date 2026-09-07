@@ -44,6 +44,8 @@ interface LayerOptions {
 | `openSlots(from, to, options)`          | Return candidate opening intervals          |
 | `addOpenTime(from, amount, search?)`    | Advance through open time                   |
 | `openDuration(from, to)`                | Measure open time in a window               |
+| `addOpenDays(from, count, options?)`    | Advance whole open days                     |
+| `openDayCount(from, to)`                | Count the open days in a window             |
 | `changesTo(next, from, to)`             | Return newly opened and closed intervals    |
 | `validate(from, to)`                    | Return semantic schedule diagnostics        |
 | `renderTimeline(from, to, options?)`    | Return opening times as JSON data or text   |
@@ -241,6 +243,14 @@ function advanceBy<V>(
   options: { during: Covers<V> } & Search & Omit<Context, "from" | "to">,
 ): Temporal.ZonedDateTime | undefined;
 
+function coveredDayCount<V>(covers: Covers<V>, context: Context): number;
+
+function advanceByCoveredDays<V>(
+  from: Temporal.ZonedDateTime,
+  count: number,
+  options: CoveredDayOptions<V>,
+): Temporal.ZonedDateTime | undefined;
+
 function firstGap<V>(
   covers: Covers<V>,
   lasting: Temporal.Duration,
@@ -287,6 +297,16 @@ interface SlotOptions {
   readonly lasting: Temporal.Duration;
 }
 
+type StartingDay = "excluded" | "included";
+
+interface CoveredDayOptions<V>
+  extends Pick<Search, "within">, Omit<Context, "from" | "to"> {
+  readonly during: Covers<V>;
+  readonly startingDay?: StartingDay;
+}
+
+type OpenDayOptions = Omit<CoveredDayOptions<boolean>, "during">;
+
 interface CoverageChanges {
   readonly added: IntervalStream;
   readonly removed: IntervalStream;
@@ -332,10 +352,20 @@ type TimelineOutput<F extends TimelineFormat> = F extends "text"
   : Timeline;
 ```
 
-`nextCoveredInterval`, `firstGap`, and `advanceBy` apply
-`DEFAULT_SEARCH_LIMIT` when no finite end is supplied. They throw
+`nextCoveredInterval`, `firstGap`, `advanceBy`, and `advanceByCoveredDays`
+apply `DEFAULT_SEARCH_LIMIT` when no finite end is supplied. They throw
 `SearchLimitExceededError` if they exhaust that automatic limit. `slots`
 returns a lazy stream and adds no limit.
+
+`coveredDayCount` and `advanceByCoveredDays` count local calendar dates
+carrying any covered time. A date open for one hour counts as one day, the
+same as a date open for eight hours. `coveredDayCount` reads its window half
+open and needs a finite end. `advanceByCoveredDays` takes a whole
+non-negative count, skips the starting date unless `startingDay` is
+`"included"`, and returns the first covered instant on the date the count
+lands. `Schedule.openDayCount` and `Schedule.addOpenDays` read dates in the
+schedule's declared zone. The standalone functions read them in the zone of
+`context.from`.
 
 `accumulate` multiplies each resolved numeric value by how long it applies in
 the requested unit. Its context must have a finite end.

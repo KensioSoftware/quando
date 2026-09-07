@@ -1,22 +1,24 @@
 # Queries
 
-Quando provides seven common queries for rules, schedules, and selected cascade
+Quando provides nine common queries for rules, schedules, and selected cascade
 values.
 
-| Function              | Question                                           |
-| --------------------- | -------------------------------------------------- |
-| `activeAt`            | Is this instant covered?                           |
-| `nextCoveredInterval` | What is the current or next covered interval?      |
-| `firstGap`            | Where does a duration fit in covered time?         |
-| `slots`               | Which fixed-length candidates fit in covered time? |
-| `coveredDuration`     | How much covered time is inside this window?       |
-| `advanceBy`           | Where does an amount of covered time finish?       |
-| `coverageChanges`     | What covered time was added or removed?            |
+| Function               | Question                                           |
+| ---------------------- | -------------------------------------------------- |
+| `activeAt`             | Is this instant covered?                           |
+| `nextCoveredInterval`  | What is the current or next covered interval?      |
+| `firstGap`             | Where does a duration fit in covered time?         |
+| `slots`                | Which fixed-length candidates fit in covered time? |
+| `coveredDuration`      | How much covered time is inside this window?       |
+| `coveredDayCount`      | How many days inside this window are covered?      |
+| `advanceBy`            | Where does an amount of covered time finish?       |
+| `advanceByCoveredDays` | Where does a count of covered days finish?         |
+| `coverageChanges`      | What covered time was added or removed?            |
 
-Schedules can be passed directly to all seven functions. They also expose
-`isOpen`, `opensNext`, `firstOpenSlot`, `openSlots`, `openDuration`, and
-`addOpenTime` with opening-hours names. Use `changesTo` to compare two
-schedules.
+Schedules can be passed directly to all nine functions. They also expose
+`isOpen`, `opensNext`, `firstOpenSlot`, `openSlots`, `openDuration`,
+`openDayCount`, `addOpenTime`, and `addOpenDays` with opening-hours names. Use
+`changesTo` to compare two schedules.
 
 ## Query inputs
 
@@ -210,6 +212,97 @@ const dispatch = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
 });
 ```
 
+## Count whole covered days
+
+`coveredDayCount` counts the local calendar dates inside a window that carry
+any covered time.
+
+```ts
+import { coveredDayCount, weekdays } from "@kensio/quando";
+
+const openDays = coveredDayCount(weekdays(), {
+  from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
+  to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
+});
+
+console.log(openDays);
+```
+
+```text
+5
+```
+
+A date counts when any of it is covered. A day open from 09:00 to 13:00 is one
+open day, the same as a day open from 09:00 to 17:00. "Three working days"
+means three days on which business happens, and any threshold below a whole day
+would be arbitrary.
+
+Dates are local to the zone of `context.from`. The window is half open. A date
+whose covered time begins exactly at `to` falls outside it.
+
+This is a different question from `coveredDuration`, and the two cannot be
+derived from each other. A week of half-days is five open days and 20 open
+hours.
+
+## Add whole covered days
+
+`advanceByCoveredDays` answers "three working days from now".
+
+```ts
+import { advanceByCoveredDays, schedule, weekdays } from "@kensio/quando";
+
+const courier = schedule({ zone: "Europe/London" }).open(
+  weekdays(),
+  "09:00-17:00",
+);
+const ordered = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
+
+const delivery = advanceByCoveredDays(ordered, 3, { during: courier });
+
+console.log(delivery?.toString());
+```
+
+```text
+2026-03-18T09:00:00+00:00[Europe/London]
+```
+
+The answer is the first instant the input covers on the date the count lands.
+That is when the doors open on the day. Call `.toPlainDate()` for the date on
+its own.
+
+The count is a whole number of days and cannot be negative. A zero count
+returns the starting instant. Part of a day is an elapsed duration, and
+`advanceBy` is the query that takes one.
+
+Stepping through `nextCoveredInterval` gives a different answer, and a wrong
+one. Consecutive covered days coalesce into a single interval, so a schedule
+open for whole weekdays yields one interval per week and each step advances
+seven days.
+
+### Which day the count starts on
+
+The starting date does not count by default. Three working days from Friday
+afternoon is the following Wednesday, and Friday is the day of the act.
+
+Pass `startingDay: "included"` to count the starting date first, when covered
+time remains on it:
+
+```ts
+const sameDay = advanceByCoveredDays(ordered, 1, {
+  during: courier,
+  startingDay: "included",
+});
+```
+
+Counting runs forward from the instant supplied, and an answer never falls
+before it. Asked at six on a Friday evening, `"included"` moves to Monday
+because Friday has no open time left.
+
+Clear days compose from the default. "Three clear days' notice" is three
+covered days with the starting date excluded, and the event falls no earlier
+than the day after the third. Jurisdictions differ on what happens next.
+Quando counts the days and leaves that rule to the caller.
+
 ## Compare covered time
 
 `coverageChanges` compares two definitions inside a context. `added` contains
@@ -249,8 +342,8 @@ in the old schedule.
 
 ## Bound a search
 
-`nextCoveredInterval`, `firstGap`, and `advanceBy` may need to search for a
-future answer. When no end is supplied, they apply a 100-year safety limit.
+`nextCoveredInterval`, `firstGap`, `advanceBy`, and `advanceByCoveredDays` may
+need to search for a future answer. When no end is supplied, they apply a 100-year safety limit.
 
 If the automatic limit expires, the query throws `SearchLimitExceededError`.
 Pass `within` when finding no answer in a known range is expected:
@@ -274,7 +367,7 @@ stream to consume.
 ## Query a cascade value
 
 `assigned(cascade, value)` selects the periods that carry one value. The result
-works with all seven common queries.
+works with all nine common queries.
 
 ```ts
 import { coveredDuration, rota, weekdays } from "@kensio/quando";

@@ -410,6 +410,96 @@ describe("a schedule", () => {
     });
   });
 
+  describe("counting whole open days", () => {
+    it("counts each open date in a window", () => {
+      // Given weekday opening hours with the Tuesday closed.
+      const openWeekdays = schedule({ zone: "Europe/London" })
+        .open(weekdays(), "09:00-17:00")
+        .closed("2026-03-10");
+
+      // When the open days in the week are counted.
+      const days = openWeekdays.openDayCount(
+        when("2026-03-09T00:00"),
+        when("2026-03-16T00:00"),
+      );
+
+      // Then there are four. A count of days answers a question the duration
+      // cannot, because a day is not a fixed length of time.
+      assertIdentical(days, 4);
+    });
+
+    it("adds whole open days to reach a working-day deadline", () => {
+      // Given weekday opening hours and a Friday afternoon order.
+      const openWeekdays = schedule({ zone: "Europe/London" }).open(
+        weekdays(),
+        "09:00-17:00",
+      );
+
+      // When three working days are added.
+      const delivery = openWeekdays.addOpenDays(when("2026-03-13T16:55"), 3);
+
+      // Then it is Wednesday morning, when the doors open on the day the
+      // count lands.
+      assertIdentical(
+        delivery?.toString(),
+        when("2026-03-18T09:00").toString(),
+      );
+    });
+
+    it("counts the days on the schedule's own calendar", () => {
+      // Given London opening hours, and a Tokyo instant late on the London
+      // Tuesday. Tokyo has already reached Wednesday.
+      const london = schedule({ zone: "Europe/London" }).open(
+        weekdays(),
+        "09:00-17:00",
+      );
+      const inTokyo = when("2026-03-10T21:00").withTimeZone("Asia/Tokyo");
+
+      // When one open day is added.
+      const reached = london.addOpenDays(inTokyo, 1);
+
+      // Then it is the London Wednesday, read back in the caller's zone. A
+      // day belongs to the wall calendar the schedule is written on.
+      assertIdentical(reached?.timeZoneId, "Asia/Tokyo");
+      assertIdentical(
+        reached.withTimeZone("Europe/London").toString(),
+        when("2026-03-11T09:00").toString(),
+      );
+    });
+
+    it("takes the starting-day convention through the schedule", () => {
+      // Given weekday opening hours and a Monday mid-morning.
+      const openWeekdays = schedule({ zone: "Europe/London" }).open(
+        weekdays(),
+        "09:00-17:00",
+      );
+      const monday = when("2026-03-09T10:00");
+
+      // When one open day is added each way.
+      const excluded = openWeekdays.addOpenDays(monday, 1);
+      const included = openWeekdays.addOpenDays(monday, 1, {
+        startingDay: "included",
+      });
+
+      // Then the default moves to Tuesday and the other stays on Monday.
+      assertIdentical(excluded?.toPlainDate().toString(), "2026-03-10");
+      assertIdentical(included?.toPlainDate().toString(), "2026-03-09");
+    });
+
+    it("returns undefined when a bounded search finds no open day", () => {
+      // Given a schedule that never opens, and a week to look in.
+      const neverOpen = schedule({ zone: "Europe/London" });
+
+      // When one open day is asked for.
+      const reached = neverOpen.addOpenDays(when("2026-03-09T10:00"), 1, {
+        within: Temporal.Duration.from({ days: 7 }),
+      });
+
+      // Then there is none to give.
+      assertUndefined(reached);
+    });
+  });
+
   describe("the plain forms it accepts", () => {
     it("refuses a range that is not one", () => {
       // Given hours written the way someone would say them.

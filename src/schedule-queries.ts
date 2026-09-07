@@ -6,6 +6,7 @@ import type { Cascade } from "./cascade.js";
 import { coverageChanges } from "./coverage-changes.js";
 import { explainSchedule } from "./explain.js";
 import { advanceBy, coveredDuration, nextCoveredInterval } from "./query.js";
+import { addOpenDays, openDayCount } from "./schedule-days.js";
 import { scheduleSearchOptions } from "./schedule-search.js";
 import type { Schedule } from "./schedule-types.js";
 import { renderScheduleTimeline } from "./schedule-timeline.js";
@@ -22,6 +23,8 @@ type ScheduleQueries = Pick<
   | "validate"
   | "addOpenTime"
   | "openDuration"
+  | "addOpenDays"
+  | "openDayCount"
   | "renderTimeline"
 >;
 
@@ -53,6 +56,9 @@ export function scheduleQueries(
     addOpenTime: (from, amount, search) =>
       advanceBy(from, amount, { during: document, ...search }),
     openDuration: (from, to) => coveredDuration(document, { from, to }),
+    addOpenDays: (from, count, options) =>
+      addOpenDays(document, zone, from, count, options),
+    openDayCount: (from, to) => openDayCount(document, zone, from, to),
     renderTimeline: (from, to, options) =>
       renderScheduleTimeline(document, zone, from, to, options),
   };
