@@ -144,7 +144,9 @@ console.log(delivery?.toString());
 
 A day counts when the schedule is open for any part of it, so a half-day is a
 whole open day. Both day methods read dates on the schedule's own calendar, the
-zone given to `schedule({ zone })`, matching `renderTimeline`. The
+zone given to `schedule({ zone })`, matching `renderTimeline`. `addOpenDays`
+hands its answer back in the caller's zone, the one `from` was written in, so
+the two zones only differ in how the instant reads. The
 [queries guide](../queries/#which-day-the-count-starts-on) covers the
 `startingDay` convention and clear days.
 

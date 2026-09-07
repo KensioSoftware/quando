@@ -73,12 +73,16 @@ export function coveredDayCount<V>(
  * ```
  *
  * Three working days from a Friday afternoon is Wednesday, and this is the
- * function that says so. The answer is the first instant on that date the input
- * covers. That is when the doors open on the day the count lands. `undefined`
- * when the search runs out before the days do.
+ * function that says so. The answer is the first instant at or after `from`
+ * that the input covers on the date the count lands. For opening hours that is
+ * when the doors open that morning. `undefined` when a bounded search runs out
+ * before the days do, and {@link SearchLimitExceededError} when an unbounded
+ * one exhausts its automatic limit.
  *
  * The starting date is skipped unless `startingDay` asks for it. Counting runs
- * forward only, and a zero count returns the starting instant.
+ * forward only, and a zero count returns the starting instant. Asked during
+ * covered time with `startingDay: "included"`, a count of one answers with
+ * `from`.
  */
 export function advanceByCoveredDays<V>(
   from: Temporal.ZonedDateTime,

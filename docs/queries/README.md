@@ -266,9 +266,9 @@ console.log(delivery?.toString());
 2026-03-18T09:00:00+00:00[Europe/London]
 ```
 
-The answer is the first instant the input covers on the date the count lands.
-That is when the doors open on the day. Call `.toPlainDate()` for the date on
-its own.
+The answer is the first instant at or after `from` that the input covers on the
+date the count lands. For opening hours that is when the doors open that
+morning. Call `.toPlainDate()` for the date on its own.
 
 The count is a whole number of days and cannot be negative. A zero count
 returns the starting instant. Part of a day is an elapsed duration, and
@@ -296,7 +296,9 @@ const sameDay = advanceByCoveredDays(ordered, 1, {
 
 Counting runs forward from the instant supplied, and an answer never falls
 before it. Asked at six on a Friday evening, `"included"` moves to Monday
-because Friday has no open time left.
+because Friday has no open time left. Asked during open time, a count of one
+answers with the starting instant itself, because that is the first covered
+moment left on the starting date.
 
 Clear days compose from the default. "Three clear days' notice" is three
 covered days with the starting date excluded, and the event falls no earlier

@@ -362,10 +362,11 @@ carrying any covered time. A date open for one hour counts as one day, the
 same as a date open for eight hours. `coveredDayCount` reads its window half
 open and needs a finite end. `advanceByCoveredDays` takes a whole
 non-negative count, skips the starting date unless `startingDay` is
-`"included"`, and returns the first covered instant on the date the count
-lands. `Schedule.openDayCount` and `Schedule.addOpenDays` read dates in the
-schedule's declared zone. The standalone functions read them in the zone of
-`context.from`.
+`"included"`, and returns the first instant at or after `from` that the input
+covers on the date the count lands. `Schedule.openDayCount` and
+`Schedule.addOpenDays` read dates in the schedule's declared zone and
+`addOpenDays` answers in the caller's. The standalone functions read dates in
+the zone of `context.from`.
 
 `accumulate` multiplies each resolved numeric value by how long it applies in
 the requested unit. Its context must have a finite end.
