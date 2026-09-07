@@ -7,9 +7,10 @@
     // substrate this package is built on and TypeScript ships its types here
     // and nowhere else yet; a numbered lib leaves `Temporal` undeclared.
     //
-    // Note this is a claim about the runtime, and the runtime floor that backs
-    // it is `engines: node >= 26`. Anything older has no global `Temporal` and
-    // the types would be lying.
+    // Note this is a claim about the runtime, and what backs it is a global
+    // `Temporal` rather than any particular Node version. Node 26 has one
+    // natively; below that a consumer assigns the polyfill before importing
+    // Quando, which `engines` cannot express and docs/getting-started/ does.
     "lib": ["ESNext"],
     "types": ["node"],
 

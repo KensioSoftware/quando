@@ -25,7 +25,13 @@ zones.
 npm install @kensio/quando
 ```
 
-Quando requires Node 26 or another JavaScript runtime with global `Temporal`.
+Quando reads `Temporal` from the global scope. Node 26 has one, as do Chrome
+144, Edge 144 and Firefox 139. On Node 22, Node 24 or Safari, install
+[`temporal-polyfill`](https://www.npmjs.com/package/temporal-polyfill) and
+assign it to `globalThis.Temporal` before importing Quando. The
+[getting started guide](docs/getting-started/#runtimes-without-global-temporal)
+shows the two lines it takes.
+
 TypeScript projects must include `ESNext` in `compilerOptions.lib`.
 
 ## Opening hours

@@ -5,7 +5,8 @@ result.
 
 ## Requirements
 
-Quando requires Node 26 or another runtime with global `Temporal`.
+Quando reads `Temporal` from the global scope and imports no polyfill of its
+own. Node 26 has a global `Temporal`, as do Chrome 144, Edge 144 and Firefox 139.
 
 Install the package:
 
@@ -22,6 +23,74 @@ TypeScript projects must include `ESNext` in the compiler libraries:
   }
 }
 ```
+
+The `engines` field floors at Node 22. That number is the oldest Node the
+published JavaScript runs on. What Quando actually needs is a global
+`Temporal`, and a version range has no way to say so. Older Node and current
+Safari take the polyfill route below.
+
+### Runtimes without global `Temporal`
+
+Node 22, Node 24 and Safari have no global `Temporal`. Install
+[`temporal-polyfill`](https://www.npmjs.com/package/temporal-polyfill) and
+assign it to `globalThis.Temporal` before Quando loads. This is a supported
+configuration (the test suite runs on Node 22 this way), and the AWS Lambda
+`nodejs22.x` and `nodejs24.x` runtimes are the usual reason for it.
+
+```bash
+npm install temporal-polyfill
+```
+
+Put the assignment in a module of its own:
+
+```ts
+// temporal-global.ts
+import { Temporal } from "temporal-polyfill";
+
+globalThis.Temporal ??= Temporal;
+```
+
+Import that module ahead of Quando:
+
+```ts
+import "./temporal-global.js";
+import { schedule, weekdays } from "@kensio/quando";
+```
+
+Two details make the separate module worth the trouble. Importing
+`temporal-polyfill` leaves `globalThis` alone. The assignment is what installs
+the global.
+
+A module also evaluates all of its imports before its own first statement. An
+assignment written beside a Quando import therefore runs too late:
+
+```ts
+// Wrong. Quando is evaluated before the assignment reaches the global.
+import { Temporal } from "temporal-polyfill";
+import { schedule } from "@kensio/quando";
+
+globalThis.Temporal ??= Temporal;
+```
+
+```text
+ReferenceError: Temporal is not defined
+```
+
+`??=` keeps a native `Temporal` where the runtime already has one. The same
+entry point then works on Node 26 and on Node 22.
+
+The `quando` command reads the same global. Preload the module to run it on a
+runtime that lacks one:
+
+```bash
+node --import ./temporal-global.js node_modules/.bin/quando timeline opening-hours.json \
+  --from '2026-03-09T00:00[Europe/London]' \
+  --to '2026-03-10T00:00[Europe/London]'
+```
+
+Bundling the polyfill would charge every consumer for it, including the
+majority whose runtime already has `Temporal`. Reading the global leaves that
+cost with the runtimes that need it.
 
 ## Create a schedule
 
