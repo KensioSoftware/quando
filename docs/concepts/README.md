@@ -75,19 +75,21 @@ Intervals are half-open. `[start, end)` includes the start and excludes the
 end. Adjacent intervals do not overlap at their shared boundary.
 
 Most applications do not need to iterate intervals directly. The common query
-functions answer seven questions:
+functions answer nine questions:
 
-| Function              | Answer                                  |
-| --------------------- | --------------------------------------- |
-| `activeAt`            | Whether an instant is covered           |
-| `nextCoveredInterval` | The current or next covered interval    |
-| `firstGap`            | The first covered interval of a length  |
-| `slots`               | Candidate intervals at a fixed cadence  |
-| `coveredDuration`     | The covered time within a finite window |
-| `advanceBy`           | The result of adding only covered time  |
-| `coverageChanges`     | Time added and removed between inputs   |
+| Function               | Answer                                  |
+| ---------------------- | --------------------------------------- |
+| `activeAt`             | Whether an instant is covered           |
+| `nextCoveredInterval`  | The current or next covered interval    |
+| `firstGap`             | The first covered interval of a length  |
+| `slots`                | Candidate intervals at a fixed cadence  |
+| `coveredDuration`      | The covered time within a finite window |
+| `coveredDayCount`      | The covered days within a finite window |
+| `advanceBy`            | The result of adding only covered time  |
+| `advanceByCoveredDays` | The result of adding whole covered days |
+| `coverageChanges`      | Time added and removed between inputs   |
 
-Schedules can be passed to all seven functions. Schedule methods give the
+Schedules can be passed to all nine functions. Schedule methods give the
 single-input queries opening-hours names. `changesTo` compares two schedules.
 
 ## Cascades attach values

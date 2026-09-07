@@ -88,6 +88,7 @@ export type {
   ScheduleOptions,
 } from "./schedule.js";
 export { parseSchedule, schedule } from "./schedule.js";
+export type { OpenDayOptions } from "./schedule-days.js";
 export type { Rota, RotaData } from "./rota.js";
 export { parseRota, rota } from "./rota.js";
 export type { Tally, TallyData, TallyExplanation } from "./tally.js";
@@ -103,3 +104,5 @@ export {
   nextCoveredInterval,
   SearchLimitExceededError,
 } from "./query.js";
+export type { CoveredDayOptions, StartingDay } from "./covered-days.js";
+export { advanceByCoveredDays, coveredDayCount } from "./covered-days.js";

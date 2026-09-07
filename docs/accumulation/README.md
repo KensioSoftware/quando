@@ -57,7 +57,13 @@ Unassigned time contributes zero.
 ## Elapsed time and finite windows
 
 Accumulation measures elapsed time. A whole day contributes 23 hours when the
-local clock moves forward and 25 hours when it moves back.
+local clock moves forward and 25 hours when it moves back. `unit` therefore
+takes hours and smaller units only.
+
+Counting whole days is a separate query. `coveredDayCount` and
+`advanceByCoveredDays` count local calendar dates that carry covered time, and
+a 23-hour day is one of them. See the
+[queries guide](../queries/#count-whole-covered-days).
 
 Every accumulation needs a `to` value. An open-ended recurring value could
 continue forever, so it has no finite total.
