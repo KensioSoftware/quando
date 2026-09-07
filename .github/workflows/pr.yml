@@ -66,14 +66,24 @@ jobs:
       # responsible. Cheaper to find it on the pull request that wrote it.
       - run: pnpm docs:check
 
-  # One runtime, not a matrix. `engines` floors at Node 26 and .nvmrc develops
-  # against 26, so "the floor" and "the version we develop against" are the
-  # same runtime and there is no second one to prove anything on.
+  # Two runtimes, because the package supports two kinds of them.
   #
-  # The floor is 26 because `Temporal` is a global there and is not on 24. That
-  # is the substrate this package is built on rather than a nicety, so the
-  # alternative was shipping a polyfill to consumers who mostly do not need
-  # one.
+  # `Temporal` is the substrate here and Quando reads it off the global rather
+  # than bundling a polyfill, so what a consumer needs is a global `Temporal`,
+  # not a Node version. Node 26 has one; below that they assign the polyfill
+  # before importing Quando, which is a supported configuration and the only
+  # route on AWS Lambda, whose production runtimes are nodejs22.x and
+  # nodejs24.x.
+  #
+  # `engines` cannot say "needs a global Temporal", so it says the oldest Node
+  # the emitted code runs on and the docs carry the real requirement. That
+  # leaves a claim in package.json that nothing would otherwise run, which is
+  # how it drifted from the design decision in the first place. So the suite
+  # runs twice: once on .nvmrc, against native `Temporal`, and once on the
+  # floor, against the polyfill.
+  #
+  # Both in one job rather than two, so the check stays named "Test" and main's
+  # ruleset keeps gating on it without a settings change.
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -88,6 +98,30 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:coverage
+
+      # The floor is read out of `engines` rather than repeated here, so the
+      # version this proves cannot drift from the version package.json claims.
+      - id: floor
+        run: |
+          set -euo pipefail
+          major="$(node -p "require('./package.json').engines.node.match(/\d+/)[0]")"
+          echo "Floor from engines: Node $major"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
+      # No `cache: pnpm` and no reinstall: node_modules is already there from
+      # the install above and none of it is compiled against a Node version.
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ steps.floor.outputs.major }}
+
+      # vitest directly rather than through pnpm, which the setup above put on
+      # PATH beside a different Node. Coverage is not re-measured — the suite
+      # is the same suite, and what this run proves is that it passes with a
+      # polyfilled `Temporal` rather than a native one.
+      - run: |
+          set -euo pipefail
+          node --version
+          ./node_modules/.bin/vitest run
 
   build:
     name: Build

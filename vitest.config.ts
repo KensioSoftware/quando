@@ -9,6 +9,10 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // `Temporal` is read from the global, so on a runtime below the one .nvmrc
+    // develops against there is nothing to read. This puts one there before any
+    // test runs. Native `Temporal` wins where it exists.
+    setupFiles: ["./test/temporal-global.ts"],
     // Tests live beside the code they test. `test/` is for fixtures and
     // helpers, which is what the `#test` alias above and the `imports` entry in
     // package.json address.

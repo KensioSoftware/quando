@@ -141,8 +141,10 @@ jobs:
       - run: pnpm fta
       - run: pnpm docs:check
 
-  # The same single runtime pr.yml proves, for the same reason: `engines` and
-  # .nvmrc name the same Node, because `Temporal` is what sets the floor.
+  # The same two runtimes pr.yml proves, for the same reason: what a consumer
+  # needs is a global `Temporal` rather than a Node version, so the suite runs
+  # against a native one on .nvmrc and against the polyfill on the floor
+  # `engines` claims. See the longer note on that job.
   test:
     name: Release test
     runs-on: ubuntu-latest
@@ -159,6 +161,22 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:coverage
+
+      - id: floor
+        run: |
+          set -euo pipefail
+          major="$(node -p "require('./package.json').engines.node.match(/\d+/)[0]")"
+          echo "Floor from engines: Node $major"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ steps.floor.outputs.major }}
+
+      - run: |
+          set -euo pipefail
+          node --version
+          ./node_modules/.bin/vitest run
 
   build:
     name: Release build
