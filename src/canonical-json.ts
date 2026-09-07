@@ -25,7 +25,31 @@ function isObject(
   return typeof value === "object" && value !== null && !isArray(value);
 }
 
-/** The same value with every object's keys in ascending order. */
+/**
+ * Key order, by UTF-16 code unit.
+ *
+ * `localeCompare` would read the host's collation, and two machines sorting
+ * the same options differently would hash the same document two ways. A
+ * fingerprint has to survive the trip between them.
+ */
+function byKey(
+  left: readonly [string, JsonValue],
+  right: readonly [string, JsonValue],
+): number {
+  if (left[0] === right[0]) {
+    return 0;
+  }
+  return left[0] < right[0] ? -1 : 1;
+}
+
+/**
+ * The same value with every object's keys in ascending order.
+ *
+ * Built with `Object.fromEntries`, which defines own properties. Assigning
+ * them one at a time would hand a `"__proto__"` key to the inherited setter,
+ * which drops it from the document and changes the prototype of the object
+ * being built. JSON carries that key as ordinary data and so must this.
+ */
 export function canonicalJson(value: JsonValue): JsonValue {
   if (isArray(value)) {
     return value.map((item) => canonicalJson(item));
@@ -34,12 +58,9 @@ export function canonicalJson(value: JsonValue): JsonValue {
     return value;
   }
 
-  const ordered: Record<string, JsonValue> = {};
-  const entries = Object.entries(value).toSorted(([left], [right]) =>
-    left.localeCompare(right),
+  return Object.fromEntries(
+    Object.entries(value)
+      .toSorted(byKey)
+      .map(([key, item]) => [key, canonicalJson(item)]),
   );
-  for (const [key, item] of entries) {
-    ordered[key] = canonicalJson(item);
-  }
-  return ordered;
 }

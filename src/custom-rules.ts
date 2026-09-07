@@ -87,7 +87,13 @@ export function customRuleType(
   rule: CustomRule,
   registry: RuleRegistry | undefined,
 ): CustomRuleType {
-  const found = registry?.[rule.name];
+  // Own entries only. A registry is an ordinary object, so a rule named
+  // "toString" would otherwise find a function on `Object.prototype` and fail
+  // somewhere further in with the reason lost.
+  const found =
+    registry !== undefined && Object.hasOwn(registry, rule.name)
+      ? registry[rule.name]
+      : undefined;
   if (found === undefined) {
     throw new UnknownCustomRuleError(
       rule.name,

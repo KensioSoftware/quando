@@ -229,6 +229,22 @@ describe("a rule the application supplies", () => {
       assertStringIncludes(error.message, "shutdown");
     });
 
+    it("does not find a rule type on the prototype of the registry", () => {
+      // Given a registry holding one rule, and a document naming a method
+      // every object inherits.
+      const rules: RuleRegistry = { shutdown: wholeDates() };
+
+      // When it is evaluated.
+      const error = assertThrowsError(() =>
+        activeAt(custom("toString"), when("2026-03-09T10:00"), { rules }),
+      );
+
+      // Then it is unknown, rather than a function found on `Object.prototype`
+      // and called somewhere further in with the reason lost.
+      assertInstanceOf(error, UnknownCustomRuleError);
+      assertIdentical(error.ruleName, "toString");
+    });
+
     it("says what to do when no registry was passed at all", () => {
       // Given a query with no rules on its context.
       // When a custom rule is evaluated.
@@ -311,6 +327,27 @@ describe("a rule the application supplies", () => {
         '{"type":"custom","name":"shutdown","options":' +
           '{"regions":["scotland","england"],' +
           '"window":{"from":"2026-03-10","to":"2026-03-12"}}}',
+      );
+    });
+
+    it('keeps a "__proto__" option, which JSON carries as ordinary data', () => {
+      // Given stored options holding that key. Written through JSON, because a
+      // literal would set the prototype rather than a property.
+      const stored =
+        '{"type":"custom","name":"shutdown",' +
+        '"options":{"region":"gb","__proto__":{"region":"scotland"}}}';
+
+      // When the document is parsed and canonicalised.
+      const restored = parseRule(JSON.parse(stored));
+      const stable = canonical(restored);
+
+      // Then the key survives with its value, and sorts where a code-unit
+      // ordering puts it. Assigning keys one at a time would have handed this
+      // one to the inherited setter and dropped it.
+      assertIdentical(
+        JSON.stringify(stable),
+        '{"type":"custom","name":"shutdown",' +
+          '"options":{"__proto__":{"region":"scotland"},"region":"gb"}}',
       );
     });
 
