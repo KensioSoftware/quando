@@ -4,30 +4,13 @@ import { readFile } from "node:fs/promises";
 
 import type { Built } from "./build.js";
 import { assertJsonValue, type JsonValue } from "./json.js";
-import { parseRule } from "./parse.js";
+import { parseRule, RULE_TYPES } from "./parse.js";
 import { parseRota, type Rota } from "./rota.js";
 import type { Rule } from "./rule.js";
 import { parseSchedule, type Schedule } from "./schedule.js";
 import { parseTally, type Tally } from "./tally.js";
 
 export type CliDefinition = Built<Rule> | Schedule | Rota<JsonValue> | Tally;
-
-const RULE_TYPES = new Set([
-  "always",
-  "never",
-  "daysOfWeek",
-  "daysOfMonth",
-  "nthDayOfWeekInMonth",
-  "monthsOfYear",
-  "every",
-  "timeOfDay",
-  "dates",
-  "dateRange",
-  "inZone",
-  "all",
-  "any",
-  "not",
-]);
 
 /** Whether a parsed CLI definition is a rule. */
 export function isRuleDefinition(

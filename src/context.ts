@@ -7,6 +7,8 @@
  * Adding a field here is harmless; changing a bare parameter into an object
  * later would break every rule implementation, including anyone else's.
  */
+
+import type { RuleRegistry } from "./custom-rules.js";
 export interface Context {
   /**
    * Where evaluation begins, and — since a `ZonedDateTime` carries one — the
@@ -30,6 +32,15 @@ export interface Context {
 
   /** How local times in clock changes are resolved. */
   readonly disambiguation?: "compatible" | "earlier" | "later" | "reject";
+
+  /**
+   * The custom rule types this evaluation can read, by name.
+   *
+   * A `custom` rule document names one of these. Evaluating a document that
+   * names one absent from here throws {@link UnknownCustomRuleError}, which is
+   * the honest answer to a rule whose meaning nobody in the room holds.
+   */
+  readonly rules?: RuleRegistry;
 }
 
 /** The context's window, in the form the interval algebra takes. */

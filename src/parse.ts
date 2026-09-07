@@ -13,6 +13,7 @@
  */
 
 import { parseCalendarRule } from "./parse-calendar.js";
+import { parseCustomRule } from "./parse-custom.js";
 import { zonePart } from "./parse-fields.js";
 import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
 import { build, type Built } from "./build.js";
@@ -33,11 +34,18 @@ const FIELDS = new Map<string, readonly string[]>([
   ["timeOfDay", ["from", "to", "zone"]],
   ["dates", ["dates", "zone"]],
   ["dateRange", ["from", "to", "zone"]],
+  ["custom", ["name", "options", "zone"]],
   ["inZone", ["zone", "rule"]],
   ["all", ["rules"]],
   ["any", ["rules"]],
   ["not", ["rule"]],
 ]);
+
+/**
+ * Every rule type the language has, for the places that need the list without
+ * the fields. Derived from the table above so the two cannot drift.
+ */
+export const RULE_TYPES: ReadonlySet<string> = new Set(FIELDS.keys());
 
 function asRules(value: unknown, path: string): Rule[] {
   if (!Array.isArray(value)) {
@@ -87,6 +95,10 @@ function parseRuleData(value: unknown, path: string): Rule {
     case "dateRange":
     case "timeOfDay": {
       return parseCalendarRule(type, node, path);
+    }
+
+    case "custom": {
+      return parseCustomRule(node, path);
     }
 
     case "inZone": {

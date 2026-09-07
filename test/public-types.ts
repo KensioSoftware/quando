@@ -1,9 +1,14 @@
 import {
   accumulate,
+  activeAt,
   advanceBy,
   advanceByCoveredDays,
   type CoveredDayOptions,
   coveredDayCount,
+  custom,
+  type CustomRule,
+  CustomRuleStreamError,
+  type CustomRuleType,
   type CoverageChanges,
   coverageChanges,
   type Explanation,
@@ -17,6 +22,7 @@ import {
   type RuleExplanation,
   type SkippedLayer,
   schedule,
+  type RuleRegistry,
   type ScheduleChanges,
   slots,
   type StartingDay,
@@ -25,6 +31,7 @@ import {
   type TimelineOptions,
   TIMELINE_FORMATS,
   type ValidationDiagnostic,
+  UnknownCustomRuleError,
   type ValidationOptions,
   type ValidationWindow,
   validate,
@@ -115,6 +122,22 @@ const textTimeline: string = renderTimeline(
   { format: "text" },
 );
 const scheduleTimeline: Timeline = office.renderTimeline(start, end);
+const shutdown: CustomRuleType = {
+  intervals: (context) => [{ start: context.from, end: context.to }],
+  describe: (options) => `Closed for ${JSON.stringify(options)}.`,
+};
+const registry: RuleRegistry = { shutdown };
+const customRule: CustomRule = custom("shutdown", { region: "gb" });
+const customInZone: CustomRule = custom("shutdown", undefined, "Europe/London");
+const closedForWorks: boolean = activeAt(customRule, start, {
+  rules: registry,
+});
+const unknownRule: typeof UnknownCustomRuleError = UnknownCustomRuleError;
+const brokenStream: typeof CustomRuleStreamError = CustomRuleStreamError;
+void customInZone;
+void closedForWorks;
+void unknownRule;
+void brokenStream;
 const startingDay: StartingDay = "included";
 const openDayOptions: OpenDayOptions = { startingDay };
 const dayOptions: CoveredDayOptions<boolean> = {
@@ -173,6 +196,9 @@ staff.totalBetween(start, end, "day");
 
 // @ts-expect-error A day count has only the two conventions.
 office.addOpenDays(start, 3, { startingDay: "clear" });
+
+// @ts-expect-error Custom rule options are stored, so they must be JSON.
+custom("shutdown", { at: () => start });
 
 // @ts-expect-error A sum accepts numeric layers.
 merged("sum", layer(weekdays(), "alice"));

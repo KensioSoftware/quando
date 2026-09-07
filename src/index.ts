@@ -3,7 +3,7 @@
 export type { Context } from "./context.js";
 export type { JsonCompatible, JsonPrimitive, JsonValue } from "./json.js";
 export type { PlainRule } from "./plain-forms.js";
-export type { Month, Period, Rule, Weekday } from "./rule.js";
+export type { CustomRule, Month, Period, Rule, Weekday } from "./rule.js";
 export { MONTHS, PERIODS, WEEKDAYS } from "./rule.js";
 
 export type { Built } from "./build.js";
@@ -13,6 +13,7 @@ export {
   always,
   any,
   between,
+  custom,
   dates,
   daysOfMonth,
   daysOfWeek,
@@ -29,6 +30,9 @@ export {
   weekends,
 } from "./build.js";
 export { canonical, equals, fingerprint } from "./canonical.js";
+export { CustomRuleStreamError } from "./custom-rule-stream.js";
+export type { CustomRuleType, RuleRegistry } from "./custom-rules.js";
+export { UnknownCustomRuleError } from "./custom-rules.js";
 export type { CronOptions } from "./cron.js";
 export { parseCron } from "./cron.js";
 export type { CronExport, WrittenCron } from "./cron-export.js";

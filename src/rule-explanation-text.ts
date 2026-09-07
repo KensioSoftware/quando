@@ -1,5 +1,7 @@
 import { describeCalendarMatch } from "./calendar-match-text.js";
 import { describeCompoundMatch } from "./compound-explanation-text.js";
+import { describeCustomMatch } from "./custom-match-text.js";
+import type { RuleRegistry } from "./custom-rules.js";
 import type { Rule } from "./rule.js";
 import type { RuleExplanation } from "./rule-explanation.js";
 
@@ -10,6 +12,7 @@ export function describeRuleMatch(
   matched: boolean,
   conditions: readonly RuleExplanation[],
   inheritedZone: string | undefined,
+  registry: RuleRegistry | undefined,
 ): string {
   switch (rule.type) {
     case "always": {
@@ -27,6 +30,10 @@ export function describeRuleMatch(
     case "dates":
     case "timeOfDay": {
       return describeCalendarMatch(rule, at, matched, inheritedZone);
+    }
+
+    case "custom": {
+      return describeCustomMatch(rule, matched, registry);
     }
 
     case "inZone":

@@ -9,6 +9,8 @@
  * validating, rendering, diffing — and comparatively few rule types.
  */
 
+import type { JsonValue } from "./json.js";
+
 export const WEEKDAYS = [
   "monday",
   "tuesday",
@@ -73,6 +75,7 @@ export type Rule =
   | TimeOfDayRule
   | DatesRule
   | DateRangeRule
+  | CustomRule
   | InZoneRule
   | AllRule
   | AnyRule
@@ -93,6 +96,28 @@ export type CalendarRule =
   | TimeOfDayRule
   | DatesRule
   | DateRangeRule;
+
+/**
+ * A rule an application supplies, named in the document and implemented in the
+ * registry a query carries.
+ *
+ * Easter, sunset and an observed lunar month are all functions rather than
+ * patterns, and none of them is a field on a leaf. The document holds the name
+ * and whatever JSON the implementation needs, so it stores and travels like
+ * every other rule. See [custom-rules.ts](./custom-rules.ts).
+ */
+export interface CustomRule {
+  readonly type: "custom";
+
+  /** What the registry on the context is looked up by. */
+  readonly name: string;
+
+  /** Configuration the named rule type reads. Any JSON value. */
+  readonly options?: JsonValue;
+
+  /** Reads the rule in this zone, the way `inZone` would. */
+  readonly zone?: string;
+}
 
 /** All time. The identity for intersection. */
 export interface AlwaysRule {

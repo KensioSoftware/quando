@@ -20,6 +20,7 @@
  */
 
 import { canonicalCalendarRule } from "./canonical-calendar.js";
+import { canonicalJson } from "./canonical-json.js";
 import type { Rule } from "./rule.js";
 
 /** A rule's stable string form, which is what sorting and equality compare. */
@@ -82,6 +83,21 @@ export function canonicalRule(rule: Rule): Rule {
     case "dateRange":
     case "timeOfDay": {
       return canonicalCalendarRule(rule);
+    }
+
+    case "custom": {
+      // Opaque, and written the one way it can be: the fields in a fixed
+      // order and the options with their object keys sorted. What the options
+      // mean belongs to whoever implements the rule, so nothing here reads
+      // them.
+      return {
+        type: "custom",
+        name: rule.name,
+        ...(rule.options === undefined
+          ? {}
+          : { options: canonicalJson(rule.options) }),
+        ...(rule.zone === undefined ? {} : { zone: rule.zone }),
+      };
     }
 
     case "inZone": {

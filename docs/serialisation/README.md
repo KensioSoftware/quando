@@ -41,6 +41,32 @@ parseRule({
 TypeError: rule.rules[0].days[0]: "mondey" is not a day of the week. Expected one of monday, tuesday, wednesday, thursday, friday, saturday, sunday
 ```
 
+### A custom rule stores its name
+
+A `custom` rule names a rule type the application implements. The document
+holds the name and its options, and the code that runs it arrives on
+`context.rules` at query time.
+
+```ts
+import { custom, parseRule } from "@kensio/quando";
+
+const stored = JSON.stringify(custom("easter", { offset: 1 }));
+const restored = parseRule(JSON.parse(stored));
+
+console.log(stored);
+```
+
+```text
+{"type":"custom","name":"easter","options":{"offset":1}}
+```
+
+Parsing checks the shape and stops there. A document naming a rule type this
+process has never heard of still parses, which is what lets a service store and
+forward a schedule it cannot evaluate. `UnknownCustomRuleError` is raised at
+evaluation instead. Options must survive a JSON round trip, and `parseRule`
+refuses anything that would not. See [rules](../rules/#supply-your-own-rule-type)
+for writing a rule type.
+
 ## Schedules
 
 ```ts

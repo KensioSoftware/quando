@@ -14,6 +14,8 @@
 
 import { checkWindow } from "./validation.js";
 import { contextInZone, type Context, windowOf } from "./context.js";
+import { calendarIntervals } from "./calendar-intervals.js";
+import { customIntervals } from "./custom-rules.js";
 import {
   clip,
   complement,
@@ -22,15 +24,6 @@ import {
   union,
 } from "./interval-stream.js";
 import type { Rule } from "./rule.js";
-import { dateIntervals, weekdayIntervals } from "./day-rules.js";
-import {
-  dayOfMonthIntervals,
-  monthIntervals,
-  nthDayOfWeekInMonthIntervals,
-} from "./month-rules.js";
-import { everyIntervals } from "./every-rules.js";
-import { dateRangeIntervals } from "./range-rules.js";
-import { timeOfDayIntervals } from "./time-rules.js";
 
 /** All of time, before the window narrows it. */
 const UNBOUNDED: IntervalStream = [{ start: undefined, end: undefined }];
@@ -77,54 +70,22 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
       return EMPTY;
     }
 
-    case "daysOfWeek": {
-      return clip(weekdayIntervals(context, rule.days, rule.zone), window);
-    }
-
-    case "daysOfMonth": {
-      return clip(dayOfMonthIntervals(context, rule.days, rule.zone), window);
-    }
-
-    case "nthDayOfWeekInMonth": {
-      return clip(
-        nthDayOfWeekInMonthIntervals(context, rule.nth, rule.days, rule.zone),
-        window,
-      );
-    }
-
-    case "monthsOfYear": {
-      return clip(monthIntervals(context, rule.months, rule.zone), window);
-    }
-
-    case "dates": {
-      return clip(dateIntervals(context, rule.dates, rule.zone), window);
-    }
-
-    case "every": {
-      return clip(
-        everyIntervals(
-          context,
-          rule.interval,
-          rule.period,
-          rule.anchor,
-          rule.zone,
-        ),
-        window,
-      );
-    }
-
-    case "dateRange": {
-      return clip(
-        dateRangeIntervals(context, rule.from, rule.to, rule.zone),
-        window,
-      );
-    }
-
+    case "daysOfWeek":
+    case "daysOfMonth":
+    case "nthDayOfWeekInMonth":
+    case "monthsOfYear":
+    case "dates":
+    case "every":
+    case "dateRange":
     case "timeOfDay": {
-      return clip(
-        timeOfDayIntervals(context, rule.from, rule.to, rule.zone),
-        window,
-      );
+      return clip(calendarIntervals(rule, context), window);
+    }
+
+    case "custom": {
+      // Clipped here rather than trusted to clip itself. Termination is what
+      // clipping buys, and a third-party stream is the one place it cannot be
+      // assumed.
+      return clip(customIntervals(rule, context), window);
     }
 
     case "inZone": {
