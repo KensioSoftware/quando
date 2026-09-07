@@ -7,10 +7,12 @@
  * `.build()` step.
  */
 
+import { assertJsonValue, type JsonValue } from "./json.js";
 import type {
   AllRule,
   AlwaysRule,
   AnyRule,
+  CustomRule,
   InZoneRule,
   NeverRule,
   NotRule,
@@ -59,6 +61,36 @@ export function any(...rules: readonly Rule[]): Built<AnyRule> {
 /** The times a rule does not cover. */
 export function not(rule: Rule): Built<NotRule> {
   return build({ type: "not", rule });
+}
+
+/**
+ * A rule type the application supplies, named here and implemented in the
+ * registry a query carries on `context.rules`.
+ *
+ * ```ts
+ * schedule().open(weekdays()).closed(custom("bank-holidays", { region: "gb" }));
+ * ```
+ *
+ * The options are stored in the document, so they must survive a JSON round
+ * trip. See [custom-rules.ts](./custom-rules.ts) for what a rule type is.
+ */
+export function custom(
+  name: string,
+  options?: JsonValue,
+  zone?: string,
+): Built<CustomRule> {
+  if (name.length === 0) {
+    throw new RangeError("A custom rule needs a name to look its type up by.");
+  }
+  if (options !== undefined) {
+    assertJsonValue(options, "options");
+  }
+  return build({
+    type: "custom",
+    name,
+    ...(options === undefined ? {} : { options }),
+    ...(zone === undefined ? {} : { zone: asZone(zone, "zone") }),
+  });
 }
 
 /** Evaluates a rule subtree in a named time zone. */

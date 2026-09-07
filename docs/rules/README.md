@@ -44,6 +44,7 @@ store. There is no final `.build()` call.
 | `any(...rules)`                     | Times covered by at least one rule                 |
 | `not(rule)`                         | Times outside the rule                             |
 | `inZone(zone, rule)`                | A rule subtree evaluated in one time zone          |
+| `custom(name, options?, zone?)`     | A rule type the application supplies               |
 
 Builders validate their inputs immediately. Invalid weekday names, dates,
 times, and time zones fail where the rule is created.
@@ -374,6 +375,105 @@ const firstThree = take(intervals(officeHours, future), 3);
 Bound the context when a rule may never produce an interval. An impossible rule
 such as `weekdays().and(weekends())` cannot prove an empty result while it keeps
 searching an unbounded future.
+
+## Supply your own rule type
+
+Some rules are functions rather than patterns. Easter is computed from a year,
+sunset from a date and a pair of coordinates, and the start of a lunar month
+has historically been observed. `custom` names a rule type the application
+supplies, and `context.rules` holds the code that runs it.
+
+```ts
+import { activeAt, custom, schedule, weekdays } from "@kensio/quando";
+
+// The application's own computus. Quando ships no calendar data.
+import { easterSunday } from "./computus.js";
+
+const midnight = (date, zone) =>
+  date.toZonedDateTime({ timeZone: zone, plainTime: "00:00" });
+
+const easter = {
+  *intervals(context, options) {
+    const offset = options?.offset ?? 0;
+    const zone = context.from.timeZoneId;
+
+    for (let year = context.from.year; ; year += 1) {
+      const date = easterSunday(year).add({ days: offset });
+      const start = midnight(date, zone);
+      if (
+        context.to !== undefined &&
+        Temporal.ZonedDateTime.compare(start, context.to) >= 0
+      ) {
+        return;
+      }
+      // The next midnight, not 24 hours later. A local day is 23 or 25 hours
+      // long on the mornings a clock changes.
+      yield { start, end: midnight(date.add({ days: 1 }), zone) };
+    }
+  },
+  describe: () => "Easter, computed for the year.",
+};
+
+const office = schedule({ zone: "Europe/London" })
+  .open(weekdays(), "09:00-17:00")
+  .closed(custom("easter", { offset: 1 }));
+
+const easterMonday = Temporal.ZonedDateTime.from(
+  "2026-04-06T10:00[Europe/London]",
+);
+
+console.log(activeAt(office, easterMonday, { rules: { easter } }));
+```
+
+```text
+false
+```
+
+A registry is a plain object keyed by name, so combining two sources of rule
+types is a spread. There is no global to register into and nothing to reset
+between tests.
+
+### The document holds a name, not a function
+
+A `custom` rule stores and travels like every other rule. Only evaluating one
+needs the registry, so a service can hold, forward and canonicalise a schedule
+whose rules it cannot itself run.
+
+```ts
+console.log(JSON.stringify(custom("easter", { offset: 1 })));
+```
+
+```text
+{"type":"custom","name":"easter","options":{"offset":1}}
+```
+
+Options are stored, so they must survive a JSON round trip. `parseRule` refuses
+anything that would not. Evaluating a rule whose name the registry does not
+hold throws `UnknownCustomRuleError`, which names what was asked for and what
+the context does hold.
+
+### What a rule type must return
+
+`intervals(context, options)` returns the times the rule covers. The result
+must arrive in ascending order of start and must not overlap, which is the
+contract every interval stream keeps. Touching intervals are merged for you.
+Out-of-order or overlapping intervals throw `CustomRuleStreamError`, because
+repairing those means holding the whole stream in memory.
+
+Quando clips the result to the query window, so a rule type may yield forever.
+The example above still terminates on an unbounded context because the
+interpreter stops pulling.
+
+A `zone` argument reads the rule the way `inZone` does. The same instants
+arrive displayed in that zone, so a rule type reads
+`context.from.timeZoneId` and never handles the field itself.
+
+### What a custom rule cannot do
+
+`toCron` and `toRRule` refuse a rule holding a custom type, and say why. A
+notation carries what the document says, and this document says a name. The
+command line cannot evaluate custom rules either, for the same reason: it reads
+stored documents and has nowhere to take code from.
 
 ## Store a rule
 

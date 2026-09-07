@@ -123,6 +123,7 @@ function parseTally(value: unknown, path?: string): Tally;
 | `any(...rules)`                     | Times covered by at least one rule    |
 | `not(rule)`                         | Times outside a rule                  |
 | `inZone(zone, rule)`                | A rule subtree evaluated in one zone  |
+| `custom(name, options?, zone?)`     | A rule type the application supplies  |
 
 Each builder validates its arguments and returns a `Built<R>`. A built rule
 is a `Rule` with non-enumerable `.and`, `.or`, and `.except` methods.
@@ -144,6 +145,55 @@ function parseRule(value: unknown, path?: string): Built<Rule>;
 
 `Period` is `"days"`, `"weeks"`, `"months"` or `"years"`, listed in `PERIODS`.
 The anchor fixes the phase of the cycle, and `onOrAfter` bounds it.
+
+### Custom rule types
+
+```ts
+function custom(
+  name: string,
+  options?: JsonValue,
+  zone?: string,
+): Built<CustomRule>;
+
+interface CustomRule {
+  readonly type: "custom";
+  readonly name: string;
+  readonly options?: JsonValue;
+  readonly zone?: string;
+}
+
+interface CustomRuleType {
+  readonly intervals: (
+    context: Context,
+    options: JsonValue | undefined,
+  ) => Iterable<Interval>;
+  readonly describe?: (options: JsonValue | undefined) => string;
+}
+
+type RuleRegistry = Readonly<Record<string, CustomRuleType>>;
+
+class UnknownCustomRuleError extends Error {
+  readonly ruleName: string;
+}
+
+class CustomRuleStreamError extends RangeError {
+  readonly ruleName: string;
+}
+```
+
+A `custom` rule document names a rule type. `context.rules` holds the code that
+runs it, so a document stores, travels and canonicalises without it. Evaluating
+a rule the registry does not hold throws `UnknownCustomRuleError`.
+
+`intervals` must yield in ascending order of start without overlaps, the same
+contract every interval stream keeps. Touching intervals are merged. Anything
+else throws `CustomRuleStreamError`. Quando clips the result to the query
+window, so a rule type may yield without end. A `zone` reads the rule the way
+`inZone` does.
+
+`toCron` and `toRRule` refuse a rule holding a custom type, and give the
+reason. `canonical` orders the keys of `options` so that two documents with the
+same options share a `fingerprint`.
 
 ### Cron expressions
 
@@ -518,6 +568,7 @@ interface Context {
   readonly from: Temporal.ZonedDateTime;
   readonly to?: Temporal.ZonedDateTime;
   readonly disambiguation?: "compatible" | "earlier" | "later" | "reject";
+  readonly rules?: RuleRegistry;
 }
 
 interface Interval {
@@ -527,7 +578,8 @@ interface Interval {
 ```
 
 The zone carried by `Context.from` is the default evaluation zone. `to` must
-represent the same instant or a later instant. `disambiguation` controls
+represent the same instant or a later instant. `rules` supplies the custom rule
+types a document may name. `disambiguation` controls
 ambiguous and nonexistent local times.
 
 <!-- card

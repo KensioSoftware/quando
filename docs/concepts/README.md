@@ -122,7 +122,9 @@ methods. Your application remains responsible for storing the JSON. See
 ## Limits
 
 Quando calculates times and intervals. It does not run scheduled work or
-provide holiday datasets.
+provide holiday datasets. A rule the vocabulary cannot say, such as Easter or
+sunset, is supplied by the application through
+[custom rule types](../rules/#supply-your-own-rule-type).
 
 Every rule describes a set of times independently. Constraints that depend on
 previous occurrences need a different model. Examples include a minimum gap

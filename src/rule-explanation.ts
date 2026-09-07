@@ -41,6 +41,7 @@ function explainInZone(
       matched,
       conditions,
       inheritedZone,
+      context?.rules,
     ),
     conditions,
   };
@@ -65,6 +66,7 @@ function childConditions(
     case "not": {
       return [explainInZone(rule.rule, at, context, inheritedZone)];
     }
+    case "custom":
     case "always":
     case "dates":
     case "dateRange":
