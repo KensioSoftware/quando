@@ -131,5 +131,7 @@ export {
   nextCoveredInterval,
   SearchLimitExceededError,
 } from "./query.js";
+export type { Breach } from "./plan.js";
+export { admits, firstBreach } from "./plan.js";
 export type { CoveredDayOptions, StartingDay } from "./covered-days.js";
 export { advanceByCoveredDays, coveredDayCount } from "./covered-days.js";
