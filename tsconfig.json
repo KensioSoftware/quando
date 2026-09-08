@@ -38,5 +38,5 @@
     "inlineSources": true,
     "removeComments": false
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": ["src/**/*", "test/**/*", "bench/**/*"]
 }

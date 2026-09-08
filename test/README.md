@@ -49,3 +49,16 @@ Examples using `COUNT`, `BYSETPOS`, `BYWEEKNO`, `BYYEARDAY` or a frequency
 faster than a day are in the corpus as refusals. Quando declines each with a
 reason, and the tests pin that boundary the way the passing ones pin the
 answers.
+
+## Benchmarks
+
+`bench/` holds a benchmark suite, run on demand with `pnpm bench`. It is a
+baseline to compare a change against and nothing gates on it, because a shared
+CI runner's timings describe the runner.
+
+One performance claim is gated, and it is written as a ratio so that a slow
+machine cannot break it. `src/date-runs.test.ts` asserts that a point query
+against four thousand dates costs about what one against a hundred costs. That
+holds only while a `dates` rule reads its dates once and bisects to the window,
+and it fails if either goes. [The performance
+guide](../docs/performance/README.md) gives the numbers behind it.

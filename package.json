@@ -48,6 +48,7 @@
     "docs:check": "./scripts/sh/docs-check.sh",
     "fta": "./scripts/sh/fta.sh",
     "test": "vitest run",
+    "bench": "vitest bench --run",
     "test:coverage": "vitest run --coverage",
     "pack:check": "./scripts/sh/pack-check.sh",
     "check": "pnpm fmt && pnpm docs:check && pnpm fta && pnpm build:check && pnpm pack:check && pnpm test:coverage"

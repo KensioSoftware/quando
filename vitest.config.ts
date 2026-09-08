@@ -20,6 +20,11 @@ export default defineConfig({
     typecheck: {
       tsconfig: "./tsconfig.json",
     },
+    // Benchmarks live apart from the tests and run on demand with `pnpm bench`.
+    // See bench/queries.bench.ts for why no CI job reads them.
+    benchmark: {
+      include: ["bench/**/*.bench.ts"],
+    },
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
