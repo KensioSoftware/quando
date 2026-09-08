@@ -24,14 +24,11 @@ import {
   weekdays,
 } from "./build.js";
 import { canonical } from "./canonical.js";
-import type { Cascade } from "./cascade.js";
-import { valueAt } from "./assigned.js";
 import { toCron } from "./cron-export.js";
 import type { RuleRegistry } from "./custom-rules.js";
 import type { IntervalStream } from "./interval-stream.js";
 import { knownThrough } from "./horizon.js";
 import { BeyondHorizonError } from "./horizon-guard.js";
-import { UnknownValueError } from "./resolve.js";
 import { parseRule } from "./parse.js";
 import {
   activeAt,
@@ -361,39 +358,6 @@ describe("a rule that says how far it is known", () => {
       // Then it is an ordinary matching account.
       assertTrue(account.known);
       assertTrue(account.matched);
-    });
-  });
-
-  describe("a cascade", () => {
-    it("refuses a layer that declares a horizon", () => {
-      // Given a cascade one of whose layers stops being known.
-      const cascade: Cascade<string> = {
-        type: "cascade",
-        layers: [{ label: "holidays", scope: holidays(), value: "closed" }],
-      };
-
-      // When it is asked what holds at an instant.
-      const asking = (): unknown => valueAt(cascade, when("2026-03-09T10:00"));
-
-      // Then it refuses, because saying which value is unknown is not built.
-      const refusal = assertThrowsError(asking);
-      assertInstanceOf(refusal, UnknownValueError);
-      assertStringIncludes(refusal.message, '"holidays" layer');
-    });
-
-    it("says which layer even when it has no label", () => {
-      // Given the same cascade with nothing naming the layer.
-      const cascade: Cascade<string> = {
-        type: "cascade",
-        layers: [{ scope: holidays(), value: "closed" }],
-      };
-
-      // When it is asked what holds at an instant.
-      const asking = (): unknown => valueAt(cascade, when("2026-03-09T10:00"));
-
-      // Then the refusal still says what kind of thing declared the horizon.
-      const refusal = assertThrowsError(asking);
-      assertStringIncludes(refusal.message, "cascade layer");
     });
   });
 });

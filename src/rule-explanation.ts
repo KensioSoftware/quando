@@ -1,8 +1,7 @@
 import type { Context } from "./context.js";
-import { certaintyAt } from "./horizon-guard.js";
-import type { Rule } from "./rule.js";
+import { certaintyAt } from "./rule-certainty.js";
 import { describeRuleMatch } from "./rule-explanation-text.js";
-
+import type { Rule } from "./rule.js";
 /** Why one rule does or does not cover an instant. */
 export interface RuleExplanation {
   readonly rule: Rule;

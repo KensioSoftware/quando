@@ -19,6 +19,7 @@ import {
   type Valued,
 } from "./cascade.js";
 import type { Context } from "./context.js";
+import { refuse, unknownValueIn, upTo } from "./horizon-guard.js";
 import { bounds } from "./bounds.js";
 import type { IntervalStream } from "./interval-stream.js";
 import { resolve } from "./resolve.js";
@@ -102,6 +103,10 @@ function* matching<V>(covers: Assigned<V>, context: Context): IntervalStream {
  *
  * Always terminates, whatever the layers say, because it asks about the
  * smallest window there is.
+ *
+ * Throws {@link BeyondHorizonError} where the layers cannot settle which value
+ * holds. An `undefined` from this means no layer claims the moment, and never
+ * that one might have.
  */
 export function valueAt<V>(
   cascade: CascadeLike<V>,
@@ -114,7 +119,13 @@ export function valueAt<V>(
     to: at.add({ nanoseconds: 1 }),
   };
   const [now] = take(resolve(cascade, moment), 1);
-  return now?.value;
+  if (now !== undefined) {
+    return now.value;
+  }
+  const fog = unknownValueIn(cascade, moment);
+  return fog === undefined
+    ? undefined
+    : refuse("valueAt()", fog, moment, "uncertainValues()");
 }
 
 /**
@@ -123,11 +134,18 @@ export function valueAt<V>(
  * `next` narrowed to one value answers "when is Alice next on". This answers
  * "what happens next", whatever that turns out to be, which is the question a
  * timeline asks.
+ *
+ * Only the time before the stretch it finds can change the answer, so that is
+ * the only part checked against the layers' horizons.
  */
 export function nextValue<V>(
   cascade: CascadeLike<V>,
   context: Context,
 ): Valued<V> | undefined {
   const [first] = take(resolve(cascade, context), 1);
+  const fog = unknownValueIn(cascade, upTo(context, first?.start));
+  if (fog !== undefined) {
+    refuse("nextValue()", fog, context, "uncertainValues()");
+  }
   return first;
 }

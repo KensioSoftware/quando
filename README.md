@@ -151,8 +151,9 @@ occurrence, are still to come. See [constraints](docs/constraints/).
 
 How far a rule can be trusted is in scope too. `knownThrough` declares the last
 day a subtree counts as evidence, and a query whose answer would rest on
-anything past it refuses. Saying which _value_ a cascade assigns where a layer
-runs out is still to come. See [horizons](docs/horizon/).
+anything past it refuses. A cascade carries the same thing per value, so
+`uncertainValues` says which stretches its layers cannot settle. See
+[horizons](docs/horizon/).
 
 ## Licence
 

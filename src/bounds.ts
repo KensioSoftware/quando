@@ -21,6 +21,7 @@
 import { boundsOf } from "./bounds-algebra.js";
 import { repeatable } from "./bounds-parts.js";
 import { calendarOf } from "./context.js";
+import { hasHorizon } from "./horizon-shape.js";
 import type { Context } from "./context.js";
 import { readIn } from "./interpret.js";
 import { difference } from "./interval-difference.js";
@@ -64,6 +65,13 @@ export function bounds(rule: Rule, context: Context): Bounds {
  * before horizons existed.
  */
 export function uncertain(rule: Rule, context: Context): IntervalStream {
+  // Answered without walking, which matters for more than speed. The two
+  // bounds are the same stream when no horizon is declared, and a difference
+  // between two endless streams that never part has nothing to discover that
+  // from.
+  if (!hasHorizon(rule, context.rules)) {
+    return [];
+  }
   const both = bounds(rule, context);
   return repeatable(() => difference(both.possible, both.certain));
 }
