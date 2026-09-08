@@ -35,6 +35,7 @@ export function describeRuleMatch(
     }
 
     case "atMost":
+    case "atMostTime":
     case "spacedBy": {
       return describeConstraintMatch(rule, at, matched, read);
     }

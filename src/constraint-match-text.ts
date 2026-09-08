@@ -7,23 +7,11 @@
  * library knows about can do that. A custom one gives back its own name.
  */
 
-import { countedFor } from "./constraint-counting.js";
+import { describeCap, describeTimeCap } from "./constraint-cap-text.js";
 import type { Context } from "./context.js";
 import { spelled, spelledDistance } from "./duration-words.js";
 import { endOf, type Occurrence } from "./occurrence.js";
-import type {
-  AtMostRule,
-  ConstraintRule,
-  Period,
-  SpacedByRule,
-} from "./rule.js";
-
-const BUCKET_WORD: Readonly<Record<Period, string>> = {
-  days: "day",
-  weeks: "week",
-  months: "month",
-  years: "year",
-};
+import type { ConstraintRule, SpacedByRule } from "./rule.js";
 
 /** The sentence a cap or a spacing gives for one instant. */
 export function describeConstraintMatch(
@@ -35,26 +23,17 @@ export function describeConstraintMatch(
   // Evaluation runs before the account is written and refuses a missing
   // history there, so by here it is always present.
   const history = read?.occurrences ?? [];
-  return rule.type === "atMost"
-    ? describeCap(rule, at, matched, history, read)
-    : describeSpacing(rule, at, matched, history);
-}
-
-function describeCap(
-  rule: AtMostRule,
-  at: Temporal.ZonedDateTime,
-  matched: boolean,
-  history: readonly Occurrence[],
-  read: Omit<Context, "from" | "to"> | undefined,
-): string {
-  const seen = countedFor(rule, at, history, read);
-  const where =
-    rule.within === undefined
-      ? `this ${BUCKET_WORD[rule.per]}`
-      : `the ${spelled(Temporal.Duration.from(rule.within))} up to this instant`;
-  return matched
-    ? `There ${have(seen)} ${occurrences(seen)} in ${where}, and at most ${rule.count} are allowed.`
-    : `There ${have(seen)} already ${occurrences(seen)} in ${where}, which is the most allowed.`;
+  switch (rule.type) {
+    case "atMost": {
+      return describeCap(rule, at, matched, history, read);
+    }
+    case "atMostTime": {
+      return describeTimeCap(rule, at, matched, history, read);
+    }
+    case "spacedBy": {
+      return describeSpacing(rule, at, matched, history);
+    }
+  }
 }
 
 function describeSpacing(
@@ -72,14 +51,6 @@ function describeSpacing(
   return matched
     ? `The nearest occurrence is ${away} away, and ${least} is the least allowed.`
     : `The nearest occurrence is ${away} away, which is closer than the ${least} allowed.`;
-}
-
-function occurrences(count: number): string {
-  return count === 1 ? "1 occurrence" : `${count} occurrences`;
-}
-
-function have(count: number): string {
-  return count === 1 ? "is" : "are";
 }
 
 const NO_TIME = Temporal.Duration.from({ seconds: 0 });

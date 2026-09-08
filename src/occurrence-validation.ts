@@ -12,6 +12,30 @@ export function asCount(value: number, path: string): number {
 }
 
 /**
+ * The same, refusing the units whose length depends on where they fall.
+ *
+ * A cap on total time is measured by a sweep over instants, and that sweep
+ * needs a window of one width. A month is four lengths and a week across a
+ * clock change is two. Days are allowed and read as 24 hours, because "90 days
+ * in any rolling 180" is how the rule people are modelling is written down.
+ */
+export function asExactGap(value: string, path: string): string {
+  const checked = asGap(value, path);
+  const parts = Temporal.Duration.from(checked);
+  const varying = (["years", "months", "weeks"] as const).filter(
+    (unit) => parts[unit] !== 0,
+  );
+  if (varying.length > 0) {
+    throw new RangeError(
+      `${path} measures elapsed time, so "${value}" is ambiguous: ` +
+        `${varying.join(" and ")} vary in length. Give days, hours or ` +
+        "minutes. A day is read as 24 hours here.",
+    );
+  }
+  return checked;
+}
+
+/**
  * A length of time, as an ISO 8601 duration.
  *
  * Refused when it comes to no time at all. A window that holds nothing and a

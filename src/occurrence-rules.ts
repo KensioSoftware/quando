@@ -17,6 +17,7 @@ import type { IntervalStream } from "./interval-stream.js";
 import { fullBuckets } from "./occurrence-buckets.js";
 import { atLeastDeep, type Span } from "./occurrence-depth.js";
 import { endOf, historyOf, type Occurrence } from "./occurrence.js";
+import { atMostTimeForbids } from "./occurrence-time.js";
 import type { AtMostRule, ConstraintRule, SpacedByRule } from "./rule.js";
 
 /** The times a constraint rules out, whichever kind it is. */
@@ -24,9 +25,17 @@ export function constraintForbids(
   rule: ConstraintRule,
   context: Context,
 ): IntervalStream {
-  return rule.type === "atMost"
-    ? atMostForbids(rule, context)
-    : spacedByForbids(rule, context);
+  switch (rule.type) {
+    case "atMost": {
+      return atMostForbids(rule, context);
+    }
+    case "atMostTime": {
+      return atMostTimeForbids(rule, context);
+    }
+    case "spacedBy": {
+      return spacedByForbids(rule, context);
+    }
+  }
 }
 
 /** The times a cap rules out. */

@@ -145,9 +145,9 @@ and holiday data to the application.
 
 Constraints that depend on previous occurrences are in scope. `atMost` caps how
 many things may happen in a window and `spacedBy` sets the least time between
-them, both read against a history the query carries. Capping the total _time_
-something takes, and checking a whole proposed plan rather than the next
-occurrence, are still to come. See [constraints](docs/constraints/).
+them, `atMostTime` caps the total _time_ they take, and all three read against
+a history the query carries. Checking a whole proposed plan rather than the
+next occurrence is still to come. See [constraints](docs/constraints/).
 
 How far a rule can be trusted is in scope too. `knownThrough` declares the last
 day a subtree counts as evidence, and a query whose answer would rest on

@@ -57,6 +57,17 @@ export function canonicalRule(rule: Rule): Rule {
       };
     }
 
+    case "atMostTime": {
+      return {
+        type: "atMostTime",
+        total: canonicalDuration(rule.total),
+        ...(rule.within === undefined
+          ? { per: rule.per }
+          : { within: canonicalDuration(rule.within) }),
+        ...(rule.zone === undefined ? {} : { zone: rule.zone }),
+      };
+    }
+
     case "spacedBy": {
       return { type: "spacedBy", gap: canonicalDuration(rule.gap) };
     }

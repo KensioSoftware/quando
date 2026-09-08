@@ -108,6 +108,7 @@ function childConditions(
       return [explainInScope(rule.rule, at, context, scope)];
     }
     case "atMost":
+    case "atMostTime":
     case "spacedBy":
     case "custom":
     case "always":

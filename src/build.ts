@@ -94,4 +94,9 @@ export function custom(
 }
 
 export { inCalendar, inZone } from "./scope-builders.js";
-export { atMost, type AtMostOptions, spacedBy } from "./occurrence-builders.js";
+export {
+  atMost,
+  type AtMostOptions,
+  atMostTime,
+  spacedBy,
+} from "./occurrence-builders.js";

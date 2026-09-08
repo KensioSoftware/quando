@@ -13,7 +13,11 @@
  */
 
 import { parseCalendarRule } from "./parse-calendar.js";
-import { parseAtMostRule, parseSpacedByRule } from "./parse-constraint.js";
+import {
+  parseAtMostRule,
+  parseAtMostTimeRule,
+  parseSpacedByRule,
+} from "./parse-constraint.js";
 import { parseCustomRule } from "./parse-custom.js";
 import { asRecord, fail, shapeOf } from "./parse-shape.js";
 import { checkedType } from "./parse-rule-fields.js";
@@ -67,6 +71,10 @@ function parseRuleData(value: unknown, path: string): Rule {
 
     case "atMost": {
       return parseAtMostRule(node, path);
+    }
+
+    case "atMostTime": {
+      return parseAtMostTimeRule(node, path);
     }
 
     case "spacedBy": {

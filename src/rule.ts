@@ -117,6 +117,7 @@ export type Rule =
   | DatesRule
   | DateRangeRule
   | AtMostRule
+  | AtMostTimeRule
   | SpacedByRule
   | CustomRule
   | InCalendarRule
@@ -153,7 +154,7 @@ export type CalendarRule =
  * what lets them compose with the rest. See
  * [occurrence-rules.ts](./occurrence-rules.ts).
  */
-export type ConstraintRule = AtMostRule | SpacedByRule;
+export type ConstraintRule = AtMostRule | AtMostTimeRule | SpacedByRule;
 
 /**
  * At most `count` occurrences in each window.
@@ -180,6 +181,45 @@ export interface AtMostPerPeriod extends AtMostFields {
 
 /** At most `count` in any window of this length, as an ISO duration. */
 export interface AtMostWithin extends AtMostFields {
+  readonly within: string;
+  readonly per?: undefined;
+}
+
+/**
+ * At most `total` time occupied in each window.
+ *
+ * The sibling of {@link AtMostRule}, counting how long things went on rather
+ * than how many there were. "90 days in any rolling 180" and "56 hours of
+ * driving a week" are both this. An occurrence with no `lasting` takes no
+ * time, so a history of moments never fills one.
+ *
+ * Both fields hold exact time. Years, months and weeks are refused, because
+ * the sweep that answers this needs a window that is the same length wherever
+ * it sits. A day is read as 24 hours.
+ *
+ * **What fills the cap is elapsed time, and `lasting` is calendar time.** An
+ * occurrence of `P90D` from a London midnight running over a spring clock
+ * change occupies 89 days and 23 hours, because that is how long it lasted.
+ * Against a cap of `P90D` read as 90 times 24 hours it comes an hour short.
+ * Write both in hours where the hour matters.
+ */
+export type AtMostTimeRule = AtMostTimePerPeriod | AtMostTimeWithin;
+
+interface AtMostTimeFields {
+  readonly type: "atMostTime";
+  /** How much time may be occupied, as an ISO duration. */
+  readonly total: string;
+  readonly zone?: string;
+}
+
+/** At most `total` time in each calendar day, week, month or year. */
+export interface AtMostTimePerPeriod extends AtMostTimeFields {
+  readonly per: Period;
+  readonly within?: undefined;
+}
+
+/** At most `total` time in any window of this length, as an ISO duration. */
+export interface AtMostTimeWithin extends AtMostTimeFields {
   readonly within: string;
   readonly per?: undefined;
 }

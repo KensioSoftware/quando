@@ -98,6 +98,7 @@ function split(rule: Rule, context: Context): Bounds {
     case "dates":
     case "dateRange":
     case "atMost":
+    case "atMostTime":
     case "spacedBy": {
       return settled(rule, context);
     }

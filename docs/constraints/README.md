@@ -20,8 +20,62 @@ const dosing = all(atMost(4, "PT24H"), spacedBy("PT4H"));
 "At most 4 doses a day, 4 hours apart", "90 days in any rolling 180", "100
 requests a minute" and "11 hours between shifts" are all constraints on a
 pattern of occurrences. Once the history is known, each of them is an ordinary
-set of times, which is why they compose with everything else and every query
-works on them unchanged.
+set of times. That is why they compose with everything else, and why every
+query works on them unchanged.
+
+## Capping the total time
+
+`atMost` counts how many things happened. `atMostTime` measures how long they
+went on. That is what "90 days in any rolling 180" and "56 hours of driving a
+week" ask for.
+
+```ts
+import { atMostTime } from "@kensio/quando";
+
+const schengen = atMostTime("P90D", "P180D");
+const tachograph = atMostTime("PT56H", "weeks");
+```
+
+The second argument says which window, the same way it does for `atMost`. A
+calendar period resets and an ISO duration rolls.
+
+```ts
+const stays = [{ at: utc("2026-01-01T00:00"), lasting: days(90) }];
+
+activeAt(schengen, utc("2026-05-01T00:00"), { occurrences: stays });
+// false
+
+nextCoveredInterval(schengen, {
+  from: utc("2026-04-15T00:00"),
+  to: utc("2026-12-01T00:00"),
+  occurrences: stays,
+})?.start;
+// 2026-06-30T00:00, which is the day the stay leaves the rolling window
+```
+
+An occurrence with no `lasting` takes no time and fills nothing. A history of
+moments never moves a time cap. That is the difference between the two rules
+put plainly.
+
+Overlapping occurrences are merged. Nobody is in the Schengen area twice at
+once, and two driving records covering the same hour count for one.
+
+### It measures elapsed time
+
+Both durations on the rule are exact. Years, months and weeks are refused,
+because the sweep that answers this needs a window that is one length wherever
+it sits.
+
+```ts
+atMostTime("P1M", "days");
+// RangeError: total measures elapsed time, so "P1M" is ambiguous: months vary
+// in length. Give days, hours or minutes. A day is read as 24 hours here.
+```
+
+A day on the rule is 24 hours. An occurrence's `lasting` is calendar time. A
+stay of `P90D` from a London midnight running over the spring clock change
+occupies 89 days and 23 hours, an hour short of a `P90D` cap. Write both in
+hours where that hour matters.
 
 ## The history goes on the context
 
@@ -81,8 +135,8 @@ atMost(4, "PT24H"); // {"type":"atMost","count":4,"within":"PT24H"}
 
 **`within` counts in a rolling window**, written as an ISO duration. Nothing
 resets. The oldest occurrence falls out the far end as time passes, so four
-doses ending at eight in the evening allow a fifth at eight the next morning
-rather than at midnight.
+doses ending at eight in the evening allow a fifth at eight the next morning.
+Midnight has no part in it.
 
 A full calendar bucket is closed for the whole of itself, including the part
 before the occurrences that filled it. A day that is already full stays full
@@ -117,7 +171,7 @@ now?" is the question people actually have.
 
 ## Composing
 
-A constraint is a rule, so it goes anywhere one goes:
+A constraint is a rule. It goes anywhere one goes:
 
 ```ts
 const shifts = all(weekdays(), atMost(5, "weeks"), spacedBy("PT11H"));
@@ -136,9 +190,6 @@ wants a separate entry point, still to come.
 
 **One history per query.** A context carries one `occurrences` array. A
 document constraining two different series wants two queries, one per series.
-
-**Caps count occurrences.** "90 days in any rolling 180" caps total _duration_
-instead, and that wants a rule of its own, still to come.
 
 [`toCron`](../cron/) and [`toRRule`](../recurrence/) both refuse a constraint,
 and say why. Each notation describes a pattern on the calendar, and a history
