@@ -13,6 +13,7 @@
  */
 
 import { parseCalendarRule } from "./parse-calendar.js";
+import { parseAtMostRule, parseSpacedByRule } from "./parse-constraint.js";
 import { parseCustomRule } from "./parse-custom.js";
 import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
 import { build, type Built } from "./build.js";
@@ -35,6 +36,8 @@ const FIELDS = new Map<string, readonly string[]>([
   ["timeOfDay", ["from", "to", "zone"]],
   ["dates", ["dates", "zone"]],
   ["dateRange", ["from", "to", "zone"]],
+  ["atMost", ["count", "per", "within", "zone"]],
+  ["spacedBy", ["gap"]],
   ["custom", ["name", "options", "zone"]],
   ["inCalendar", ["calendar", "rule"]],
   ["inZone", ["zone", "rule"]],
@@ -98,6 +101,14 @@ function parseRuleData(value: unknown, path: string): Rule {
     case "dateRange":
     case "timeOfDay": {
       return parseCalendarRule(type, node, path);
+    }
+
+    case "atMost": {
+      return parseAtMostRule(node, path);
+    }
+
+    case "spacedBy": {
+      return parseSpacedByRule(node, path);
     }
 
     case "custom": {

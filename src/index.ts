@@ -16,10 +16,12 @@ export { MONTH_CODES, MONTHS, PERIODS, WEEKDAYS } from "./rule.js";
 
 export type { Built } from "./build.js";
 export type { EveryOptions } from "./every-builders.js";
+export type { AtMostOptions } from "./occurrence-builders.js";
 export {
   all,
   always,
   any,
+  atMost,
   between,
   custom,
   dates,
@@ -35,6 +37,7 @@ export {
   nthDayOfWeekInMonth,
   onOrAfter,
   onOrBefore,
+  spacedBy,
   timeOfDay,
   weekdays,
   weekends,
@@ -56,6 +59,8 @@ export type {
 } from "./rrule-export.js";
 export { toRRule } from "./rrule-export.js";
 export { parseTerms } from "./terms.js";
+export type { Occurrence } from "./occurrence.js";
+export { MissingOccurrencesError } from "./occurrence.js";
 export type { Unwritable } from "./export-result.js";
 export { parseRule } from "./parse.js";
 

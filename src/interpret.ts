@@ -22,6 +22,7 @@ import {
 } from "./context.js";
 import { calendarIntervals } from "./calendar-intervals.js";
 import { customIntervals } from "./custom-rules.js";
+import { constraintForbids } from "./occurrence-rules.js";
 import {
   clip,
   complement,
@@ -99,6 +100,14 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
     case "dateRange":
     case "timeOfDay": {
       return clip(calendarIntervals(rule, context), window);
+    }
+
+    case "atMost":
+    case "spacedBy": {
+      // Complemented here, because a constraint is written as what it forbids.
+      // An occurrence casts a shadow over the times another may not go, and
+      // everything outside every shadow is permitted.
+      return clip(complement(constraintForbids(rule, context)), window);
     }
 
     case "custom": {

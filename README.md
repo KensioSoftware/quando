@@ -123,7 +123,7 @@ Start with the [getting started guide](docs/getting-started/). The remaining
 guides cover:
 
 - [Schedules and rotas](docs/schedules/)
-- [Rules](docs/rules/) and [terms](docs/terms/)
+- [Rules](docs/rules/), [terms](docs/terms/) and [constraints](docs/constraints/)
 - [Queries](docs/queries/)
 - [Validation](docs/validation/)
 - [Explanations](docs/explanations/)
@@ -140,8 +140,13 @@ The same documentation is published at
 ## Scope
 
 Quando calculates times and intervals. It leaves job execution, persistence,
-and holiday data to the application. It does not solve constraints that depend
-on previous occurrences, such as minimum spacing or rolling-window totals.
+and holiday data to the application.
+
+Constraints that depend on previous occurrences are in scope. `atMost` caps how
+many things may happen in a window and `spacedBy` sets the least time between
+them, both read against a history the query carries. Capping the total _time_
+something takes, and checking a whole proposed plan rather than the next
+occurrence, are still to come. See [constraints](docs/constraints/).
 
 ## Licence
 

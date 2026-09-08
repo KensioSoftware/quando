@@ -13,14 +13,12 @@ import type {
   AlwaysRule,
   AnyRule,
   CustomRule,
-  InCalendarRule,
-  InZoneRule,
   NeverRule,
   NotRule,
   Rule,
 } from "./rule.js";
 import { build, type Built } from "./built-rule.js";
-import { asCalendar, asZone } from "./validation.js";
+import { asZone } from "./validation.js";
 
 export { build, type Built } from "./built-rule.js";
 export {
@@ -95,28 +93,5 @@ export function custom(
   });
 }
 
-/** Evaluates a rule subtree in a named time zone. */
-export function inZone(zone: string, rule: Rule): Built<InZoneRule> {
-  return build({ type: "inZone", zone: asZone(zone, "zone"), rule });
-}
-
-/**
- * Evaluates a rule subtree on a named calendar.
- *
- * ```ts
- * inCalendar("hebrew", daysOfMonth(1)); // Rosh Chodesh
- * ```
- *
- * Any calendar `Temporal` implements. The instants do not move. What changes
- * is the year, month and day a rule reads off a date.
- */
-export function inCalendar(
-  calendar: string,
-  rule: Rule,
-): Built<InCalendarRule> {
-  return build({
-    type: "inCalendar",
-    calendar: asCalendar(calendar, "calendar"),
-    rule,
-  });
-}
+export { inCalendar, inZone } from "./scope-builders.js";
+export { atMost, type AtMostOptions, spacedBy } from "./occurrence-builders.js";

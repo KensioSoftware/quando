@@ -20,6 +20,7 @@
  */
 
 import { canonicalCalendarRule } from "./canonical-calendar.js";
+import { canonicalDuration } from "./canonical-leaves.js";
 import { canonicalJson } from "./canonical-json.js";
 import { byCodeUnit } from "./code-unit-order.js";
 import type { Rule } from "./rule.js";
@@ -85,6 +86,23 @@ export function canonicalRule(rule: Rule): Rule {
     case "dateRange":
     case "timeOfDay": {
       return canonicalCalendarRule(rule);
+    }
+
+    case "atMost": {
+      // The window is one field or the other and never both, so the one that
+      // is set is the one written.
+      return {
+        type: "atMost",
+        count: rule.count,
+        ...(rule.within === undefined
+          ? { per: rule.per }
+          : { within: canonicalDuration(rule.within) }),
+        ...(rule.zone === undefined ? {} : { zone: rule.zone }),
+      };
+    }
+
+    case "spacedBy": {
+      return { type: "spacedBy", gap: canonicalDuration(rule.gap) };
     }
 
     case "custom": {

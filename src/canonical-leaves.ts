@@ -29,6 +29,9 @@ const asTime = (from: string): Temporal.PlainTime =>
 const asDate = (from: string): Temporal.PlainDate =>
   Temporal.PlainDate.from(from);
 
+const asDuration = (from: string): Temporal.Duration =>
+  Temporal.Duration.from(from);
+
 /**
  * A `Temporal` value written the one way, where it can be read at all.
  *
@@ -50,6 +53,17 @@ function written(
 export const canonicalTime = (value: string): string => written(value, asTime);
 
 export const canonicalDate = (value: string): string => written(value, asDate);
+
+/**
+ * A duration written the one way, so `"pt4h"` and `"PT4H"` compare equal.
+ *
+ * Formatting only. `PT60M` and `PT1H` stay apart, because balancing one into
+ * the other means knowing how long a day is and a duration holding months
+ * cannot be balanced at all. Two rules covering the same time by different
+ * routes staying different is the position canonical form takes everywhere.
+ */
+export const canonicalDuration = (value: string): string =>
+  written(value, asDuration);
 
 export function canonicalDays(days: readonly Weekday[]): Weekday[] {
   return [...new Set(days)].toSorted(
