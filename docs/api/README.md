@@ -37,6 +37,7 @@ interface LayerOptions {
 | `open(scope, hours?, options?)`         | Add opening hours                           |
 | `closed(scope, options?)`               | Close the entire scope                      |
 | `hoursOn(day, hours, options?)`         | Replace the hours within a day              |
+| `withRules(rules)`                      | Read `custom` rules from this registry      |
 | `isOpen(at)`                            | Check one instant                           |
 | `explain(at)`                           | Explain the value at one instant            |
 | `opensNext(at, search?)`                | Return the current or next opening interval |
@@ -74,6 +75,7 @@ function parseRota<V>(
 | -------------------------------- | ---------------------------------------- |
 | `assign(scope, value, options?)` | Add an assignment                        |
 | `swap(day, value, options?)`     | Add a replacement assignment for a day   |
+| `withRules(rules)`               | Read `custom` rules from this registry   |
 | `whoIsOn(at)`                    | Return the assigned value or `undefined` |
 | `explain(at)`                    | Explain the value at one instant         |
 | `shifts(from, to?)`              | Return valued intervals                  |
@@ -91,6 +93,7 @@ function parseTally(value: unknown, path?: string): Tally;
 | ---------------------------------- | -------------------------------------- |
 | `plus(scope, amount, options?)`    | Add an amount                          |
 | `exactly(scope, amount, options?)` | Replace lower amounts within the scope |
+| `withRules(rules)`                 | Read `custom` rules from this registry |
 | `countAt(at)`                      | Return the amount at one instant       |
 | `explain(at)`                      | Explain the value at one instant       |
 | `least(from, to)`                  | Return the lowest amount in a window   |
@@ -221,6 +224,11 @@ class CustomRuleStreamError extends RangeError {
 A `custom` rule document names a rule type. `context.rules` holds the code that
 runs it, so a document stores, travels and canonicalises without it. Evaluating
 a rule the registry does not hold throws `UnknownCustomRuleError`.
+
+A schedule, a rota and a tally take the registry through `withRules(rules)`.
+It returns a new one whose every method reads the registry. A registry holds
+functions. It stays out of the stored document, and `toJSON` returns what it
+always returned.
 
 `intervals` must yield in ascending order of start without overlaps, the same
 contract every interval stream keeps. Touching intervals are merged. Anything

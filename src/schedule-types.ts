@@ -1,5 +1,6 @@
 import type { SlotOptions } from "./availability.js";
 import type { Cascade } from "./cascade.js";
+import type { RuleRegistry } from "./custom-rules.js";
 import type { DefaultExplanation } from "./explain.js";
 import type { Interval } from "./interval.js";
 import type { LayerOptions } from "./layer-options.js";
@@ -41,6 +42,15 @@ export interface Schedule extends ScheduleData {
     hours: PlainRule,
     options?: LayerOptions,
   ) => Schedule;
+
+  /**
+   * The same schedule, reading `custom` rules from this registry.
+   *
+   * A registry holds functions, so it cannot live in the stored document the
+   * way the zone does. It rides beside it, and `toJSON` is unchanged. Calling
+   * this twice replaces the registry rather than merging the two.
+   */
+  readonly withRules: (rules: RuleRegistry) => Schedule;
   readonly isOpen: (at: Temporal.ZonedDateTime) => boolean;
   readonly explain: (at: Temporal.ZonedDateTime) => ScheduleExplanation;
   readonly opensNext: (

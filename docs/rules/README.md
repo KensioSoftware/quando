@@ -566,13 +566,14 @@ const easter = {
 
 const office = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00")
-  .closed(custom("easter", { offset: 1 }));
+  .closed(custom("easter", { offset: 1 }))
+  .withRules({ easter });
 
 const easterMonday = Temporal.ZonedDateTime.from(
   "2026-04-06T10:00[Europe/London]",
 );
 
-console.log(activeAt(office, easterMonday, { rules: { easter } }));
+console.log(office.isOpen(easterMonday));
 ```
 
 ```text
@@ -582,6 +583,54 @@ false
 A registry is a plain object keyed by name, so combining two sources of rule
 types is a spread. There is no global to register into and nothing to reset
 between tests.
+
+### Attaching one to a schedule, rota or tally
+
+`withRules` gives a schedule, a rota or a tally the registry its scopes need,
+and returns a new one. Every method then reads it. So does the account each one
+gives of itself:
+
+```ts
+const bankHolidays = {
+  intervals: () => [
+    {
+      start: Temporal.ZonedDateTime.from("2026-12-25T00:00[Europe/London]"),
+      end: Temporal.ZonedDateTime.from("2026-12-26T00:00[Europe/London]"),
+    },
+  ],
+  describe: () => "It is a bank holiday.",
+};
+
+const openingHours = schedule({ zone: "Europe/London" })
+  .open(weekdays(), "09:00-17:00")
+  .closed(custom("bankHolidays"))
+  .withRules({ bankHolidays });
+
+const christmas = Temporal.ZonedDateTime.from(
+  "2026-12-25T10:00[Europe/London]",
+);
+
+console.log(openingHours.isOpen(christmas));
+console.log(openingHours.opensNext(christmas)?.start?.toString());
+```
+
+```text
+false
+2026-12-28T09:00:00+00:00[Europe/London]
+```
+
+The search skipped the holiday and the weekend after it. `explain`, `validate`,
+`renderTimeline` and the rest read the registry the same way, and a rule type's
+own `describe` is what puts "It is a bank holiday." into the explanation.
+
+A registry holds functions, so it never enters the stored document. `toJSON`
+returns what it always returned, and `withRules` called twice replaces the
+registry rather than merging the two. Attach it before or after the layers that
+need it, since each builder method carries it into the object it returns.
+
+The core queries take the same registry on the context instead. That is what
+`activeAt(openingHours, christmas, { rules: { bankHolidays } })` does, and it
+is the route to use where the rule set is not a schedule, a rota or a tally.
 
 ### The document holds a name, not a function
 
@@ -599,8 +648,8 @@ console.log(JSON.stringify(custom("easter", { offset: 1 })));
 
 Options are stored and must survive a JSON round trip. `parseRule` refuses
 anything that would not. Evaluating a rule whose name the registry does not
-hold throws `UnknownCustomRuleError`, which names what was asked for and what
-the context does hold.
+hold throws `UnknownCustomRuleError`, which names what was asked for, what the
+registry does hold, and the two ways of supplying one.
 
 ### What a rule type must return
 

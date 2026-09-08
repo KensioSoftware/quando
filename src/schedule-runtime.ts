@@ -1,5 +1,7 @@
 import { all, inZone } from "./build.js";
 import { type Layer, cascade, layer, replace } from "./cascade.js";
+import type { Context } from "./context.js";
+import type { RuleRegistry } from "./custom-rules.js";
 import { withMethods } from "./fluent.js";
 import type { LayerOptions } from "./layer-options.js";
 import { asDays, asHours, type PlainRule } from "./plain-forms.js";
@@ -45,11 +47,23 @@ function isLayerOptions(value: unknown): value is LayerOptions {
   return typeof value === "object" && value !== null && !("type" in value);
 }
 
-/** Restores schedule methods on validated schedule data. */
-export function restoreSchedule(data: ScheduleData): Schedule {
+/**
+ * Restores schedule methods on validated schedule data.
+ *
+ * `read` is what the schedule carries that its document cannot: the registry
+ * a `custom` rule in one of its scopes is looked up in. It travels with every
+ * derived schedule and stays out of `data`, which is what `toJSON` returns.
+ */
+export function restoreSchedule(
+  data: ScheduleData,
+  read?: Omit<Context, "from" | "to">,
+): Schedule {
   const { cascade: document, zone } = data;
   const append = (next: Layer<boolean>): Schedule =>
-    restoreSchedule({ ...data, cascade: cascade(...document.layers, next) });
+    restoreSchedule(
+      { ...data, cascade: cascade(...document.layers, next) },
+      read,
+    );
 
   return withMethods(data, {
     open: (
@@ -67,7 +81,9 @@ export function restoreSchedule(data: ScheduleData): Schedule {
       append(closure(scope, zone, options)),
     hoursOn: (day: PlainRule, hours: PlainRule, options?: LayerOptions) =>
       append(changedHours(day, hours, zone, options)),
-    ...scheduleQueries(document, zone),
+    withRules: (rules: RuleRegistry) =>
+      restoreSchedule(data, { ...read, rules }),
+    ...scheduleQueries(document, zone, read),
     toJSON: () => ({ ...data }),
   });
 }
