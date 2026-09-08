@@ -4,7 +4,14 @@ Every other rule answers "is this instant permitted?" from the instant alone.
 A constraint answers it from a history.
 
 ```ts
-import { all, atMost, spacedBy } from "@kensio/quando";
+import {
+  activeAt,
+  all,
+  atMost,
+  explainRule,
+  nextCoveredInterval,
+  spacedBy,
+} from "@kensio/quando";
 
 // At most four in any twenty-four hours, and four hours apart.
 const dosing = all(atMost(4, "PT24H"), spacedBy("PT4H"));
@@ -19,17 +26,17 @@ works on them unchanged.
 ## The history goes on the context
 
 ```ts
-const taken = [
-  { at: when("2026-03-10T08:00") },
-  { at: when("2026-03-10T12:00") },
-  { at: when("2026-03-10T16:00") },
-  { at: when("2026-03-10T20:00") },
-];
+const at = (iso: string): Temporal.ZonedDateTime =>
+  Temporal.ZonedDateTime.from(`${iso}[Europe/London]`);
 
-activeAt(dosing, when("2026-03-10T21:00"), { occurrences: taken }); // false
+const taken = ["08:00", "12:00", "16:00", "20:00"].map((hour) => ({
+  at: at(`2026-03-10T${hour}`),
+}));
+
+activeAt(dosing, at("2026-03-10T21:00"), { occurrences: taken }); // false
 
 nextCoveredInterval(dosing, {
-  from: when("2026-03-10T20:30"),
+  from: at("2026-03-10T20:30"),
   occurrences: taken,
 });
 // 2026-03-11T08:00:00+00:00[Europe/London]
@@ -46,7 +53,7 @@ one. The count is the whole question.
 ## Leaving the history out is an error
 
 ```ts
-activeAt(dosing, when("2026-03-10T21:00"));
+activeAt(dosing, at("2026-03-10T21:00"));
 // MissingOccurrencesError: The "atMost" rule counts what has already
 //   happened, and the context carries no `occurrences`. Pass the history as
 //   `occurrences` on the context, or `occurrences: []` if nothing has
@@ -93,7 +100,7 @@ as one four hours after, and exactly four hours is far enough either way.
 ## It explains itself
 
 ```ts
-explainRule(dosing, when("2026-03-10T21:00"), {
+explainRule(dosing, at("2026-03-10T21:00"), {
   occurrences: taken,
 }).conditions.map((one) => one.description);
 // [

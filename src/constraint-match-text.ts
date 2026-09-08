@@ -82,21 +82,40 @@ function have(count: number): string {
   return count === 1 ? "is" : "are";
 }
 
-/** How far the closest occurrence is, either side of an instant. */
+const NO_TIME = Temporal.Duration.from({ seconds: 0 });
+
+/**
+ * How far the closest occurrence is, either side of an instant.
+ *
+ * An instant inside an occurrence that lasted is no distance from it. Reading
+ * that case as the distance back to where the occurrence began would give a
+ * negative duration, and a negative one sorts below every real gap, so the
+ * account would name the wrong occurrence and then print the distance to it
+ * as though it were positive.
+ */
 function nearestGap(
   at: Temporal.ZonedDateTime,
   history: readonly Occurrence[],
 ): Temporal.Duration | undefined {
   let best: Temporal.Duration | undefined;
   for (const one of history) {
-    const finished = endOf(one);
-    const gap =
-      Temporal.ZonedDateTime.compare(at, finished) >= 0
-        ? finished.until(at)
-        : at.until(one.at);
+    const gap = distanceTo(at, one);
     if (best === undefined || Temporal.Duration.compare(gap, best) < 0) {
       best = gap;
     }
   }
   return best;
+}
+
+function distanceTo(
+  at: Temporal.ZonedDateTime,
+  one: Occurrence,
+): Temporal.Duration {
+  if (Temporal.ZonedDateTime.compare(at, one.at) < 0) {
+    return at.until(one.at);
+  }
+  const finished = endOf(one);
+  return Temporal.ZonedDateTime.compare(at, finished) >= 0
+    ? finished.until(at)
+    : NO_TIME;
 }

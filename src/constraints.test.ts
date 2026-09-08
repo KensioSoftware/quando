@@ -375,6 +375,41 @@ describe("constraints on what has already happened", () => {
       assertStringIncludes(account, "6 hours away");
     });
 
+    it("calls an instant inside an occurrence no distance from it", () => {
+      // Given a shift running from nine until noon, and an instant during it.
+      // A second occurrence sits a real two and a half hours away.
+      const history = [
+        {
+          at: when("2026-03-10T09:00"),
+          lasting: Temporal.Duration.from({ hours: 3 }),
+        },
+        { at: when("2026-03-10T12:30") },
+      ];
+
+      const account = explainRule(spacedBy("PT1H"), when("2026-03-10T10:00"), {
+        occurrences: history,
+      }).description;
+
+      // Then the distance is nothing. Measuring back to where the shift began
+      // would give a negative duration, and a negative one sorts below every
+      // real gap, so the account would pick this occurrence over the nearer
+      // one and then report the distance as though it were positive.
+      assertStringIncludes(account, "no time away");
+    });
+
+    it("reads a distance shorter than a second", () => {
+      // Given half a second between two events.
+      const account = explainRule(
+        spacedBy("PT0.5S"),
+        when("2026-03-10T09:00:01.9"),
+        { occurrences: [{ at: when("2026-03-10T09:00:01.7") }] },
+      ).description;
+
+      // Then it is said in milliseconds rather than rounded away to nothing.
+      assertStringIncludes(account, "200 milliseconds");
+      assertStringIncludes(account, "500 milliseconds");
+    });
+
     it("says so when nothing has happened", () => {
       // Given a spacing and an empty history.
       const explanation = explainRule(
@@ -389,6 +424,22 @@ describe("constraints on what has already happened", () => {
       // not have.
       assertTrue(explanation.matched);
       assertStringIncludes(explanation.description, "Nothing has happened yet");
+    });
+  });
+
+  describe("a window written in calendar units", () => {
+    it("counts a day to the same clock time rather than to the same length", () => {
+      // Given one visit at noon the day the clocks go forward in London, and
+      // the same cap written as a day and as twenty-four hours.
+      const history = [{ at: when("2026-03-28T12:00") }];
+
+      // When noon the next day is asked about, which is twenty-three real
+      // hours later because an hour went missing overnight.
+      // Then the calendar day has passed and the twenty-four hours have not.
+      // Both readings are wanted: a Schengen window is written in days and a
+      // rate limit is written in real time.
+      assertTrue(permits(atMost(1, "P1D"), "2026-03-29T12:00", history));
+      assertFalse(permits(atMost(1, "PT24H"), "2026-03-29T12:00", history));
     });
   });
 
