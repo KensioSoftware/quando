@@ -1,6 +1,7 @@
 import { inWindow, render, span, when } from "#test/intervals.js";
 import {
   assertArrayEmpty,
+  assertArrayEquals,
   assertFalse,
   assertIdentical,
   assertInstanceOf,
@@ -23,7 +24,10 @@ import type { Interval } from "./interval.js";
 import { parseRule } from "./parse.js";
 import { activeAt, coveredDuration } from "./query.js";
 import { explainRule } from "./rule-explanation.js";
+import { rota } from "./rota.js";
 import { schedule } from "./schedule.js";
+import type { Schedule } from "./schedule-types.js";
+import { tally } from "./tally.js";
 import { toCron } from "./cron-export.js";
 
 describe("a rule the application supplies", () => {
@@ -361,6 +365,130 @@ describe("a rule the application supplies", () => {
       // Then the absent options stay absent rather than becoming a null.
       assertIdentical(JSON.stringify(restored), stored);
       assertIdentical(JSON.stringify(canonical(restored)), stored);
+    });
+  });
+
+  describe("inside a schedule, rota or tally", () => {
+    const LONDON = "Europe/London";
+
+    const day = (date: string): Temporal.ZonedDateTime =>
+      Temporal.ZonedDateTime.from(`${date}T00:00[${LONDON}]`);
+
+    /** Christmas Day 2026, the way a holiday package would ship it. */
+    const bankHolidays = (): RuleRegistry => ({
+      bankHolidays: {
+        intervals: () => [{ start: day("2026-12-25"), end: day("2026-12-26") }],
+        describe: () => "It is a bank holiday.",
+      },
+    });
+
+    const christmasMorning = (): Temporal.ZonedDateTime =>
+      day("2026-12-25").add({ hours: 10 });
+
+    const closedForHolidays = (): Schedule =>
+      schedule({ zone: LONDON })
+        .open(weekdays(), "09:00-17:00")
+        .closed(custom("bankHolidays"))
+        .withRules(bankHolidays());
+
+    it("answers a schedule question the registry is needed for", () => {
+      // Given office hours closed by a holiday package's rule type.
+      const office = closedForHolidays();
+
+      // When Christmas morning and Christmas Eve are asked about.
+      // Then the holiday closes the first and leaves the second alone.
+      assertFalse(office.isOpen(christmasMorning()));
+      assertTrue(office.isOpen(day("2026-12-24").add({ hours: 10 })));
+    });
+
+    it("keeps searching forward through a custom rule", () => {
+      // Given the same schedule, asked on the morning it is shut.
+      const office = closedForHolidays();
+
+      // When the next opening is looked for.
+      const next = office.opensNext(christmasMorning());
+
+      // Then it skips the holiday and the weekend after it. A search that
+      // could not read the holiday would have answered Boxing Day.
+      assertIdentical(
+        next?.start?.toString(),
+        "2026-12-28T09:00:00+00:00[Europe/London]",
+      );
+    });
+
+    it("puts the rule type's own sentence in the account", () => {
+      // Given the same schedule.
+      const office = closedForHolidays();
+
+      // When the closed morning is explained.
+      const explanation = office.explain(christmasMorning());
+
+      // Then the type's sentence appears where the reason belongs, so the
+      // account says why rather than naming a rule it could not read.
+      assertFalse(explanation.value);
+      assertStringIncludes(explanation.summary, "It is a bank holiday.");
+    });
+
+    it("carries the registry to a rota and a tally too", () => {
+      // Given the same holiday used to assign cover and to count staffing.
+      const registry = bankHolidays();
+      const onCall = rota<string>()
+        .assign(weekdays(), "alice")
+        .assign(custom("bankHolidays"), "bob")
+        .withRules(registry);
+      const staffing = tally()
+        .plus(weekdays(), 2)
+        .plus(custom("bankHolidays"), 5)
+        .withRules(registry);
+
+      // When Christmas morning is asked about.
+      // Then the later assignment wins and the amounts add up.
+      assertIdentical(onCall.whoIsOn(christmasMorning()), "bob");
+      assertIdentical(staffing.countAt(christmasMorning()), 7);
+    });
+
+    it("survives the methods that derive a new schedule", () => {
+      // Given a registry attached before the layer that needs it.
+      const office = schedule({ zone: LONDON })
+        .withRules(bankHolidays())
+        .open(weekdays(), "09:00-17:00")
+        .closed(custom("bankHolidays"));
+
+      // When the closed morning is asked about.
+      // Then it answers. Every builder method returns a new schedule, and the
+      // registry travels with each one.
+      assertFalse(office.isOpen(christmasMorning()));
+    });
+
+    it("keeps the registry out of the stored document", () => {
+      // Given a schedule holding a registry.
+      const office = closedForHolidays();
+
+      // When it is stored.
+      const stored = JSON.stringify(office.toJSON());
+
+      // Then the document holds what it always held. A registry is code, and
+      // a document carrying it would not be a document. The scope still names
+      // the rule, which is the half that stores.
+      assertArrayEquals(Object.keys(JSON.parse(stored) as object), [
+        "type",
+        "cascade",
+        "zone",
+      ]);
+      assertStringIncludes(stored, '"type":"custom","name":"bankHolidays"');
+    });
+
+    it("names both ways of supplying one when none is there", () => {
+      // Given the same schedule with no registry attached.
+      const office = schedule({ zone: LONDON }).closed(custom("bankHolidays"));
+
+      // When it is asked about.
+      const error = assertThrowsError(() => office.isOpen(christmasMorning()));
+
+      // Then the message names the route this object actually offers, as well
+      // as the context one the core queries take.
+      assertInstanceOf(error, UnknownCustomRuleError);
+      assertStringIncludes(error.message, "withRules()");
     });
   });
 

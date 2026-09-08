@@ -24,13 +24,16 @@ import {
   type OpenDayOptions,
   renderTimeline,
   rota,
+  type Rota,
   type RuleExplanation,
   type SkippedLayer,
   schedule,
   type RuleRegistry,
+  type Schedule,
   type ScheduleChanges,
   slots,
   type StartingDay,
+  type Tally,
   type Timeline,
   type TimelineFormat,
   type TimelineOptions,
@@ -144,6 +147,12 @@ const customInZone: CustomRule = custom("shutdown", undefined, "Europe/London");
 const closedForWorks: boolean = activeAt(customRule, start, {
   rules: registry,
 });
+const officeWithRules: Schedule = office.withRules(registry);
+const rotaWithRules: Rota<string> = rota<string>().withRules(registry);
+const tallyWithRules: Tally = tally().withRules(registry);
+void officeWithRules;
+void rotaWithRules;
+void tallyWithRules;
 const unknownRule: typeof UnknownCustomRuleError = UnknownCustomRuleError;
 const brokenStream: typeof CustomRuleStreamError = CustomRuleStreamError;
 void customInZone;

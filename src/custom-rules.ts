@@ -74,7 +74,8 @@ export class UnknownCustomRuleError extends Error {
   public constructor(ruleName: string, known: readonly string[]) {
     const help =
       known.length === 0
-        ? "Pass the rule types this document needs as `rules` on the context."
+        ? "Pass the rule types this document needs as `rules` on the " +
+          "context, or with `withRules()` on a schedule, rota or tally."
         : `The context holds ${known.join(", ")}.`;
     super(`No custom rule named "${ruleName}" is registered. ${help}`);
     this.name = "UnknownCustomRuleError";

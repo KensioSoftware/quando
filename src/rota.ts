@@ -1,47 +1,23 @@
 import { valueAt } from "./assigned.js";
-import { type Cascade, cascade, layer } from "./cascade.js";
-import { explainRota, type Explanation } from "./explain.js";
+import { cascade, layer } from "./cascade.js";
+import type { Context } from "./context.js";
+import type { RuleRegistry } from "./custom-rules.js";
+import { explainRota } from "./explain.js";
 import { withMethods } from "./fluent.js";
 import type { JsonCompatible } from "./json.js";
 import type { LayerOptions } from "./layer-options.js";
 import { parseCascade, type ValueParser } from "./parse-cascade.js";
 import { asDays, type PlainRule } from "./plain-forms.js";
 import { resolve } from "./resolve.js";
-import { type ValidationDiagnostic, validate } from "./semantic-validation.js";
-import type { ValuedStream } from "./valued-stream.js";
+import type { Rota, RotaData } from "./rota-types.js";
+import { validate } from "./semantic-validation.js";
 
-/** The stored form of a rota. */
-export interface RotaData<V> {
-  readonly type: "rota";
-  readonly cascade: Cascade<V>;
-}
+export type { Rota, RotaData } from "./rota-types.js";
 
-/** Assignments over time with methods for rota questions. */
-export interface Rota<V> extends RotaData<V> {
-  readonly assign: <const W>(
-    scope: PlainRule,
-    value: W & JsonCompatible<W>,
-    options?: LayerOptions,
-  ) => Rota<V | W>;
-  readonly swap: <const W>(
-    day: PlainRule,
-    value: W & JsonCompatible<W>,
-    options?: LayerOptions,
-  ) => Rota<V | W>;
-  readonly whoIsOn: (at: Temporal.ZonedDateTime) => V | undefined;
-  readonly explain: (at: Temporal.ZonedDateTime) => Explanation<V>;
-  readonly shifts: (
-    from: Temporal.ZonedDateTime,
-    to?: Temporal.ZonedDateTime,
-  ) => ValuedStream<V>;
-  readonly validate: (
-    from: Temporal.ZonedDateTime,
-    to: Temporal.ZonedDateTime,
-  ) => readonly ValidationDiagnostic[];
-  readonly toJSON: () => RotaData<V>;
-}
-
-function build<V>(data: RotaData<V>): Rota<V> {
+function build<V>(
+  data: RotaData<V>,
+  read?: Omit<Context, "from" | "to">,
+): Rota<V> {
   const append = <W>(
     scope: PlainRule,
     value: W & JsonCompatible<W>,
@@ -49,18 +25,27 @@ function build<V>(data: RotaData<V>): Rota<V> {
   ): Rota<V | W> => {
     const next = layer(asDays(scope), value, options);
     const document = cascade<V | W>(...data.cascade.layers, next);
-    return build({ type: "rota", cascade: document });
+    return build({ type: "rota", cascade: document }, read);
   };
 
   return withMethods(data, {
     assign: append,
     swap: append,
-    whoIsOn: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at),
-    explain: (at: Temporal.ZonedDateTime) => explainRota(data.cascade, at),
+    withRules: (rules: RuleRegistry) => build(data, { ...read, rules }),
+    whoIsOn: (at: Temporal.ZonedDateTime) => valueAt(data.cascade, at, read),
+    explain: (at: Temporal.ZonedDateTime) =>
+      explainRota(data.cascade, at, read),
     shifts: (from: Temporal.ZonedDateTime, to?: Temporal.ZonedDateTime) =>
-      resolve(data.cascade, to === undefined ? { from } : { from, to }),
+      resolve(
+        data.cascade,
+        to === undefined ? { ...read, from } : { ...read, from, to },
+      ),
     validate: (from: Temporal.ZonedDateTime, to: Temporal.ZonedDateTime) =>
-      validate(data.cascade, { from, to }, { requireFullCoverage: true }),
+      validate(
+        data.cascade,
+        { ...read, from, to },
+        { requireFullCoverage: true },
+      ),
     toJSON: () => ({ ...data }),
   });
 }

@@ -27,9 +27,10 @@ export function explain<V>(
 export function explainSchedule(
   source: Cascade<boolean>,
   at: Temporal.ZonedDateTime,
+  context?: Omit<Context, "from" | "to">,
 ): DefaultExplanation<boolean> {
   return withDomainDefault(
-    explainCascade(source, at, undefined, "", "schedule"),
+    explainCascade(source, at, context, "", "schedule"),
     false,
     at,
     "schedule",
@@ -40,17 +41,19 @@ export function explainSchedule(
 export function explainRota<V>(
   source: Cascade<V>,
   at: Temporal.ZonedDateTime,
+  context?: Omit<Context, "from" | "to">,
 ): Explanation<V> {
-  return explainCascade(source, at, undefined, "", "rota");
+  return explainCascade(source, at, context, "", "rota");
 }
 
 /** Explains a tally using totals and contributions. */
 export function explainTally(
   source: Cascade<number>,
   at: Temporal.ZonedDateTime,
+  context?: Omit<Context, "from" | "to">,
 ): DefaultExplanation<number> {
   return withDomainDefault(
-    explainCascade(source, at, undefined, "", "tally"),
+    explainCascade(source, at, context, "", "tally"),
     0,
     at,
     "tally",

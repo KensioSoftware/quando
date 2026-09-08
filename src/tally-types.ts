@@ -1,4 +1,5 @@
 import type { Cascade } from "./cascade.js";
+import type { RuleRegistry } from "./custom-rules.js";
 import type { ElapsedUnit } from "./accumulate.js";
 import type { DefaultExplanation } from "./explain.js";
 import type { LayerOptions } from "./layer-options.js";
@@ -27,6 +28,15 @@ export interface Tally extends TallyData {
     amount: number,
     options?: LayerOptions,
   ) => Tally;
+  /**
+   * The same tally, reading `custom` rules from this registry.
+   *
+   * A registry holds functions, so it cannot live in the stored document. It
+   * rides beside it, and `toJSON` is unchanged. Calling this twice replaces
+   * the registry rather than merging the two.
+   */
+  readonly withRules: (rules: RuleRegistry) => Tally;
+
   readonly countAt: (at: Temporal.ZonedDateTime) => number;
   /** @deprecated Use `countAt(at)`. */
   readonly at: (at: Temporal.ZonedDateTime) => number;

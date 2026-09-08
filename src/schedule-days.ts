@@ -1,4 +1,5 @@
 import type { Cascade } from "./cascade.js";
+import type { Context } from "./context.js";
 import {
   advanceByCoveredDays,
   coveredDayCount,
@@ -26,9 +27,11 @@ export function openDayCount(
   zone: string | undefined,
   from: Temporal.ZonedDateTime,
   to: Temporal.ZonedDateTime,
+  read?: Omit<Context, "from" | "to">,
 ): number {
   const inZone = dayZone(zone, from);
   return coveredDayCount(document, {
+    ...read,
     from: from.withTimeZone(inZone),
     to: to.withTimeZone(inZone),
   });
