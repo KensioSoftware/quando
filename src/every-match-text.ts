@@ -14,12 +14,17 @@ export function describeEveryMatch(
   at: Temporal.ZonedDateTime,
   matched: boolean,
 ): string {
-  const anchor = Temporal.PlainDate.from(rule.anchor);
+  // Read on the instant's own calendar, the way `everyIntervals` reads it.
+  // Counting between two dates that disagree about the calendar is refused.
+  const date = at.toPlainDate();
+  const anchor = Temporal.PlainDate.from(rule.anchor).withCalendar(
+    date.calendarId,
+  );
   return describeEvery(
     rule.interval,
     rule.period,
     rule.anchor,
-    periodsBetween(anchor, at.toPlainDate(), rule.period),
+    periodsBetween(anchor, date, rule.period),
     matched,
   );
 }

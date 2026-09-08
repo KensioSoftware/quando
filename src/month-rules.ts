@@ -9,7 +9,13 @@
 import { matchingDays } from "./calendar-walk.js";
 import { calendarOf, type Context, isIsoCalendar, zoneOf } from "./context.js";
 import type { IntervalStream } from "./interval-stream.js";
-import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
+import {
+  type MonthCode,
+  MONTHS,
+  type Month,
+  WEEKDAYS,
+  type Weekday,
+} from "./rule.js";
 
 /**
  * Whole days selected by position in the month.
@@ -75,6 +81,34 @@ export function monthIntervals(
 
   return matchingDays(context, zoneOf(context, zone), (date) =>
     wanted.has(date.month),
+  );
+}
+
+/**
+ * Whole days selected by the code of the month they fall in.
+ *
+ * The calendar-neutral counterpart to `monthIntervals`. `Temporal` gives every
+ * calendar's months a code, and a leap month a code of its own, so this needs
+ * no table and works wherever it is read. A code the calendar never reaches
+ * matches nothing, the way a day of the month the month never reaches does.
+ */
+export function monthCodeIntervals(
+  context: Context,
+  codes: readonly MonthCode[],
+  zone?: string,
+): IntervalStream {
+  // Held as strings, because what it is asked about is whatever code the
+  // calendar gives the day being walked, and no calendar promises to stay
+  // inside the set a rule can be written with.
+  const wanted = new Set<string>(codes);
+
+  // Nothing to walk the calendar for. See `matchingDays` for why that matters.
+  if (wanted.size === 0) {
+    return [];
+  }
+
+  return matchingDays(context, zoneOf(context, zone), (date) =>
+    wanted.has(date.monthCode),
   );
 }
 

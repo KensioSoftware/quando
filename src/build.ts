@@ -32,6 +32,7 @@ export {
 } from "./calendar-rules.js";
 export {
   daysOfMonth,
+  monthCodes,
   monthsOfYear,
   nthDayOfWeekInMonth,
 } from "./month-builders.js";

@@ -78,6 +78,7 @@ export function canonicalRule(rule: Rule): Rule {
     case "daysOfMonth":
     case "nthDayOfWeekInMonth":
     case "monthsOfYear":
+    case "monthCodes":
     case "every":
     case "dates":
     case "dateRange":

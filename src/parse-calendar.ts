@@ -10,6 +10,7 @@ import {
   asDate,
   asDates,
   asDays,
+  asMonthCodes,
   asMonths,
   asPeriod,
   asTime,
@@ -25,6 +26,7 @@ export type CalendarRuleType =
   | "daysOfMonth"
   | "nthDayOfWeekInMonth"
   | "monthsOfYear"
+  | "monthCodes"
   | "every"
   | "dates"
   | "dateRange"
@@ -65,6 +67,14 @@ export function parseCalendarRule(
       return {
         type: "monthsOfYear",
         months: asMonths(node["months"], `${path}.months`),
+        ...zonePart(node, path),
+      };
+    }
+
+    case "monthCodes": {
+      return {
+        type: "monthCodes",
+        codes: asMonthCodes(node["codes"], `${path}.codes`),
         ...zonePart(node, path),
       };
     }

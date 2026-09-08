@@ -1,6 +1,18 @@
 import { join, title } from "./explanation-phrases.js";
 import { WEEKDAYS, type Weekday } from "./rule.js";
 
+/**
+ * The instant's date, written the way `dates` and `dateRange` write theirs.
+ *
+ * Those two name ISO dates whatever calendar surrounds them, so the account of
+ * one says which ISO date the instant is. The instant arrives on the
+ * surrounding calendar, and printing it there would answer a question about
+ * `"2026-03-14"` with a Hebrew date.
+ */
+function isoDate(at: Temporal.ZonedDateTime): string {
+  return at.withCalendar("iso8601").toPlainDate().toString();
+}
+
 /** Describes a day-of-week match in calendar terms. */
 export function describeDay(
   days: readonly Weekday[],
@@ -27,7 +39,7 @@ export function describeDate(
   at: Temporal.ZonedDateTime,
   matched: boolean,
 ): string {
-  const date = at.toPlainDate().toString();
+  const date = isoDate(at);
   if (dates.length === 0) {
     return "No dates are listed.";
   }
@@ -46,7 +58,7 @@ export function describeDateRange(
   at: Temporal.ZonedDateTime,
   matched: boolean,
 ): string {
-  const date = at.toPlainDate().toString();
+  const date = isoDate(at);
   if (from !== undefined && to !== undefined) {
     const verb = matched ? "falls within" : "falls outside";
     return `${date} ${verb} ${from} to ${to}.`;

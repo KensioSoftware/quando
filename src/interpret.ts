@@ -93,6 +93,7 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
     case "daysOfMonth":
     case "nthDayOfWeekInMonth":
     case "monthsOfYear":
+    case "monthCodes":
     case "dates":
     case "every":
     case "dateRange":

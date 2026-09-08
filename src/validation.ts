@@ -1,4 +1,6 @@
 import {
+  MONTH_CODES,
+  type MonthCode,
   MONTHS,
   type Month,
   PERIODS,
@@ -6,6 +8,18 @@ import {
   WEEKDAYS,
   type Weekday,
 } from "./rule.js";
+
+/** What a month code looks like, said once for both places that say it. */
+export const MONTH_CODE_FORM =
+  'Expected "M" and two digits from 01 to 13, with a trailing "L" for a ' +
+  'leap month: "M01", "M12", "M05L".';
+
+const MONTH_CODE_NAMES = new Set<string>(MONTH_CODES);
+
+/** Whether a string is a well-formed month code. */
+export function isMonthCode(value: string): value is MonthCode {
+  return MONTH_CODE_NAMES.has(value);
+}
 
 /** Reads and validates a day of the week. */
 export function asWeekday(value: string, path: string): Weekday {
@@ -25,6 +39,23 @@ export function asMonth(value: string, path: string): Month {
     );
   }
   return value as Month;
+}
+
+/**
+ * Reads and validates a month code.
+ *
+ * The shape only. Which codes a calendar actually reaches is the calendar's
+ * business and, for a leap month, the year's, and a rule is written before
+ * either is known. `"M13"` is a Coptic month and no ISO one, and under the ISO
+ * calendar it covers no time.
+ */
+export function asMonthCode(value: string, path: string): MonthCode {
+  if (!isMonthCode(value)) {
+    throw new RangeError(
+      `${path} is not a month code: "${value}". ${MONTH_CODE_FORM}`,
+    );
+  }
+  return value;
 }
 
 /**

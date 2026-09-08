@@ -11,6 +11,7 @@ import {
   canonicalDate,
   canonicalDates,
   canonicalDays,
+  canonicalMonthCodes,
   canonicalMonthDays,
   canonicalMonths,
   canonicalTime,
@@ -53,6 +54,14 @@ export function canonicalCalendarRule(rule: CalendarRule): Rule {
       return {
         type: "monthsOfYear",
         months: canonicalMonths(rule.months),
+        ...zonePart(rule.zone),
+      };
+    }
+
+    case "monthCodes": {
+      return {
+        type: "monthCodes",
+        codes: canonicalMonthCodes(rule.codes),
         ...zonePart(rule.zone),
       };
     }

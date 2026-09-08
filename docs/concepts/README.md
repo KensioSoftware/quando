@@ -128,7 +128,8 @@ sunset, is supplied by the application through
 
 Rules count on the ISO calendar unless `inCalendar` names another. Month names
 stay Gregorian there, so `monthsOfYear` and a cycle of months or years are
-refused on another calendar. See [rules](../rules/#set-a-calendar).
+refused on another calendar. `monthCodes` names a month on any of them. See
+[rules](../rules/#set-a-calendar).
 
 Every rule describes a set of times independently. Constraints that depend on
 previous occurrences need a different model. Examples include a minimum gap

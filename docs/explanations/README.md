@@ -27,8 +27,12 @@ The schedule is closed on 2026-12-25 at 10:00 in Europe/London. Every condition 
 ```
 
 Quando produces this text from the rules, their priority, and the instant being
-explained. It describes day-of-week, date, time-of-day, zone, set operations,
-replacement, and merge behaviour without caller-written text.
+explained. It describes day-of-week, date, time-of-day, zone, calendar, set
+operations, replacement, and merge behaviour without caller-written text.
+
+A rule under `inZone` or `inCalendar` is explained the way it is evaluated. The
+account of `daysOfMonth(1)` inside `inCalendar("hebrew", ...)` reads the Hebrew
+day of the month, and the wrapper says which calendar that was.
 
 `explanation.value` contains the same result as `isOpen`. A schedule always
 returns `true` or `false`. An unmatched schedule is closed and its summary

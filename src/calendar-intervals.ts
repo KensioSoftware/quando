@@ -15,6 +15,7 @@ import { everyIntervals } from "./every-rules.js";
 import type { IntervalStream } from "./interval-stream.js";
 import {
   dayOfMonthIntervals,
+  monthCodeIntervals,
   monthIntervals,
   nthDayOfWeekInMonthIntervals,
 } from "./month-rules.js";
@@ -43,6 +44,9 @@ export function calendarIntervals(
     }
     case "monthsOfYear": {
       return monthIntervals(context, rule.months, rule.zone);
+    }
+    case "monthCodes": {
+      return monthCodeIntervals(context, rule.codes, rule.zone);
     }
     case "dates": {
       return dateIntervals(context, rule.dates, rule.zone);

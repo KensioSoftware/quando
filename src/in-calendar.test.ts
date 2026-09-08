@@ -10,10 +10,13 @@ import {
 import { describe, it } from "vitest";
 
 import {
+  dates,
   daysOfMonth,
   every,
   inCalendar,
+  inZone,
   monthsOfYear,
+  nthDayOfWeekInMonth,
   weekdays,
 } from "./build.js";
 import { canonical } from "./canonical.js";
@@ -190,6 +193,103 @@ describe("reading a rule on another calendar", () => {
       // Then it fails at the point of writing, like a bad zone does.
       assertInstanceOf(error, RangeError);
       assertStringIncludes(error.message, "julian-ish");
+    });
+  });
+
+  describe("the account it gives of itself", () => {
+    /**
+     * 25 February 2024 is the third Sunday of Adar I and the fourth Sunday of
+     * February. One instant, two answers, and which one an explanation gives
+     * says whether the calendar reached the rule being explained.
+     */
+    const inAdarI = (): Temporal.ZonedDateTime =>
+      when("2024-02-25T10:00", JERUSALEM);
+
+    it("explains the rule inside on the calendar around it", () => {
+      // Given the third Sunday of the month, counted on the Hebrew calendar.
+      const rule = inCalendar("hebrew", nthDayOfWeekInMonth(3, "sunday"));
+
+      // When an instant in Adar I is explained.
+      const [inner] = explainRule(rule, inAdarI()).conditions;
+
+      // Then the account of the inner rule counts Hebrew months. Read on the
+      // ISO calendar it would be the fourth Sunday, and would report a miss
+      // under a wrapper that reported a match.
+      assertTrue(inner?.matched ?? false);
+      assertIdentical(
+        inner?.description,
+        "This is the 3rd Sunday of the month.",
+      );
+    });
+
+    it("keeps the whole account agreeing with itself", () => {
+      // Given the first day of the month on the Hebrew calendar, at an instant
+      // that is the 16th of February and the 16th of Adar I.
+      const rule = inCalendar("hebrew", daysOfMonth(16));
+
+      // When it is explained.
+      const explanation = explainRule(rule, inAdarI());
+
+      // Then the wrapper and the rule it holds report the same thing. The
+      // wrapper quotes the inner account, so a disagreement would print as one
+      // sentence contradicting the one before it.
+      assertTrue(explanation.matched);
+      assertIdentical(
+        explanation.description,
+        "The rule counts on the hebrew calendar. The 16th matches the 16th.",
+      );
+      assertTrue(explanation.conditions[0]?.matched ?? false);
+    });
+
+    it("carries a zone and a calendar down together", () => {
+      // Given a Jerusalem rule on the Hebrew calendar, asked from London.
+      const rule = inZone(JERUSALEM, inCalendar("hebrew", daysOfMonth(16)));
+
+      // When an instant written in London time is explained.
+      const explanation = explainRule(
+        rule,
+        when("2024-02-25T08:00", "Europe/London"),
+      );
+
+      // Then both reach the leaf, and the account names the zone the way it
+      // always did.
+      assertTrue(explanation.matched);
+      assertIdentical(
+        explanation.description,
+        "The rule uses Asia/Jerusalem. The rule counts on the hebrew " +
+          "calendar. The 16th matches the 16th.",
+      );
+    });
+
+    it("still gives ISO dates for the rules that name them", () => {
+      // Given a date under a Hebrew wrapper. `dates` names ISO dates whatever
+      // calendar surrounds it.
+      const rule = inCalendar("hebrew", dates("2024-02-25"));
+
+      // When it is explained.
+      const [inner] = explainRule(rule, inAdarI()).conditions;
+
+      // Then the account gives the ISO date, and not the Hebrew one the
+      // surrounding calendar would print.
+      assertTrue(inner?.matched ?? false);
+      assertIdentical(inner?.description, "The date is 2024-02-25.");
+    });
+
+    it("counts a cycle of weeks on the calendar around it", () => {
+      // Given a fortnightly cycle read on the Hebrew calendar.
+      const rule = inCalendar(
+        "hebrew",
+        every(2, "weeks", { anchor: "2024-01-07" }),
+      );
+
+      // When it is explained. The anchor is an ISO date and the instant is
+      // read on the Hebrew calendar, and counting between two dates that
+      // disagree about the calendar is refused.
+      const [inner] = explainRule(rule, inAdarI()).conditions;
+
+      // Then it says which cycle the instant is in.
+      assertFalse(inner?.matched ?? true);
+      assertStringIncludes(inner?.description ?? "", "7 weeks after");
     });
   });
 

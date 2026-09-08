@@ -53,6 +53,11 @@ export function fill(draft: Draft, term: Term): Unwritable | undefined {
         bounds(draft, first)
       );
     }
+    case "monthCodes": {
+      return unwritable(
+        "it names months by code, and BYMONTH is Gregorian. Name Gregorian months with monthsOfYear",
+      );
+    }
     case "dates": {
       return unwritable(
         "it names particular dates, and a recurrence describes a pattern. Dates go beside it as RDATE properties",

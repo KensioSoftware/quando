@@ -24,28 +24,29 @@ store. There is no final `.build()` call.
 
 ## Rule builders
 
-| Builder                             | Covered time                                       |
-| ----------------------------------- | -------------------------------------------------- |
-| `always()`                          | All time                                           |
-| `never()`                           | No time                                            |
-| `daysOfWeek(...days)`               | Whole days with the selected weekday names         |
-| `weekdays()`                        | Monday through Friday                              |
-| `weekends()`                        | Saturday and Sunday                                |
-| `daysOfMonth(...days)`              | Whole days at the selected positions in each month |
-| `nthDayOfWeekInMonth(nth, ...days)` | The nth Monday, Friday and so on, in each month    |
-| `monthsOfYear(...months)`           | The selected months, in full                       |
-| `every(n, period, options)`         | Every nth day, week, month or year                 |
-| `timeOfDay(from, to, zone?)`        | A local time range on every day                    |
-| `dates(...dates)`                   | The selected calendar dates                        |
-| `onOrAfter(date, zone?)`            | Every day from a date onwards                      |
-| `onOrBefore(date, zone?)`           | Every day up to a date                             |
-| `between(from, to, zone?)`          | Every day from one date to another                 |
-| `all(...rules)`                     | Times covered by every rule                        |
-| `any(...rules)`                     | Times covered by at least one rule                 |
-| `not(rule)`                         | Times outside the rule                             |
-| `inZone(zone, rule)`                | A rule subtree evaluated in one time zone          |
-| `inCalendar(calendar, rule)`        | A rule subtree counted on one calendar             |
-| `custom(name, options?, zone?)`     | A rule type the application supplies               |
+| Builder                             | Covered time                                        |
+| ----------------------------------- | --------------------------------------------------- |
+| `always()`                          | All time                                            |
+| `never()`                           | No time                                             |
+| `daysOfWeek(...days)`               | Whole days with the selected weekday names          |
+| `weekdays()`                        | Monday through Friday                               |
+| `weekends()`                        | Saturday and Sunday                                 |
+| `daysOfMonth(...days)`              | Whole days at the selected positions in each month  |
+| `nthDayOfWeekInMonth(nth, ...days)` | The nth Monday, Friday and so on, in each month     |
+| `monthsOfYear(...months)`           | The selected months, in full                        |
+| `monthCodes(...codes)`              | The selected months, named as `Temporal` names them |
+| `every(n, period, options)`         | Every nth day, week, month or year                  |
+| `timeOfDay(from, to, zone?)`        | A local time range on every day                     |
+| `dates(...dates)`                   | The selected calendar dates                         |
+| `onOrAfter(date, zone?)`            | Every day from a date onwards                       |
+| `onOrBefore(date, zone?)`           | Every day up to a date                              |
+| `between(from, to, zone?)`          | Every day from one date to another                  |
+| `all(...rules)`                     | Times covered by every rule                         |
+| `any(...rules)`                     | Times covered by at least one rule                  |
+| `not(rule)`                         | Times outside the rule                              |
+| `inZone(zone, rule)`                | A rule subtree evaluated in one time zone           |
+| `inCalendar(calendar, rule)`        | A rule subtree counted on one calendar              |
+| `custom(name, options?, zone?)`     | A rule type the application supplies                |
 
 Builders validate their inputs immediately. Invalid weekday names, dates,
 times, and time zones fail where the rule is created.
@@ -152,6 +153,9 @@ const quarterEnds = monthsOfYear("march", "june", "september", "december").and(
 ```
 
 Calling `monthsOfYear()` with no arguments covers no time.
+
+The names are Gregorian. To name a month on another calendar, see
+[name a month on any calendar](#name-a-month-on-any-calendar).
 
 ## Repeat every nth period
 
@@ -370,7 +374,7 @@ rule outside the wrapper keeps counting on the ISO calendar:
 const workingRoshChodesh = inCalendar("hebrew", daysOfMonth(1)).and(weekdays());
 ```
 
-### Months stay Gregorian
+### Month names stay Gregorian
 
 `monthsOfYear` names the twelve Gregorian months, and `every(n, "months")` and
 `every(n, "years")` count them. Another calendar names its months differently
@@ -386,7 +390,8 @@ inCalendar("hebrew", monthsOfYear("january"));
 RangeError: monthsOfYear() names Gregorian months, so it cannot be read on the hebrew calendar. Another calendar names its months differently, and may hold thirteen of them.
 ```
 
-Select the days instead, with `daysOfMonth`, or name the dates with `dates`.
+Name the month with `monthCodes` below, select its days with `daysOfMonth`, or
+name the dates with `dates`.
 
 `dates` and `between` name ISO dates whatever calendar surrounds them. Note
 that a calendar annotation on a date string does not name a date on that
@@ -395,6 +400,73 @@ as ISO and then relabels them, giving Hebrew year 9546.
 
 `toCron` and `toRRule` refuse a rule read on another calendar, because both
 notations count Gregorian months and years.
+
+## Name a month on any calendar
+
+`monthCodes` names a month the way `Temporal` names one. Every calendar names
+it that way, so one code means one month wherever the rule is read. A code is
+`"M"` and two digits, and a leap month carries a trailing `"L"`:
+
+```ts
+import { inCalendar, monthCodes } from "@kensio/quando";
+import { intervals } from "@kensio/quando/core";
+
+// Adar I, the leap month a Hebrew leap year adds.
+const adarI = inCalendar("hebrew", monthCodes("M05L"));
+
+const window = {
+  from: Temporal.ZonedDateTime.from("2023-09-01T00:00[Asia/Jerusalem]"),
+  to: Temporal.ZonedDateTime.from("2025-09-01T00:00[Asia/Jerusalem]"),
+};
+
+for (const month of intervals(adarI, window)) {
+  console.log(
+    `${month.start?.toPlainDate().toString()} to ${month.end?.toPlainDate().toString()}`,
+  );
+}
+```
+
+```text
+2024-02-10 to 2024-03-11
+```
+
+Two Hebrew years went past and one leap month came back. 5784 is a leap year
+and 5785 is not.
+
+A leap month is a month of its own rather than a second helping of the one
+before it. In a Hebrew leap year Adar I is `"M05L"` and Adar II is `"M06"`. A
+rule wanting both says both.
+
+A month _name_ goes wrong in the same place. The month `Temporal` numbers 6 is
+Adar I in a leap year and Adar in a common one, so the index a name would map
+to moves.
+
+On the ISO calendar the codes are the Gregorian months in order, so
+`monthCodes("M03")` and `monthsOfYear("march")` cover the same days.
+`monthsOfYear` reads better and is the one to write where the months are
+Gregorian. `monthCodes` is the one that survives an `inCalendar` wrapper.
+
+A code the calendar in force never reaches covers no time, the way
+`daysOfMonth(31)` covers no February:
+
+```ts
+// Nothing. The ISO calendar has no leap month.
+monthCodes("M05L");
+```
+
+Which codes a calendar has is the calendar's business, and for a leap month the
+year's as well. A rule is written long before either is known. `"M13"` is a
+Coptic month, and refusing it there on the grounds that the ISO calendar has no
+thirteenth would be the same mistake.
+
+The codes run `"M01"` to `"M13"`, and the same again with `"L"`. `MONTH_CODES`
+lists them and the `MonthCode` type is their union. An editor completes them,
+and a typo will not compile.
+
+`toCron` and `toRRule` refuse `monthCodes`, on any calendar. Cron's month field
+and `BYMONTH` are Gregorian positions, and a code means whichever month the
+calendar reading the rule gives it. Write `monthsOfYear` where the months are
+Gregorian and the output has to be one of those notations.
 
 ## Query a rule
 

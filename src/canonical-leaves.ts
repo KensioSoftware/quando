@@ -9,7 +9,13 @@
  * the reason given in [canonical-rule.ts](./canonical-rule.ts).
  */
 
-import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
+import {
+  type MonthCode,
+  MONTHS,
+  type Month,
+  WEEKDAYS,
+  type Weekday,
+} from "./rule.js";
 
 /** Where a weekday sorts. Calendar order rather than alphabetical. */
 const DAY_ORDER = new Map(WEEKDAYS.map((day, index) => [day, index]));
@@ -58,6 +64,18 @@ export function canonicalMonthDays(days: readonly number[]): number[] {
     ...unique.filter((day) => day > 0).toSorted((a, b) => a - b),
     ...unique.filter((day) => day < 0).toSorted((a, b) => a - b),
   ];
+}
+
+/**
+ * Month codes ordered and reduced to one of each.
+ *
+ * String order is calendar order here. The digits are padded to two, and a leap
+ * month sorts straight after the month it follows, giving `"M05"`, `"M05L"`,
+ * `"M06"`. Code-unit order rather than `localeCompare`. The form a rule is
+ * stored in should not depend on where it was stored.
+ */
+export function canonicalMonthCodes(codes: readonly MonthCode[]): MonthCode[] {
+  return [...new Set(codes)].toSorted();
 }
 
 export function canonicalMonths(months: readonly Month[]): Month[] {
