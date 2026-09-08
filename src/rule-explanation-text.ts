@@ -1,7 +1,8 @@
 import { describeCalendarMatch } from "./calendar-match-text.js";
 import { describeCompoundMatch } from "./compound-explanation-text.js";
 import { describeCustomMatch } from "./custom-match-text.js";
-import type { RuleRegistry } from "./custom-rules.js";
+import { describeConstraintMatch } from "./constraint-match-text.js";
+import type { Context } from "./context.js";
 import type { Rule } from "./rule.js";
 import type { RuleExplanation, RuleScope } from "./rule-explanation.js";
 
@@ -12,7 +13,7 @@ export function describeRuleMatch(
   matched: boolean,
   conditions: readonly RuleExplanation[],
   scope: RuleScope,
-  registry: RuleRegistry | undefined,
+  read: Omit<Context, "from" | "to"> | undefined,
 ): string {
   switch (rule.type) {
     case "always": {
@@ -33,8 +34,13 @@ export function describeRuleMatch(
       return describeCalendarMatch(rule, at, matched, scope);
     }
 
+    case "atMost":
+    case "spacedBy": {
+      return describeConstraintMatch(rule, at, matched, read);
+    }
+
     case "custom": {
-      return describeCustomMatch(rule, matched, registry);
+      return describeCustomMatch(rule, matched, read?.rules);
     }
 
     case "inZone":

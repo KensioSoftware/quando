@@ -9,6 +9,7 @@
  */
 
 import type { RuleRegistry } from "./custom-rules.js";
+import type { Occurrence } from "./occurrence.js";
 export interface Context {
   /**
    * Where evaluation begins, and — since a `ZonedDateTime` carries one — the
@@ -41,6 +42,20 @@ export interface Context {
    * the honest answer to a rule whose meaning nobody in the room holds.
    */
   readonly rules?: RuleRegistry;
+
+  /**
+   * What has already happened, for the rules that count it.
+   *
+   * `atMost` and `spacedBy` read this. Absent and empty are different: `[]`
+   * says nothing has happened yet, and leaving it out throws
+   * {@link MissingOccurrencesError} rather than reporting a fifth dose as fine
+   * because nobody mentioned the four already taken.
+   *
+   * A plain array, never an interval stream. Two occurrences at one instant
+   * are two occurrences, and coalescing them would lose the count that is the
+   * whole question.
+   */
+  readonly occurrences?: readonly Occurrence[];
 }
 
 /** The context's window, in the form the interval algebra takes. */

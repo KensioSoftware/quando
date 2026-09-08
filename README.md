@@ -123,7 +123,7 @@ Start with the [getting started guide](docs/getting-started/). The remaining
 guides cover:
 
 - [Schedules and rotas](docs/schedules/)
-- [Rules](docs/rules/) and [terms](docs/terms/)
+- [Rules](docs/rules/), [terms](docs/terms/) and [constraints](docs/constraints/)
 - [Queries](docs/queries/)
 - [Validation](docs/validation/)
 - [Explanations](docs/explanations/)

@@ -73,6 +73,12 @@ function collect(
         "it excludes times, and both notations only select them. Write the rule it excludes from, and keep the exception beside it",
       );
     }
+    case "atMost":
+    case "spacedBy": {
+      return unwritable(
+        "it caps or spaces occurrences, which depends on what has already happened. Both notations describe a pattern on the calendar and neither can carry a history",
+      );
+    }
     case "custom": {
       return unwritable(
         `it holds the custom rule "${rule.name}", whose meaning lives in code rather than in the document. A notation can only carry what the document says`,

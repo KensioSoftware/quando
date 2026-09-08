@@ -116,6 +116,8 @@ export type Rule =
   | TimeOfDayRule
   | DatesRule
   | DateRangeRule
+  | AtMostRule
+  | SpacedByRule
   | CustomRule
   | InCalendarRule
   | InZoneRule
@@ -139,6 +141,61 @@ export type CalendarRule =
   | TimeOfDayRule
   | DatesRule
   | DateRangeRule;
+
+/**
+ * The rules that read what has already happened rather than the calendar.
+ *
+ * Everything else answers "is this instant permitted?" from the instant alone.
+ * These answer it from a history, which the context carries as `occurrences`.
+ * A cap and a spacing are both constraints on a pattern of occurrences, and
+ * once the history is known each of them is an ordinary set of times, which is
+ * what lets them compose with the rest. See
+ * [occurrence-rules.ts](./occurrence-rules.ts).
+ */
+export type ConstraintRule = AtMostRule | SpacedByRule;
+
+/**
+ * At most `count` occurrences in each window.
+ *
+ * The window is written one of two ways and they mean different things.
+ * `per` counts within calendar buckets, so `per: "days"` is four a day and the
+ * count starts again at midnight. `within` is a rolling window written as an
+ * ISO duration, so `within: "PT24H"` is four in any twenty-four hours and
+ * nothing resets.
+ */
+export type AtMostRule = AtMostPerPeriod | AtMostWithin;
+
+interface AtMostFields {
+  readonly type: "atMost";
+  readonly count: number;
+  readonly zone?: string;
+}
+
+/** At most `count` in each calendar day, week, month or year. */
+export interface AtMostPerPeriod extends AtMostFields {
+  readonly per: Period;
+  readonly within?: undefined;
+}
+
+/** At most `count` in any window of this length, as an ISO duration. */
+export interface AtMostWithin extends AtMostFields {
+  readonly within: string;
+  readonly per?: undefined;
+}
+
+/**
+ * Occurrences at least `gap` apart, as an ISO duration.
+ *
+ * Measured from the end of one to the start of the next. An occurrence that
+ * lasted counts from when it finished. The rule reads both ways round. An
+ * instant too close *before* an occurrence is refused the same as one too
+ * close after, and that is what makes it mean one thing to a query looking
+ * forward and to a check on a plan alike.
+ */
+export interface SpacedByRule {
+  readonly type: "spacedBy";
+  readonly gap: string;
+}
 
 /**
  * A rule an application supplies, named in the document and implemented in the

@@ -240,6 +240,32 @@ window, so a rule type may yield without end. A `zone` reads the rule the way
 reason. `canonical` orders the keys of `options` so that two documents with the
 same options share a `fingerprint`.
 
+### Constraints
+
+```ts
+interface Occurrence {
+  readonly at: Temporal.ZonedDateTime;
+  readonly lasting?: Temporal.Duration;
+}
+
+interface AtMostOptions {
+  readonly zone?: string;
+}
+
+function atMost(
+  count: number,
+  per: string,
+  options?: AtMostOptions,
+): Built<Rule>;
+function spacedBy(gap: string): Built<Rule>;
+```
+
+Rules that read `context.occurrences` rather than the calendar. `per` takes a
+calendar period such as `"days"` for buckets that reset, or an ISO duration
+such as `"PT24H"` for a rolling window. `spacedBy` takes the least time between
+occurrences, read both ways round. Evaluating either with no `occurrences` on
+the context throws `MissingOccurrencesError`. See [constraints](../constraints/).
+
 ### Terms
 
 ```ts

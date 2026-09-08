@@ -63,7 +63,7 @@ function explainInScope(
       matched,
       conditions,
       scope,
-      context?.rules,
+      context,
     ),
     conditions,
   };
@@ -98,6 +98,8 @@ function childConditions(
     case "not": {
       return [explainInScope(rule.rule, at, context, scope)];
     }
+    case "atMost":
+    case "spacedBy":
     case "custom":
     case "always":
     case "dates":
