@@ -48,6 +48,7 @@ Read the pages in this order if Quando is new to you:
 ### Reference
 
 - [API](api/) lists the public exports from each package entry point.
+- [Performance](performance/) says what the common questions cost and why.
 - [Concepts](concepts/#limits) describes the current boundaries of the model.
 
 ## Editing these pages

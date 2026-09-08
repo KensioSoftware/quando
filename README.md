@@ -132,6 +132,7 @@ guides cover:
 - [Serialisation](docs/serialisation/)
 - [Cascades](docs/cascades/) and [merging](docs/merging/)
 - [Comparison](docs/comparing/) and the [API reference](docs/api/)
+- [Performance](docs/performance/)
 
 The same documentation is published at
 [quandojs.dev](https://quandojs.dev).
