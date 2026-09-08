@@ -1,5 +1,5 @@
 import type { Context } from "./context.js";
-import { activeAt } from "./query.js";
+import { certaintyAt } from "./horizon-guard.js";
 import type { Rule } from "./rule.js";
 import { describeRuleMatch } from "./rule-explanation-text.js";
 
@@ -7,6 +7,15 @@ import { describeRuleMatch } from "./rule-explanation-text.js";
 export interface RuleExplanation {
   readonly rule: Rule;
   readonly matched: boolean;
+  /**
+   * Whether the rules can answer for this instant at all.
+   *
+   * `true` for every rule that declares no horizon. Where it is `false` the
+   * rule stopped being evidence before the instant asked about, and `matched`
+   * is `false` because nothing is known to match rather than because anything
+   * was ruled out.
+   */
+  readonly known: boolean;
   readonly description: string;
   readonly conditions: readonly RuleExplanation[];
 }
@@ -52,19 +61,18 @@ function explainInScope(
   context: Omit<Context, "from" | "to"> | undefined,
   scope: RuleScope,
 ): RuleExplanation {
-  const matched = activeAt(scoped(rule, scope), at, context);
+  const certainty = certaintyAt(scoped(rule, scope), at, context);
+  const matched = certainty === "covered";
+  const known = certainty !== "unknown";
   const conditions = childConditions(rule, at, context, scope);
   return {
     rule,
     matched,
-    description: describeRuleMatch(
-      rule,
-      at,
-      matched,
-      conditions,
-      scope,
-      context,
-    ),
+    known,
+    description: known
+      ? describeRuleMatch(rule, at, matched, conditions, scope, context)
+      : "Whether this matches is not known. The rules stop being known " +
+        "before this time.",
     conditions,
   };
 }
@@ -95,7 +103,8 @@ function childConditions(
         explainInScope(child, at, context, scope),
       );
     }
-    case "not": {
+    case "not":
+    case "known": {
       return [explainInScope(rule.rule, at, context, scope)];
     }
     case "atMost":

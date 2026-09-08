@@ -17,6 +17,8 @@ export { clip, complement, intersect, union } from "./interval-stream.js";
 export { difference } from "./interval-difference.js";
 export { take } from "./stream.js";
 export { intervals } from "./interpret.js";
+export type { Bounds } from "./bounds.js";
+export { bounds } from "./bounds.js";
 
 export type {
   Cascade,

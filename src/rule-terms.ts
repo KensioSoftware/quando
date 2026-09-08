@@ -84,6 +84,11 @@ function collect(
         `it holds the custom rule "${rule.name}", whose meaning lives in code rather than in the document. A notation can only carry what the document says`,
       );
     }
+    case "known": {
+      return unwritable(
+        `it is only known through ${rule.through}, and both notations state a recurrence as though it held forever. Writing it out would drop the horizon and turn a bounded answer into a confident one`,
+      );
+    }
     case "inZone": {
       zones.add(rule.zone);
       return collect(rule.rule, into, zones);

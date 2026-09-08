@@ -15,42 +15,17 @@
 import { parseCalendarRule } from "./parse-calendar.js";
 import { parseAtMostRule, parseSpacedByRule } from "./parse-constraint.js";
 import { parseCustomRule } from "./parse-custom.js";
-import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
+import { asRecord, fail, shapeOf } from "./parse-shape.js";
+import { checkedType } from "./parse-rule-fields.js";
 import { build, type Built } from "./build.js";
-import { parseInCalendarRule, parseInZoneRule } from "./parse-scope.js";
+import {
+  parseInCalendarRule,
+  parseInZoneRule,
+  parseKnownRule,
+} from "./parse-scope.js";
 import type { Rule } from "./rule.js";
 
-/**
- * Every rule type, and the fields it is allowed to carry. One table rather than
- * two, so the list of known types and the list of known fields cannot drift.
- */
-const FIELDS = new Map<string, readonly string[]>([
-  ["always", []],
-  ["never", []],
-  ["daysOfWeek", ["days", "zone"]],
-  ["daysOfMonth", ["days", "zone"]],
-  ["nthDayOfWeekInMonth", ["nth", "days", "zone"]],
-  ["monthsOfYear", ["months", "zone"]],
-  ["monthCodes", ["codes", "zone"]],
-  ["every", ["interval", "period", "anchor", "zone"]],
-  ["timeOfDay", ["from", "to", "zone"]],
-  ["dates", ["dates", "zone"]],
-  ["dateRange", ["from", "to", "zone"]],
-  ["atMost", ["count", "per", "within", "zone"]],
-  ["spacedBy", ["gap"]],
-  ["custom", ["name", "options", "zone"]],
-  ["inCalendar", ["calendar", "rule"]],
-  ["inZone", ["zone", "rule"]],
-  ["all", ["rules"]],
-  ["any", ["rules"]],
-  ["not", ["rule"]],
-]);
-
-/**
- * Every rule type the language has, for the places that need the list without
- * the fields. Derived from the table above so the two cannot drift.
- */
-export const RULE_TYPES: ReadonlySet<string> = new Set(FIELDS.keys());
+export { RULE_TYPES } from "./parse-rule-fields.js";
 
 function asRules(value: unknown, path: string): Rule[] {
   if (!Array.isArray(value)) {
@@ -67,20 +42,7 @@ function asRules(value: unknown, path: string): Rule[] {
  */
 function parseRuleData(value: unknown, path: string): Rule {
   const node = asRecord(value, path, "a rule object");
-  const type = node["type"];
-
-  if (typeof type !== "string") {
-    return fail(`${path}.type`, `expected a string, found ${shapeOf(type)}`);
-  }
-
-  const allowed = FIELDS.get(type);
-  if (allowed === undefined) {
-    return fail(
-      `${path}.type`,
-      `"${type}" is not a rule type. Expected one of ${[...FIELDS.keys()].join(", ")}`,
-    );
-  }
-  checkFields(node, allowed, path, `a ${type} rule`);
+  const type = checkedType(node, path);
 
   switch (type) {
     case "always": {
@@ -121,6 +83,10 @@ function parseRuleData(value: unknown, path: string): Rule {
 
     case "inZone": {
       return parseInZoneRule(node, path, parseRuleData);
+    }
+
+    case "known": {
+      return parseKnownRule(node, path, parseRuleData);
     }
 
     case "all": {

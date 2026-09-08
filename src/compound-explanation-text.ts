@@ -11,12 +11,13 @@ import type {
   AnyRule,
   InCalendarRule,
   InZoneRule,
+  KnownRule,
   NotRule,
 } from "./rule.js";
 import type { RuleExplanation } from "./rule-explanation.js";
 
 export function describeCompoundMatch(
-  rule: AllRule | AnyRule | NotRule | InZoneRule | InCalendarRule,
+  rule: AllRule | AnyRule | NotRule | InZoneRule | InCalendarRule | KnownRule,
   matched: boolean,
   conditions: readonly RuleExplanation[],
 ): string {
@@ -26,6 +27,11 @@ export function describeCompoundMatch(
     }
     case "inCalendar": {
       return `The rule counts on the ${rule.calendar} calendar. ${
+        conditions[0]?.description ?? ""
+      }`;
+    }
+    case "known": {
+      return `The rule is known through ${rule.through}. ${
         conditions[0]?.description ?? ""
       }`;
     }

@@ -22,52 +22,8 @@
 import { canonicalCalendarRule } from "./canonical-calendar.js";
 import { canonicalDuration } from "./canonical-leaves.js";
 import { canonicalJson } from "./canonical-json.js";
-import { byCodeUnit } from "./code-unit-order.js";
+import { combined } from "./canonical-compound.js";
 import type { Rule } from "./rule.js";
-
-/** A rule's stable string form, which is what sorting and equality compare. */
-function key(rule: Rule): string {
-  return JSON.stringify(rule);
-}
-
-/**
- * The operands of an `all` or an `any`, flattened, reduced and ordered.
- *
- * Both are the same shape with the two constants swapped. For `all`, `always`
- * adds nothing and `never` settles it. For `any` it is the other way round.
- */
-function combined(type: "all" | "any", rules: readonly Rule[]): Rule {
-  const absorbed = type === "all" ? "always" : "never";
-  const settles = type === "all" ? "never" : "always";
-
-  const flat: Rule[] = [];
-  for (const rule of rules) {
-    const inner = canonicalRule(rule);
-
-    if (inner.type === settles) {
-      return { type: settles };
-    }
-    if (inner.type === absorbed) {
-      continue;
-    }
-    // Already canonical, so its own operands are reduced and its type is not
-    // the one being flattened into unless it genuinely nests.
-    if (inner.type === type) {
-      flat.push(...inner.rules);
-      continue;
-    }
-    flat.push(inner);
-  }
-
-  const kept = [...new Map(flat.map((rule) => [key(rule), rule])).values()];
-  const unique = kept.toSorted((a, b) => byCodeUnit(key(a), key(b)));
-  const only = unique[0];
-
-  if (only === undefined) {
-    return { type: absorbed };
-  }
-  return unique.length === 1 ? only : { type, rules: unique };
-}
 
 export function canonicalRule(rule: Rule): Rule {
   switch (rule.type) {
@@ -136,6 +92,15 @@ export function canonicalRule(rule: Rule): Rule {
       };
     }
 
+    case "known": {
+      return {
+        type: "known",
+        through: rule.through,
+        rule: canonicalRule(rule.rule),
+        ...(rule.zone === undefined ? {} : { zone: rule.zone }),
+      };
+    }
+
     case "not": {
       const inner = canonicalRule(rule.rule);
       // Two complements cancel, and the complement of a constant is the other
@@ -154,7 +119,7 @@ export function canonicalRule(rule: Rule): Rule {
 
     case "all":
     case "any": {
-      return combined(rule.type, rule.rules);
+      return combined(rule.type, rule.rules, canonicalRule);
     }
   }
 }
