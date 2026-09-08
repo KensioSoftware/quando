@@ -149,15 +149,14 @@ function parseRule(value: unknown, path?: string): Built<Rule>;
 The anchor fixes the phase of the cycle, and `onOrAfter` bounds it.
 
 ```ts
-type MonthCode = `M${string}`;
-
 function monthCodes(...codes: readonly MonthCode[]): Built<MonthCodesRule>;
 ```
 
-`MonthCode` is `"M01"` to `"M13"`, and the same again with a trailing `"L"` for
-a leap month. `MONTH_CODES` lists all twenty-six. A code the calendar in force
-never reaches covers no time, so `monthCodes("M05L")` covers nothing on the ISO
-calendar and covers Adar I under `inCalendar("hebrew", ...)`.
+`MonthCode` is the union of `"M01"` to `"M13"` and the same again with a
+trailing `"L"` for a leap month, listed in `MONTH_CODES`. A string outside that
+set will not compile. A code the calendar in force never reaches covers no
+time, so `monthCodes("M05L")` covers nothing on the ISO calendar and covers
+Adar I under `inCalendar("hebrew", ...)`.
 
 ### Calendars
 
