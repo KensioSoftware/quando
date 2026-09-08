@@ -21,6 +21,7 @@
 
 import { canonicalCalendarRule } from "./canonical-calendar.js";
 import { canonicalJson } from "./canonical-json.js";
+import { byCodeUnit } from "./code-unit-order.js";
 import type { Rule } from "./rule.js";
 
 /** A rule's stable string form, which is what sorting and equality compare. */
@@ -58,7 +59,7 @@ function combined(type: "all" | "any", rules: readonly Rule[]): Rule {
   }
 
   const kept = [...new Map(flat.map((rule) => [key(rule), rule])).values()];
-  const unique = kept.toSorted((a, b) => key(a).localeCompare(key(b)));
+  const unique = kept.toSorted((a, b) => byCodeUnit(key(a), key(b)));
   const only = unique[0];
 
   if (only === undefined) {

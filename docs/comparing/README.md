@@ -61,6 +61,12 @@ The result is the canonical JSON string. Equal canonical values have equal
 fingerprints. Cascade values must also have stable JSON representations if you
 store the fingerprint as a persistent key.
 
+The same rule fingerprints the same way on every machine. Where the canonical
+form has to order things, it orders them by UTF-16 code unit rather than by the
+host's collation, because collation differs by language. Swedish sorts `"ö"`
+after `"z"` and English sorts it before, so a rule holding either could
+otherwise key to one cache entry in one place and another entry elsewhere.
+
 ## Structural limits
 
 Canonicalisation does not prove semantic equality. Different rule types remain

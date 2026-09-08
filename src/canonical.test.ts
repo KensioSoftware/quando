@@ -7,6 +7,7 @@ import {
   always,
   any,
   between,
+  custom,
   dates,
   daysOfMonth,
   daysOfWeek,
@@ -376,6 +377,45 @@ describe("putting a rule in canonical form", () => {
       // Then they are not equal. Equality here is about what a rule says, and
       // deciding the other question means evaluating both over all of time.
       assertFalse(equals(everything, everyDay));
+    });
+  });
+
+  describe("ordering that does not depend on the host", () => {
+    /**
+     * `"\u00f6"` sorts after `"z"` by code unit and before it in English,
+     * German and Czech collation, and after it in Swedish. A comparator
+     * reading the host's collation therefore writes this rule one way in one
+     * place and another way in another.
+     */
+    const accented = (): Rule =>
+      any(custom("\u00F6resund-holiday"), custom("zurich-holiday"));
+
+    it("orders operands by code unit rather than by collation", () => {
+      // Given two custom rules whose names collate differently in different
+      // languages, in an `any` that has to order them.
+      // When it is canonicalised.
+      // Then the order is the code-unit one, which is the same everywhere.
+      assertIdentical(
+        formOf(accented()),
+        '{"type":"any","rules":[' +
+          '{"type":"custom","name":"zurich-holiday"},' +
+          '{"type":"custom","name":"\u00F6resund-holiday"}]}',
+      );
+    });
+
+    it("reaches one fingerprint whichever order the operands arrive in", () => {
+      // Given the same two rules written the other way round, as a merge of
+      // two sources would produce.
+      const other = any(
+        custom("zurich-holiday"),
+        custom("\u00F6resund-holiday"),
+      );
+
+      // When both are fingerprinted.
+      // Then one key reaches both. Ordering is what a fingerprint depends on,
+      // so a host that ordered them differently would key the same rule to a
+      // different cache entry.
+      assertIdentical(fingerprint(accented()), fingerprint(other));
     });
   });
 

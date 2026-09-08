@@ -11,6 +11,7 @@
  * [canonical-rule.ts](./canonical-rule.ts).
  */
 
+import { byCodeUnit } from "./code-unit-order.js";
 import type { JsonValue } from "./json.js";
 
 /** A JSON array. Narrowed here, because `Array.isArray` widens a readonly one. */
@@ -25,21 +26,12 @@ function isObject(
   return typeof value === "object" && value !== null && !isArray(value);
 }
 
-/**
- * Key order, by UTF-16 code unit.
- *
- * `localeCompare` would read the host's collation, and two machines sorting
- * the same options differently would hash the same document two ways. A
- * fingerprint has to survive the trip between them.
- */
+/** Key order, by UTF-16 code unit. See [code-unit-order.ts](./code-unit-order.ts). */
 function byKey(
   left: readonly [string, JsonValue],
   right: readonly [string, JsonValue],
 ): number {
-  if (left[0] === right[0]) {
-    return 0;
-  }
-  return left[0] < right[0] ? -1 : 1;
+  return byCodeUnit(left[0], right[0]);
 }
 
 /**
