@@ -37,6 +37,7 @@ Read the pages in this order if Quando is new to you:
 ### Custom models
 
 - [Rules](rules/) defines recurring days, times, dates, and combinations.
+- [Terms](terms/) writes a rule as a line such as `mon-fri 09:00-17:00`.
 - [Cron expressions](cron/) reads and writes cron expressions as rules.
 - [Recurrence rules](recurrence/) reads and writes RFC 5545 RRULEs as rules.
 - [Cascades](cascades/) assigns values with ordered overrides.

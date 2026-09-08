@@ -240,6 +240,19 @@ window, so a rule type may yield without end. A `zone` reads the rule the way
 reason. `canonical` orders the keys of `options` so that two documents with the
 same options share a `fingerprint`.
 
+### Terms
+
+```ts
+function parseTerms(line: string): Built<Rule>;
+```
+
+Reads a whitespace-separated line such as `"mon-fri 09:00-17:00"` as a rule.
+Each term narrows what the rule covers and a comma inside one offers
+alternatives, so a line is one conjunction. It throws on a term it cannot read,
+naming the term and the nearest word that would have worked. Every string a
+schedule, rota or tally accepts in place of a rule is read this way. See
+[terms](../terms/).
+
 ### Cron expressions
 
 ```ts

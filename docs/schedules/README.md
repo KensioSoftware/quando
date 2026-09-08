@@ -26,8 +26,9 @@ third replaces Wednesday's usual hours with a shorter day.
 | `.closed(scope, options?)`       | Closes the whole scope                             |
 | `.hoursOn(day, hours, options?)` | Replaces all earlier hours inside the day or scope |
 
-A scope can be a rule or a date string such as `"2026-03-10"`. Hours can be a
-rule or a range such as `"09:00-17:00"`.
+A scope can be a rule or a line of terms such as `"2026-03-10"` or
+`"mon-fri 09:00-17:00"`. Hours can be a rule or a range such as
+`"09:00-17:00"`. See the [terms guide](../terms/) for what a line can hold.
 
 ### Method order sets precedence
 

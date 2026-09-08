@@ -510,30 +510,40 @@ describe("a schedule", () => {
 
       // Then it is refused where it was written, with the shape it wanted.
       assertInstanceOf(error, RangeError);
-      assertStringIncludes(
-        error.message,
-        'Expected something like "09:00-17:00"',
-      );
+      assertStringIncludes(error.message, 'a time range such as "09:00-17:00"');
     });
 
-    it("refuses a time that is not one", () => {
+    it("refuses a range with a typo in it rather than reading it as a rule", () => {
       // Given a range whose second half is not a time.
-      // When it is given to a schedule.
       const error = assertThrowsError(() =>
-        schedule().open(weekdays(), "09:00-half five"),
+        schedule().open(weekdays(), "09:00-half"),
       );
 
-      // Then the message names the half that failed.
-      assertStringIncludes(error.message, '"half five" is not a time of day');
+      // Then it is refused. A term holding a colon is usually a qualifier,
+      // and taking this one as a custom rule named "09" would be a schedule
+      // that runs and covers the wrong time.
+      assertStringIncludes(error.message, 'cannot read "09:00-half"');
     });
 
-    it("refuses a date that is not one", () => {
+    it("refuses a date that is not one, and says what it nearly was", () => {
       // Given a holiday named instead of dated.
       // When the schedule is told it is closed then.
       const error = assertThrowsError(() => schedule().closed("Christmas"));
 
-      // Then it is refused, naming what it wanted.
-      assertStringIncludes(error.message, '"Christmas" is not a date');
+      // Then it is refused, naming the term that failed.
+      assertStringIncludes(error.message, 'cannot read "Christmas"');
+    });
+
+    it("takes a whole line of terms as one scope", () => {
+      // Given office hours written as one string.
+      const office = schedule({ zone: "Europe/London" }).open(
+        "mon-fri 09:00-17:00",
+      );
+
+      // When a Tuesday lunchtime and a Sunday lunchtime are asked about.
+      // Then the days and the hours both narrowed it, from one argument.
+      assertTrue(office.isOpen(when("2026-03-10T12:00")));
+      assertFalse(office.isOpen(when("2026-03-15T12:00")));
     });
 
     it("takes a rule wherever it takes a string", () => {

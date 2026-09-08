@@ -55,6 +55,7 @@ export type {
   WrittenRRule,
 } from "./rrule-export.js";
 export { toRRule } from "./rrule-export.js";
+export { parseTerms } from "./terms.js";
 export type { Unwritable } from "./export-result.js";
 export { parseRule } from "./parse.js";
 
