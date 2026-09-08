@@ -7,7 +7,7 @@
  */
 
 import { matchingDays } from "./calendar-walk.js";
-import { type Context, zoneOf } from "./context.js";
+import { calendarOf, type Context, isIsoCalendar, zoneOf } from "./context.js";
 import type { IntervalStream } from "./interval-stream.js";
 import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
 
@@ -45,12 +45,28 @@ export function dayOfMonthIntervals(
  *
  * The names are turned into numbers once rather than the date being turned
  * into a name on every one of the year's days.
+ *
+ * Gregorian only. `MONTHS` names twelve Gregorian months, and every other
+ * calendar either names its months differently or has thirteen of them in a
+ * leap year, where the index a name would map to moves. Answering anyway would
+ * silently select the wrong month, so this refuses instead. Name the days with
+ * `daysOfMonth`, or the dates themselves, until months have a calendar-neutral
+ * vocabulary.
  */
 export function monthIntervals(
   context: Context,
   months: readonly Month[],
   zone?: string,
 ): IntervalStream {
+  const calendar = calendarOf(context);
+  if (!isIsoCalendar(calendar)) {
+    throw new RangeError(
+      `monthsOfYear() names Gregorian months, so it cannot be read on the ` +
+        `${calendar} calendar. Another calendar names its months differently, ` +
+        "and may hold thirteen of them.",
+    );
+  }
+
   const wanted = new Set(months.map((month) => MONTHS.indexOf(month) + 1));
 
   if (wanted.size === 0) {

@@ -14,9 +14,9 @@
 
 import { parseCalendarRule } from "./parse-calendar.js";
 import { parseCustomRule } from "./parse-custom.js";
-import { zonePart } from "./parse-fields.js";
 import { asRecord, checkFields, fail, shapeOf } from "./parse-shape.js";
 import { build, type Built } from "./build.js";
+import { parseInCalendarRule, parseInZoneRule } from "./parse-scope.js";
 import type { Rule } from "./rule.js";
 
 /**
@@ -35,6 +35,7 @@ const FIELDS = new Map<string, readonly string[]>([
   ["dates", ["dates", "zone"]],
   ["dateRange", ["from", "to", "zone"]],
   ["custom", ["name", "options", "zone"]],
+  ["inCalendar", ["calendar", "rule"]],
   ["inZone", ["zone", "rule"]],
   ["all", ["rules"]],
   ["any", ["rules"]],
@@ -101,16 +102,12 @@ function parseRuleData(value: unknown, path: string): Rule {
       return parseCustomRule(node, path);
     }
 
+    case "inCalendar": {
+      return parseInCalendarRule(node, path, parseRuleData);
+    }
+
     case "inZone": {
-      const part = zonePart(node, path);
-      if (part.zone === undefined) {
-        return fail(`${path}.zone`, "expected a time zone");
-      }
-      return {
-        type: "inZone",
-        zone: part.zone,
-        rule: parseRuleData(node["rule"], `${path}.rule`),
-      };
+      return parseInZoneRule(node, path, parseRuleData);
     }
 
     case "all": {

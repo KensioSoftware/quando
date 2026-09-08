@@ -12,7 +12,7 @@
  */
 
 import { matchingDays } from "./calendar-walk.js";
-import { type Context, zoneOf } from "./context.js";
+import { calendarOf, type Context, isIsoCalendar, zoneOf } from "./context.js";
 import { onCycle, periodsBetween } from "./every-periods.js";
 import type { IntervalStream } from "./interval-stream.js";
 import type { Period } from "./rule.js";
@@ -24,7 +24,19 @@ export function everyIntervals(
   anchor: string,
   zone?: string,
 ): IntervalStream {
-  const from = Temporal.PlainDate.from(anchor);
+  const calendar = calendarOf(context);
+  if (!isIsoCalendar(calendar) && (period === "months" || period === "years")) {
+    throw new RangeError(
+      `every() counts ${period} on the Gregorian calendar, so it cannot be ` +
+        `read on the ${calendar} calendar. A year there may hold thirteen ` +
+        "months. Count days or weeks, which every calendar agrees about.",
+    );
+  }
+
+  // Read on the same calendar as the days being walked. `until` refuses two
+  // dates that disagree about which calendar they are on, and the anchor is
+  // written as an ISO date whatever calendar the rule counts in.
+  const from = Temporal.PlainDate.from(anchor).withCalendar(calendar);
 
   return matchingDays(context, zoneOf(context, zone), (date) =>
     onCycle(periodsBetween(from, date, period), interval),

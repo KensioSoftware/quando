@@ -103,27 +103,28 @@ function parseTally(value: unknown, path?: string): Tally;
 
 ### Rule builders
 
-| Function                            | Covered time                          |
-| ----------------------------------- | ------------------------------------- |
-| `always()`                          | All time                              |
-| `never()`                           | No time                               |
-| `daysOfWeek(...days)`               | Whole days with the named weekdays    |
-| `weekdays()`                        | Monday through Friday                 |
-| `weekends()`                        | Saturday and Sunday                   |
-| `daysOfMonth(...days)`              | Whole days at positions in each month |
-| `nthDayOfWeekInMonth(nth, ...days)` | The nth named weekday in each month   |
-| `monthsOfYear(...months)`           | Whole named months                    |
-| `every(n, period, options)`         | Every nth day, week, month or year    |
-| `timeOfDay(from, to, zone?)`        | A daily wall-clock window             |
-| `dates(...dates)`                   | Whole named dates                     |
-| `onOrAfter(date, zone?)`            | Every day from a date onwards         |
-| `onOrBefore(date, zone?)`           | Every day up to a date                |
-| `between(from, to, zone?)`          | Every day from one date to another    |
-| `all(...rules)`                     | Times covered by every rule           |
-| `any(...rules)`                     | Times covered by at least one rule    |
-| `not(rule)`                         | Times outside a rule                  |
-| `inZone(zone, rule)`                | A rule subtree evaluated in one zone  |
-| `custom(name, options?, zone?)`     | A rule type the application supplies  |
+| Function                            | Covered time                           |
+| ----------------------------------- | -------------------------------------- |
+| `always()`                          | All time                               |
+| `never()`                           | No time                                |
+| `daysOfWeek(...days)`               | Whole days with the named weekdays     |
+| `weekdays()`                        | Monday through Friday                  |
+| `weekends()`                        | Saturday and Sunday                    |
+| `daysOfMonth(...days)`              | Whole days at positions in each month  |
+| `nthDayOfWeekInMonth(nth, ...days)` | The nth named weekday in each month    |
+| `monthsOfYear(...months)`           | Whole named months                     |
+| `every(n, period, options)`         | Every nth day, week, month or year     |
+| `timeOfDay(from, to, zone?)`        | A daily wall-clock window              |
+| `dates(...dates)`                   | Whole named dates                      |
+| `onOrAfter(date, zone?)`            | Every day from a date onwards          |
+| `onOrBefore(date, zone?)`           | Every day up to a date                 |
+| `between(from, to, zone?)`          | Every day from one date to another     |
+| `all(...rules)`                     | Times covered by every rule            |
+| `any(...rules)`                     | Times covered by at least one rule     |
+| `not(rule)`                         | Times outside a rule                   |
+| `inZone(zone, rule)`                | A rule subtree evaluated in one zone   |
+| `inCalendar(calendar, rule)`        | A rule subtree counted on one calendar |
+| `custom(name, options?, zone?)`     | A rule type the application supplies   |
 
 Each builder validates its arguments and returns a `Built<R>`. A built rule
 is a `Rule` with non-enumerable `.and`, `.or`, and `.except` methods.
@@ -145,6 +146,30 @@ function parseRule(value: unknown, path?: string): Built<Rule>;
 
 `Period` is `"days"`, `"weeks"`, `"months"` or `"years"`, listed in `PERIODS`.
 The anchor fixes the phase of the cycle, and `onOrAfter` bounds it.
+
+### Calendars
+
+```ts
+function inCalendar(calendar: string, rule: Rule): Built<InCalendarRule>;
+
+interface InCalendarRule {
+  readonly type: "inCalendar";
+  readonly calendar: string;
+  readonly rule: Rule;
+}
+```
+
+Any calendar the runtime's `Temporal` implements, which on a polyfilled runtime
+means the `full` build. The instants do not move. What changes is the year,
+month and day a rule reads off a date, so `daysOfMonth`,
+`nthDayOfWeekInMonth` and a cycle of days or weeks answer on the calendar
+named. Answers come back on the calendar the query was asked in.
+
+`monthsOfYear`, `every(n, "months")` and `every(n, "years")` throw a
+`RangeError` under a non-ISO calendar, because Quando names the twelve
+Gregorian months and another calendar may hold thirteen. `dates` and `between`
+name ISO dates whatever calendar surrounds them. `toCron` and `toRRule` refuse
+a rule read on another calendar.
 
 ### Custom rule types
 

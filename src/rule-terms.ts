@@ -82,6 +82,11 @@ function collect(
       zones.add(rule.zone);
       return collect(rule.rule, into, zones);
     }
+    case "inCalendar": {
+      return unwritable(
+        `it is read on the ${rule.calendar} calendar, and both notations count Gregorian months and years`,
+      );
+    }
     case "all": {
       for (const child of rule.rules) {
         const problem = collect(child, into, zones);

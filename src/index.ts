@@ -3,7 +3,14 @@
 export type { Context } from "./context.js";
 export type { JsonCompatible, JsonPrimitive, JsonValue } from "./json.js";
 export type { PlainRule } from "./plain-forms.js";
-export type { CustomRule, Month, Period, Rule, Weekday } from "./rule.js";
+export type {
+  CustomRule,
+  InCalendarRule,
+  Month,
+  Period,
+  Rule,
+  Weekday,
+} from "./rule.js";
 export { MONTHS, PERIODS, WEEKDAYS } from "./rule.js";
 
 export type { Built } from "./build.js";
@@ -18,6 +25,7 @@ export {
   daysOfMonth,
   daysOfWeek,
   every,
+  inCalendar,
   inZone,
   monthsOfYear,
   never,

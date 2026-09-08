@@ -174,7 +174,7 @@ describe("parsing a rule from JSON", () => {
         complaintAbout({ type: "weekdays" }),
         'rule.type: "weekdays" is not a rule type. ' +
           "Expected one of always, never, daysOfWeek, daysOfMonth, nthDayOfWeekInMonth, " +
-          "monthsOfYear, every, timeOfDay, dates, dateRange, custom, inZone, all, any, not",
+          "monthsOfYear, every, timeOfDay, dates, dateRange, custom, inCalendar, inZone, all, any, not",
       );
     });
 

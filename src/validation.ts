@@ -107,6 +107,15 @@ export function asZone(value: string, path: string): string {
   }
 }
 
+/** A calendar identifier `Temporal` knows, or a `RangeError` naming it. */
+export function asCalendar(value: string, path: string): string {
+  try {
+    return Temporal.PlainDate.from("2000-01-01").withCalendar(value).calendarId;
+  } catch {
+    throw new RangeError(`${path} is not a known calendar: "${value}".`);
+  }
+}
+
 /** Checks an evaluation window before a stream starts. */
 export function checkWindow(
   from: Temporal.ZonedDateTime,

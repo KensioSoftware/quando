@@ -10,7 +10,12 @@
 // `Temporal` unconditionally, which is what makes the assignment below look
 // dead to the type checker. That declaration is a claim about the runtime, and
 // the floor runtime is where it stops being true.
-import { Temporal as polyfilled } from "temporal-polyfill";
+// The `full` build rather than the default entry point. The default carries
+// the ISO and Gregorian calendars only, and `inCalendar` reads a rule on any
+// calendar the runtime implements, so the calendar tests would have nothing to
+// run against on the floor runtime. See the calendars section in docs/rules/
+// for what a consumer needs.
+import { Temporal as polyfilled } from "temporal-polyfill/full";
 
 const globals = globalThis as { Temporal?: typeof globalThis.Temporal };
 

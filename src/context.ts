@@ -64,3 +64,34 @@ export function contextInZone(context: Context, zone: string): Context {
 export function zoneOf(context: Context, override?: string): string {
   return override ?? context.from.timeZoneId;
 }
+
+/**
+ * The same window read on another calendar.
+ *
+ * The instants do not move. Only the year, month and day a rule sees when it
+ * reads a date change, which is the whole of what a calendar decides.
+ */
+export function contextInCalendar(context: Context, calendar: string): Context {
+  return {
+    ...context,
+    from: context.from.withCalendar(calendar),
+    ...(context.to === undefined
+      ? {}
+      : { to: context.to.withCalendar(calendar) }),
+  };
+}
+
+/**
+ * The calendar a rule counts on.
+ *
+ * Read from `context.from` for the same reason the zone is. A `ZonedDateTime`
+ * carries one, so there is no separate field that could disagree with it.
+ */
+export function calendarOf(context: Context): string {
+  return context.from.calendarId;
+}
+
+/** Whether a calendar is the ISO one Quando's month vocabulary assumes. */
+export function isIsoCalendar(calendar: string): boolean {
+  return calendar === "iso8601";
+}

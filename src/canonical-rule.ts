@@ -100,6 +100,14 @@ export function canonicalRule(rule: Rule): Rule {
       };
     }
 
+    case "inCalendar": {
+      return {
+        type: "inCalendar",
+        calendar: rule.calendar,
+        rule: canonicalRule(rule.rule),
+      };
+    }
+
     case "inZone": {
       return {
         type: "inZone",

@@ -79,6 +79,23 @@ ReferenceError: Temporal is not defined
 `??=` keeps a native `Temporal` where the runtime already has one. The same
 entry point then works on Node 26 and on Node 22.
 
+### Calendars need the full polyfill build
+
+The default `temporal-polyfill` entry point carries the ISO and Gregorian
+calendars only. [`inCalendar`](../rules/#set-a-calendar) reads a rule on any
+calendar the runtime implements, so a Hebrew or Islamic rule needs the `full`
+build:
+
+```ts
+// temporal-global.ts
+import { Temporal } from "temporal-polyfill/full";
+
+globalThis.Temporal ??= Temporal;
+```
+
+The `full` build carries the calendar data and is correspondingly larger. Stay
+on the default entry point unless a rule names a calendar.
+
 The `quando` command reads the same global. Preload the module to run it on a
 runtime that lacks one:
 
