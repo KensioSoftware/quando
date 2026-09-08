@@ -215,16 +215,24 @@ describe("naming days by date", () => {
       );
     };
 
-    /** The best of three runs of the same point query, in microseconds. */
+    /**
+     * The best of three runs of the same point query, in microseconds.
+     *
+     * Best of three rather than the mean, because a garbage collection landing
+     * in one run is what a mean would carry into the ratio. The first run is
+     * thrown away, so the reading a rule does once has happened before the
+     * timing starts.
+     */
     const cost = (days: readonly string[]): number => {
       const rule = dates(...days);
       const at = when("2026-06-15T10:00");
+      const runs = 1000;
       const once = (): number => {
         const started = performance.now();
-        for (let n = 0; n < 300; n++) {
+        for (let n = 0; n < runs; n++) {
           activeAt(rule, at);
         }
-        return ((performance.now() - started) / 300) * 1000;
+        return ((performance.now() - started) / runs) * 1000;
       };
       once();
       return Math.min(once(), once(), once());
