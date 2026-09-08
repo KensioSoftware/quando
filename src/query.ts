@@ -14,7 +14,7 @@
 import { type Covers, covered } from "./assigned.js";
 import type { Context } from "./context.js";
 import { duration, type Interval } from "./interval.js";
-import { checkExactDuration } from "./query-validation.js";
+import { refuse, unknownIn, upTo } from "./horizon-guard.js";
 import {
   boundSearch,
   restartSearch,
@@ -38,6 +38,10 @@ const NOTHING = Temporal.Duration.from({ seconds: 0 });
  * Always terminates, whatever it is reading and whatever the context: it asks
  * about the smallest window there is, so nothing can walk far looking for an
  * answer.
+ *
+ * Throws {@link BeyondHorizonError} where the rules stop being known before
+ * the instant asked about. A `false` from this is a `false` somebody has the
+ * data for.
  */
 export function activeAt<V>(
   covers: Covers<V>,
@@ -49,7 +53,11 @@ export function activeAt<V>(
     from: at,
     to: at.add({ nanoseconds: 1 }),
   };
-  return take(covered(covers, moment), 1).length > 0;
+  if (take(covered(covers, moment), 1).length > 0) {
+    return true;
+  }
+  const fog = unknownIn(covers, moment);
+  return fog === undefined ? false : refuse("activeAt()", fog, moment);
 }
 
 /**
@@ -57,6 +65,9 @@ export function activeAt<V>(
  *
  * Needs a window with an end, because the alternative is a number that never
  * finishes being counted.
+ *
+ * The whole window is counted, so any part of it the rules cannot answer for
+ * makes the total unknown and throws {@link BeyondHorizonError}.
  */
 export function coveredDuration<V>(
   covers: Covers<V>,
@@ -66,6 +77,11 @@ export function coveredDuration<V>(
     throw new RangeError(
       "coveredDuration() needs a window with an end: give the context a `to`.",
     );
+  }
+
+  const fog = unknownIn(covers, context);
+  if (fog !== undefined) {
+    refuse("coveredDuration()", fog, context);
   }
 
   let total = NOTHING;
@@ -85,6 +101,11 @@ export function coveredDuration<V>(
  * already at the context's start, that stretch is returned clipped to begin
  * there — "when does it next open" answers "it is open" rather than skipping
  * to tomorrow.
+ *
+ * Only the time before the stretch it finds can change the answer, so that is
+ * the only part checked against the rules' horizon. Anything unknown in there
+ * might have been the answer, and throws {@link BeyondHorizonError}. Fog after
+ * it is somebody else's question.
  */
 export function nextCoveredInterval<V>(
   covers: Covers<V>,
@@ -93,6 +114,12 @@ export function nextCoveredInterval<V>(
 ): Interval | undefined {
   const window = boundSearch(context, search);
   const [first] = take(covered(covers, window.context), 1);
+
+  const fog = unknownIn(covers, upTo(window.context, first?.start));
+  if (fog !== undefined) {
+    refuse("nextCoveredInterval()", fog, window.context);
+  }
+
   if (first === undefined) {
     if (window.automaticLimit !== undefined) {
       throw new SearchLimitExceededError(
@@ -109,53 +136,4 @@ export function nextCoveredInterval<V>(
   return whole ?? first;
 }
 
-/**
- * Where you get to after an amount of time that only counts while something
- * holds.
- *
- * Three operating hours from an order placed at five to five on a Friday is
- * some way into Monday morning, and this is the function that says where.
- * `undefined` when the search runs out before the time does.
- */
-export function advanceBy<V>(
-  from: Temporal.ZonedDateTime,
-  amount: Temporal.Duration,
-  options: { readonly during: Covers<V> } & Search &
-    Omit<Context, "from" | "to">,
-): Temporal.ZonedDateTime | undefined {
-  checkExactDuration(amount);
-  if (Temporal.Duration.compare(amount, NOTHING) < 0) {
-    throw new RangeError(
-      `advanceBy() cannot go backwards. Asked for ${amount.toString()}.`,
-    );
-  }
-  if (Temporal.Duration.compare(amount, NOTHING) === 0) {
-    return from;
-  }
-
-  const { during, within, complete: _complete, ...rest } = options;
-  const window = boundSearch(
-    { ...rest, from },
-    within === undefined ? undefined : { within },
-  );
-
-  let remaining = amount;
-  for (const interval of covered(during, window.context)) {
-    const length = duration(interval);
-
-    // An interval with no end has more than enough of whatever is left.
-    if (
-      length === undefined ||
-      Temporal.Duration.compare(length, remaining) >= 0
-    ) {
-      return interval.start?.add(remaining);
-    }
-
-    remaining = remaining.subtract(length);
-  }
-
-  if (window.automaticLimit !== undefined) {
-    throw new SearchLimitExceededError("advanceBy()", window.automaticLimit);
-  }
-  return undefined;
-}
+export { advanceBy } from "./advance.js";

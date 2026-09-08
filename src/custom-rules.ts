@@ -51,6 +51,19 @@ export interface CustomRuleType {
    * selects. Without one, explanations name the rule and stop.
    */
   readonly describe?: (options: JsonValue | undefined) => string;
+
+  /**
+   * The last day this rule type's answers are known for, that day included.
+   *
+   * A bank holiday table loaded through 2026 returns `"2026-12-31"`, and every
+   * query whose answer would depend on 2027 refuses instead of guessing. Where
+   * this is absent the rule type vouches for all of time, which is what every
+   * rule type did before horizons existed.
+   *
+   * Read from the registry rather than from the document, because a stored
+   * schedule names a rule type without knowing how much of it was loaded.
+   */
+  readonly known?: (options: JsonValue | undefined) => string | undefined;
 }
 
 /**

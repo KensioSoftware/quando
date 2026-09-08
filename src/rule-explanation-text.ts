@@ -45,6 +45,7 @@ export function describeRuleMatch(
 
     case "inZone":
     case "inCalendar":
+    case "known":
     case "all":
     case "any":
     case "not": {

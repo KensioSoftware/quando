@@ -1,16 +1,15 @@
 /**
- * Parsing the two rules that change how a subtree is read.
+ * Parsing the rules that wrap one other rule and select no time of their own.
  *
- * Neither selects any time of its own. `inZone` settles which clock the rules
- * inside it are read on and `inCalendar` settles which calendar they count on,
- * and both hold exactly one rule. [parse.ts](./parse.ts) keeps the table of
- * known types and hands these here, the way it hands the leaves to
- * `parse-calendar.ts`.
+ * `inZone` settles which clock the rules inside it are read on, `inCalendar`
+ * settles which calendar they count on, and `known` settles how far their
+ * answer can be trusted. [parse.ts](./parse.ts) keeps the table of known types
+ * and hands these here, the way it hands the leaves to `parse-calendar.ts`.
  */
 
-import { zonePart } from "./parse-fields.js";
+import { asDate, zonePart } from "./parse-fields.js";
 import { fail, shapeOf } from "./parse-shape.js";
-import type { InCalendarRule, InZoneRule, Rule } from "./rule.js";
+import type { InCalendarRule, InZoneRule, KnownRule, Rule } from "./rule.js";
 import { asCalendar } from "./validation.js";
 
 /** Parses the one rule a scope wraps. Passed in, because `parse.ts` recurses. */
@@ -48,5 +47,23 @@ export function parseInZoneRule(
     type: "inZone",
     zone: part.zone,
     rule: parseRule(node["rule"], `${path}.rule`),
+  };
+}
+
+/**
+ * A horizon, which is the one wrapper that says something about the answer
+ * rather than about how the times inside it are read.
+ */
+export function parseKnownRule(
+  node: Record<string, unknown>,
+  path: string,
+  parseRule: ParseRule,
+): KnownRule {
+  const part = zonePart(node, path);
+  return {
+    type: "known",
+    through: asDate(node["through"], `${path}.through`),
+    rule: parseRule(node["rule"], `${path}.rule`),
+    ...(part.zone === undefined ? {} : { zone: part.zone }),
   };
 }

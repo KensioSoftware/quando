@@ -65,7 +65,13 @@ export function intervals(rule: Rule, context: Context): IntervalStream {
   );
 }
 
-function* readIn(
+/**
+ * A stream read back in one zone and calendar, as {@link intervals} promises.
+ *
+ * Exported for [bounds.ts](./bounds.ts), which owes its callers the same
+ * promise and reaches the leaves by its own route.
+ */
+export function* readIn(
   stream: IntervalStream,
   zone: string,
   calendar: string,
@@ -123,6 +129,13 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
 
     case "inZone": {
       return evaluate(rule.rule, contextInZone(context, rule.zone));
+    }
+
+    case "known": {
+      // Passed through, because a horizon says how far the answer is known
+      // and nothing about which times are covered. This function answers the
+      // second question. `bounds` answers the first. See horizon.ts.
+      return evaluate(rule.rule, context);
     }
 
     case "all": {

@@ -121,6 +121,7 @@ export type Rule =
   | CustomRule
   | InCalendarRule
   | InZoneRule
+  | KnownRule
   | AllRule
   | AnyRule
   | NotRule;
@@ -395,6 +396,27 @@ export interface InZoneRule {
   readonly type: "inZone";
   readonly zone: string;
   readonly rule: Rule;
+}
+
+/**
+ * A rule whose answer is only known up to a day.
+ *
+ * Wraps a subtree the way `inZone` and `inCalendar` do, and says something
+ * about the answer rather than about the times. A holiday list loaded with
+ * 2026 in it covers the days it names, and past the end of 2026 it stops
+ * being evidence of anything.
+ *
+ * **A horizon is not a scope.** `onOrBefore` would make the subtree cover
+ * nothing past the date, which is a confident answer of "no". This says there
+ * is no answer, which is a different thing and the reason the type exists.
+ */
+export interface KnownRule {
+  readonly type: "known";
+  /** The last day the subtree's answer is known for, that day included. */
+  readonly through: string;
+  readonly rule: Rule;
+  /** The zone the day ends in. The evaluation's own zone by default. */
+  readonly zone?: string;
 }
 
 /** Every rule must hold: intersection. */

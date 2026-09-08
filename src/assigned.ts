@@ -19,8 +19,8 @@ import {
   type Valued,
 } from "./cascade.js";
 import type { Context } from "./context.js";
+import { bounds } from "./bounds.js";
 import type { IntervalStream } from "./interval-stream.js";
-import { intervals } from "./interpret.js";
 import { resolve } from "./resolve.js";
 import type { Rule } from "./rule.js";
 import { take } from "./stream.js";
@@ -56,7 +56,7 @@ export function assigned<V>(cascade: CascadeLike<V>, is: V): Assigned<V> {
 }
 
 /** Whether a query is reading a rule or a narrowed cascade. */
-function isRule<V>(covers: Covers<V>): covers is Rule {
+export function isRule<V>(covers: Covers<V>): covers is Rule {
   return (
     "type" in covers && covers.type !== "cascade" && !("cascade" in covers)
   );
@@ -68,13 +68,16 @@ function isRule<V>(covers: Covers<V>): covers is Rule {
  * This is the one place the queries have to know that a cascade exists, and
  * what comes back either way is an ordinary interval stream, so everything
  * above it stays written once.
+ *
+ * The times a rule *certainly* covers, which for every rule that declares no
+ * horizon is every time it covers. See [bounds.ts](./bounds.ts).
  */
 export function covered<V>(
   covers: Covers<V>,
   context: Context,
 ): IntervalStream {
   if (isRule(covers)) {
-    return intervals(covers, context);
+    return bounds(covers, context).certain;
   }
   if ("is" in covers) {
     return matching(covers, context);

@@ -68,6 +68,7 @@ function leafOf(rule: Rule): CalendarRule | undefined {
     case "custom":
     case "inCalendar":
     case "inZone":
+    case "known":
     case "all":
     case "any":
     case "not": {
