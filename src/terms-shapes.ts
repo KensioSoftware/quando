@@ -84,10 +84,11 @@ function padded(time: string): string {
  * `2026-01-01-2026-12-31` reads as neither one date nor two.
  */
 function dateRange(term: string): Rule | undefined {
-  if (!term.includes("..")) {
+  const ends = term.split("..");
+  if (ends.length !== 2) {
     return undefined;
   }
-  const [from = "", to = ""] = term.split("..");
+  const [from = "", to = ""] = ends;
   if (from !== "" && !DATE.test(from)) {
     return undefined;
   }
@@ -106,7 +107,9 @@ function days(term: string): Rule | undefined {
 
 function codes(term: string): Rule | undefined {
   const found = listed(term, MONTH_CODES, (word) => {
-    const said = `M${word.slice(1).toUpperCase()}`;
+    // The whole word, rather than its tail put back behind an `M`. Rebuilding
+    // it threw the first letter away, so `X01` and `101` both read as M01.
+    const said = word.toUpperCase();
     return MONTH_CODES.find((code) => code === said);
   });
   return found === undefined || found.length === 0

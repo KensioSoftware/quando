@@ -37,8 +37,9 @@ const PERIOD_WORDS: Readonly<Record<string, Period>> = {
  * string was read.
  */
 export function readCycle(term: string, at: string, value: string): Rule {
-  const [count = "", anchor] = value.split("@");
-  if (anchor === undefined || anchor === "") {
+  const parts = value.split("@");
+  const [count = "", anchor] = parts;
+  if (parts.length !== 2 || anchor === undefined || anchor === "") {
     badTerm(
       term,
       at,

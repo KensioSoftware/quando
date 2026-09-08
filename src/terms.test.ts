@@ -14,6 +14,7 @@ import {
   any,
   daysOfWeek,
   dates,
+  monthCodes,
   monthsOfYear,
   timeOfDay,
   weekdays,
@@ -368,6 +369,41 @@ describe("reading a rule from a line of terms", () => {
       // Then the whole term is refused. Reading the half it understood would
       // be a rule covering Mondays and saying nothing about the rest.
       assertStringIncludes(error.message, '"mon-someday"');
+    });
+
+    it("refuses a month code that is not one, whatever it ends in", () => {
+      // Given codes with the wrong first character, and one with none.
+      for (const line of ["X01", "Z05L", "101"]) {
+        const error = assertThrowsError(() => parseTerms(line));
+        assertStringIncludes(error.message, `cannot read "${line}"`);
+      }
+
+      // Then each is refused, and a real one still reads however it is cased.
+      // Reading the tail and putting an `M` back in front of it would have
+      // made every one of those a month code.
+      assertTrue(equals(parseTerms("m01"), monthCodes("M01")));
+    });
+
+    it("refuses a stretch with a third date in it", () => {
+      // Given two `..` in one term.
+      const error = assertThrowsError(() =>
+        parseTerms("2026-01-01..2026-06-01..2026-12-31"),
+      );
+
+      // Then the whole term is refused. Taking the first two ends and
+      // dropping the rest would have covered half the stretch that was asked
+      // for and said nothing about it.
+      assertStringIncludes(error.message, "cannot read");
+    });
+
+    it("refuses a cycle with a second anchor", () => {
+      // Given two dates after the count.
+      const error = assertThrowsError(() =>
+        parseTerms("every:2w@2026-01-05@2027-01-01"),
+      );
+
+      // Then it is refused rather than the second one being dropped.
+      assertStringIncludes(error.message, "every:2w@2026-01-05");
     });
 
     it("refuses a range with more than two ends", () => {
