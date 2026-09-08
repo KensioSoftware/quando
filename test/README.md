@@ -31,3 +31,21 @@ fc.assert(law, { numRuns: 500, seed: 123456, path: "0:1:2" });
 Replace the example values with those from the failure, then run only that test
 using Vitest's `-t` option. After fixing a bug, preserve the counterexample as a
 regression test and remove the temporary replay options.
+
+## The RFC 5545 conformance corpus
+
+`src/rrule-conformance.test.ts` checks `parseRRule` against the worked
+expansions RFC 5545 prints beside its own recurrence examples, in section
+3.8.5.3. Every other date in this suite is one somebody here worked out, and
+these are an authority Quando had no hand in writing.
+
+The examples are quoted in the spec's own notation, so `"September 2,9,16"` and
+`"January 1-31"` appear as the RFC writes them and a `listed` helper expands
+them. Keeping the notation means a reader can hold the file beside the spec and
+compare, and that a transcription error has one place to hide rather than one
+per example.
+
+Examples using `COUNT`, `BYSETPOS`, `BYWEEKNO`, `BYYEARDAY` or a frequency
+faster than a day are in the corpus as refusals. Quando declines each with a
+reason, and the tests pin that boundary the way the passing ones pin the
+answers.
