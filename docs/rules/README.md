@@ -352,6 +352,13 @@ off a date, so `daysOfMonth`, `nthDayOfWeekInMonth` and a cycle of days or
 weeks all answer on the calendar named. Weekdays are the same seven-day cycle
 on these calendars and need no wrapper.
 
+Which calendars exist is the runtime's business. A runtime with full ICU data,
+such as Node 26, carries them all. `temporal-polyfill` carries only `iso8601`
+and `gregory` unless its `full` build is the one assigned to the global. See
+[getting started](../getting-started/#calendars-need-the-full-polyfill-build).
+`inCalendar` refuses a calendar the runtime does not implement, and says which
+of the two reasons applies.
+
 Answers come back on the calendar the query was asked in, the same way they
 come back in the query's zone. Which calendar a rule counted on is how it was
 written rather than part of the answer.

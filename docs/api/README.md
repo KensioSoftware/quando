@@ -159,8 +159,9 @@ interface InCalendarRule {
 }
 ```
 
-Any calendar `Temporal` implements. The instants do not move. What changes is
-the year, month and day a rule reads off a date, so `daysOfMonth`,
+Any calendar the runtime's `Temporal` implements, which on a polyfilled runtime
+means the `full` build. The instants do not move. What changes is the year,
+month and day a rule reads off a date, so `daysOfMonth`,
 `nthDayOfWeekInMonth` and a cycle of days or weeks answer on the calendar
 named. Answers come back on the calendar the query was asked in.
 
