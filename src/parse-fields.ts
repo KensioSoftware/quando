@@ -11,7 +11,9 @@
  */
 
 import { asString, asStrings, fail } from "./parse-shape.js";
+import { isMonthCode, MONTH_CODE_FORM } from "./validation.js";
 import {
+  type MonthCode,
   MONTHS,
   type Month,
   PERIODS,
@@ -41,6 +43,17 @@ export function asMonths(value: unknown, path: string): Month[] {
       : fail(
           `${path}[${index}]`,
           `"${month}" is not a month. Expected one of ${MONTHS.join(", ")}`,
+        ),
+  );
+}
+
+export function asMonthCodes(value: unknown, path: string): MonthCode[] {
+  return asStrings(value, path).map((code, index) =>
+    isMonthCode(code)
+      ? code
+      : fail(
+          `${path}[${index}]`,
+          `"${code}" is not a month code. ${MONTH_CODE_FORM}`,
         ),
   );
 }

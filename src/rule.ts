@@ -47,6 +47,46 @@ export const MONTHS = [
 export type Month = (typeof MONTHS)[number];
 
 /**
+ * The two-digit part of a month code.
+ *
+ * Thirteen, because a Coptic year holds thirteen months and a Hebrew leap year
+ * holds thirteen too.
+ */
+const MONTH_NUMBERS = [
+  "01",
+  "02",
+  "03",
+  "04",
+  "05",
+  "06",
+  "07",
+  "08",
+  "09",
+  "10",
+  "11",
+  "12",
+  "13",
+] as const;
+
+/**
+ * A month written the way `Temporal` writes one, which is the same way on
+ * every calendar.
+ *
+ * `"M01"` to `"M13"`, and the same again with a trailing `"L"` for a leap
+ * month. Which of them a calendar reaches is the calendar's business, and for
+ * a leap month the year's as well, so this is every code that is well formed
+ * rather than every code that can occur.
+ */
+export type MonthCode =
+  | `M${(typeof MONTH_NUMBERS)[number]}`
+  | `M${(typeof MONTH_NUMBERS)[number]}L`;
+
+/** Every month code, in the order a calendar reaches them. */
+export const MONTH_CODES: readonly MonthCode[] = MONTH_NUMBERS.flatMap(
+  (number) => [`M${number}`, `M${number}L`] as const,
+);
+
+/**
  * The calendar periods a recurrence can step through.
  *
  * Plural, because they are always written after a count: `every(2, "weeks")`.
@@ -71,6 +111,7 @@ export type Rule =
   | DaysOfMonthRule
   | NthDayOfWeekInMonthRule
   | MonthsOfYearRule
+  | MonthCodesRule
   | EveryRule
   | TimeOfDayRule
   | DatesRule
@@ -93,6 +134,7 @@ export type CalendarRule =
   | DaysOfMonthRule
   | NthDayOfWeekInMonthRule
   | MonthsOfYearRule
+  | MonthCodesRule
   | EveryRule
   | TimeOfDayRule
   | DatesRule
@@ -129,7 +171,8 @@ export interface CustomRule {
  *
  * Any calendar `Temporal` implements. Quando's month *names* are Gregorian, so
  * `monthsOfYear` and a cycle of months or years are refused on another
- * calendar rather than answered wrongly.
+ * calendar rather than answered wrongly. `monthCodes` names a month on any of
+ * them.
  */
 export interface InCalendarRule {
   readonly type: "inCalendar";
@@ -185,10 +228,33 @@ export interface NthDayOfWeekInMonthRule {
   readonly zone?: string;
 }
 
-/** Whole months, by name. */
+/** Whole months, by Gregorian name. */
 export interface MonthsOfYearRule {
   readonly type: "monthsOfYear";
   readonly months: readonly Month[];
+  readonly zone?: string;
+}
+
+/**
+ * Whole months, by the code `Temporal` gives them.
+ *
+ * `"M01"` through to `"M13"`, with a trailing `"L"` for a leap month. This is
+ * the vocabulary every calendar shares, so one code names the month it names
+ * wherever the rule is read: `"M01"` is January on the ISO calendar and Tishri
+ * under `inCalendar("hebrew", ...)`.
+ *
+ * A leap month is its own month rather than a second helping of the one before
+ * it. The Hebrew Adar I is `"M05L"` and Adar II is `"M06"`, and a rule wanting
+ * both says both.
+ *
+ * A code the calendar in force never reaches covers no time, the way
+ * `daysOfMonth(31)` covers no February. Which codes a calendar has depends on
+ * the calendar and, for a leap month, on the year, and the rule is written long
+ * before either is known.
+ */
+export interface MonthCodesRule {
+  readonly type: "monthCodes";
+  readonly codes: readonly MonthCode[];
   readonly zone?: string;
 }
 

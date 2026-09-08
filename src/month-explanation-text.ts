@@ -1,14 +1,20 @@
 /**
  * Describing a month and a day-of-month match in words.
  *
- * Split from [calendar-explanation-text.ts](./calendar-explanation-text.ts)
- * because ordinals are their own small problem: `the 31st`, `the last day`,
- * `the 2nd-last day`, and the three numbers whose suffix the last digit gets
- * wrong.
+ * Split from [calendar-explanation-text.ts](./calendar-explanation-text.ts),
+ * which keeps the week, the dates and the clock. The counting words these
+ * reach for are in [ordinals.ts](./ordinals.ts).
  */
 
 import { join, title } from "./explanation-phrases.js";
-import { MONTHS, type Month, WEEKDAYS, type Weekday } from "./rule.js";
+import { nameMonthDay, nthName, ordinal } from "./ordinals.js";
+import {
+  type MonthCode,
+  MONTHS,
+  type Month,
+  WEEKDAYS,
+  type Weekday,
+} from "./rule.js";
 
 /**
  * Describes a day-of-month match in calendar terms.
@@ -57,6 +63,34 @@ export function describeMonth(
 }
 
 /**
+ * Describes a month-code match.
+ *
+ * The code is given rather than a name, because naming the month would mean
+ * carrying a table for every calendar and the code is what the rule was written
+ * with. The calendar is named where the account of the wrapper says it.
+ */
+export function describeMonthCode(
+  codes: readonly MonthCode[],
+  at: Temporal.ZonedDateTime,
+  matched: boolean,
+): string {
+  if (codes.length === 0) {
+    return "No month codes are listed.";
+  }
+  const verb = matched ? "is" : "is not";
+  if (codes.length === 1) {
+    // The code the instant falls in is left out. With one code to compare
+    // against, a match means the two are the same string, and "Month M05L is
+    // M05L" says the same thing twice.
+    return `The month ${verb} ${codes[0]}.`;
+  }
+  const here = at.toPlainDate().monthCode;
+  const choices =
+    codes.length <= 3 ? join(codes) : `${codes.length} listed month codes`;
+  return `Month ${here} ${verb} one of ${choices}.`;
+}
+
+/**
  * Describes which occurrence of a weekday a date is.
  *
  * The count is the fact the reader cannot see from the date, and it is the
@@ -88,35 +122,4 @@ export function describeNthDayOfWeekInMonth(
   return matched
     ? `${here}.`
     : `${here}, and the rule wants the ${nthName(nth)}.`;
-}
-
-/** `2nd`, or `last` and `2nd-last` when counted from the end. */
-function nthName(nth: number): string {
-  if (nth > 0) {
-    return ordinal(nth);
-  }
-  return nth === -1 ? "last" : `${ordinal(-nth)}-last`;
-}
-
-const ORDINAL_SUFFIXES = new Map([
-  [1, "st"],
-  [2, "nd"],
-  [3, "rd"],
-]);
-
-function ordinal(value: number): string {
-  const teen = value % 100;
-  // 11th, 12th and 13th break the pattern the last digit otherwise sets.
-  const suffix =
-    teen >= 11 && teen <= 13
-      ? "th"
-      : (ORDINAL_SUFFIXES.get(value % 10) ?? "th");
-  return `${value}${suffix}`;
-}
-
-function nameMonthDay(day: number): string {
-  if (day > 0) {
-    return `the ${ordinal(day)}`;
-  }
-  return day === -1 ? "the last day" : `the ${ordinal(-day)}-last day`;
 }

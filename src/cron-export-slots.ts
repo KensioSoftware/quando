@@ -13,8 +13,8 @@ import {
   isDayTerm,
   minutesIn,
   monthsIn,
-  reasonFor,
 } from "./cron-export-leaves.js";
+import { reasonFor } from "./cron-export-reasons.js";
 import type { Month, Weekday } from "./rule.js";
 import type { Term } from "./rule-terms.js";
 

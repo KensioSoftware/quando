@@ -18,6 +18,9 @@ import {
   inCalendar,
   type InCalendarRule,
   type LayerOptions,
+  MONTH_CODES,
+  type MonthCode,
+  monthCodes,
   type OpenDayOptions,
   renderTimeline,
   rota,
@@ -131,7 +134,12 @@ const shutdown: CustomRuleType = {
 const registry: RuleRegistry = { shutdown };
 const customRule: CustomRule = custom("shutdown", { region: "gb" });
 const hebrewRule: InCalendarRule = inCalendar("hebrew", weekdays());
+const adarI: MonthCode = "M05L";
+const leapMonth = inCalendar("hebrew", monthCodes(adarI));
+const everyMonthCode: readonly MonthCode[] = MONTH_CODES;
 void hebrewRule;
+void leapMonth;
+void everyMonthCode;
 const customInZone: CustomRule = custom("shutdown", undefined, "Europe/London");
 const closedForWorks: boolean = activeAt(customRule, start, {
   rules: registry,

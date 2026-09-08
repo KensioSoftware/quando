@@ -54,6 +54,7 @@ function leafOf(rule: Rule): CalendarRule | undefined {
     case "daysOfMonth":
     case "nthDayOfWeekInMonth":
     case "monthsOfYear":
+    case "monthCodes":
     case "every":
     case "timeOfDay":
     case "dates":

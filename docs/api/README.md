@@ -113,6 +113,7 @@ function parseTally(value: unknown, path?: string): Tally;
 | `daysOfMonth(...days)`              | Whole days at positions in each month  |
 | `nthDayOfWeekInMonth(nth, ...days)` | The nth named weekday in each month    |
 | `monthsOfYear(...months)`           | Whole named months                     |
+| `monthCodes(...codes)`              | Whole months, by `Temporal` code       |
 | `every(n, period, options)`         | Every nth day, week, month or year     |
 | `timeOfDay(from, to, zone?)`        | A daily wall-clock window              |
 | `dates(...dates)`                   | Whole named dates                      |
@@ -147,6 +148,16 @@ function parseRule(value: unknown, path?: string): Built<Rule>;
 `Period` is `"days"`, `"weeks"`, `"months"` or `"years"`, listed in `PERIODS`.
 The anchor fixes the phase of the cycle, and `onOrAfter` bounds it.
 
+```ts
+function monthCodes(...codes: readonly MonthCode[]): Built<MonthCodesRule>;
+```
+
+`MonthCode` is the union of `"M01"` to `"M13"` and the same again with a
+trailing `"L"` for a leap month, listed in `MONTH_CODES`. A string outside that
+set will not compile. A code the calendar in force never reaches covers no
+time, so `monthCodes("M05L")` covers nothing on the ISO calendar and covers
+Adar I under `inCalendar("hebrew", ...)`.
+
 ### Calendars
 
 ```ts
@@ -165,11 +176,12 @@ month and day a rule reads off a date, so `daysOfMonth`,
 `nthDayOfWeekInMonth` and a cycle of days or weeks answer on the calendar
 named. Answers come back on the calendar the query was asked in.
 
-`monthsOfYear`, `every(n, "months")` and `every(n, "years")` throw a
-`RangeError` under a non-ISO calendar, because Quando names the twelve
-Gregorian months and another calendar may hold thirteen. `dates` and `between`
-name ISO dates whatever calendar surrounds them. `toCron` and `toRRule` refuse
-a rule read on another calendar.
+`monthCodes` names a month on any calendar. `monthsOfYear`, `every(n,
+"months")` and `every(n, "years")` throw a `RangeError` under a non-ISO
+calendar, because Quando's month names are the twelve Gregorian ones and
+another calendar may hold thirteen. `dates` and `between` name ISO dates
+whatever calendar surrounds them. `toCron` and `toRRule` refuse a rule read on
+another calendar, and refuse `monthCodes` anywhere.
 
 ### Custom rule types
 

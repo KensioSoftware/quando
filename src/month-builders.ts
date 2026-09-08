@@ -12,6 +12,8 @@ import { build, type Built } from "./built-rule.js";
 import type {
   DaysOfMonthRule,
   Month,
+  MonthCode,
+  MonthCodesRule,
   MonthsOfYearRule,
   NthDayOfWeekInMonthRule,
   Weekday,
@@ -19,6 +21,7 @@ import type {
 import {
   asDayOfMonth,
   asMonth,
+  asMonthCode,
   asNthOfMonth,
   asWeekday,
 } from "./validation.js";
@@ -40,6 +43,23 @@ export function monthsOfYear(
   return build({
     type: "monthsOfYear",
     months: months.map((month, index) => asMonth(month, `months[${index}]`)),
+  });
+}
+
+/**
+ * Whole months, by the code `Temporal` gives them: `"M01"` to `"M13"`, with a
+ * trailing `"L"` for a leap month.
+ *
+ * The calendar-neutral way to name a month. `monthsOfYear("january")` says the
+ * same thing more readably and only on the Gregorian calendar, so reach for
+ * this one under `inCalendar`: `monthCodes("M05L")` is the Hebrew Adar I.
+ */
+export function monthCodes(
+  ...codes: readonly MonthCode[]
+): Built<MonthCodesRule> {
+  return build({
+    type: "monthCodes",
+    codes: codes.map((code, index) => asMonthCode(code, `codes[${index}]`)),
   });
 }
 

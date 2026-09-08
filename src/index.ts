@@ -7,11 +7,12 @@ export type {
   CustomRule,
   InCalendarRule,
   Month,
+  MonthCode,
   Period,
   Rule,
   Weekday,
 } from "./rule.js";
-export { MONTHS, PERIODS, WEEKDAYS } from "./rule.js";
+export { MONTH_CODES, MONTHS, PERIODS, WEEKDAYS } from "./rule.js";
 
 export type { Built } from "./build.js";
 export type { EveryOptions } from "./every-builders.js";
@@ -27,6 +28,7 @@ export {
   every,
   inCalendar,
   inZone,
+  monthCodes,
   monthsOfYear,
   never,
   not,
