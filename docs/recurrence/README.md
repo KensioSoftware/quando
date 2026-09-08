@@ -84,6 +84,10 @@ parseRRule("FREQ=MONTHLY;BYDAY=-1FR;UNTIL=20260630", { start: "2026-01-01" });
 
 That runs on the last Friday of each month and stops after June.
 
+Quando's expansions are checked against the worked examples RFC 5545 prints in
+section 3.8.5.3, including the ones that cross a daylight saving change. The
+parts below are checked there too, as refusals.
+
 ## Limits
 
 Five parts exist and have no rule to map onto. Each is refused by name rather
