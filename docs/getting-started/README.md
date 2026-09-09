@@ -107,7 +107,6 @@ stay outside JSON. Reattach them with `withCustomRules(registry)` after parsing.
 | Numeric contributions and totals    | [Tallies](../accumulation/)         |
 | Reusable descriptions of when       | [Rules](../rules/)                  |
 | Limits involving existing bookings  | [Constraints](../constraints/)      |
-| Upgrading existing code             | [Migration](../migration/)          |
 
 <!-- card
 ```ts

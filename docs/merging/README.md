@@ -39,15 +39,12 @@ The tally supplies several common operations:
 | `explain(instant)`                  | Explain how the matching lines add up |
 | `minimumCount(from, to)`            | Find the lowest amount in a window    |
 | `totalBetween(from, to, unit)`      | Total the amount over elapsed time    |
-| `countIntervals(from, to?)`         | Resolve the valued intervals          |
+| `countIntervals(from, to)`          | Resolve counts, including zero gaps   |
 | `validate(from, to)`                | Find inactive and shadowed lines      |
 
-`countAt` and `minimumCount` treat unassigned time as zero. `countIntervals` returns assigned
-intervals only. See [explanations](../explanations/) for the trace returned by
+`countAt`, `minimumCount`, and `countIntervals` treat unassigned time as zero.
+See [explanations](../explanations/) for the trace returned by
 `explain`. See [accumulation](../accumulation/) for totals such as staff-hours.
-
-`at(instant)` remains available as a deprecated alias during the 1.x release
-line.
 
 ## Use a merge strategy directly
 
