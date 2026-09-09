@@ -114,8 +114,6 @@ Commands return JSON by default. Pass `--format text` for terminal output. The
 
 ## Documentation
 
-For changes from 1.x, read the [migration guide](docs/migration/).
-
 Start with the [getting started guide](docs/getting-started/). The remaining
 guides cover:
 

@@ -192,8 +192,6 @@ Parsers throw `ParseError`, a `TypeError` with `path` and `code` fields.
 `code` is `"invalid-value"` or `"unknown-field"`. All parsers take decoded
 data: use `parseSchedule(JSON.parse(text))` for JSON text.
 
-Public function renames leave existing JSON tags unchanged. See the
-[migration guide](../migration/) for the additive stored forms and API changes.
 After parsing a custom rule document, reattach its executable registry with
 `restored.withCustomRules(registry)` before querying it.
 
