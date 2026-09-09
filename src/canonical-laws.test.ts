@@ -57,3 +57,29 @@ describe("canonical rule laws", () => {
     },
   );
 });
+
+describe("the counterexamples that got away", () => {
+  /**
+   * Each of these was found by the property test above, which draws a fresh
+   * seed every run and so cannot be relied on to find it again. Pinned here
+   * so a regression fails the same way every time.
+   */
+  it("keeps a wrapping window whole across a spring clock change", () => {
+    // Given a window from 02:00 to 01:00 over the week London loses an hour,
+    // wrapped in the double negation canonicalisation cancels.
+    const inner: Rule = { type: "timeOfDay", from: "02:00", to: "01:00" };
+    const rule: Rule = { type: "not", rule: { type: "not", rule: inner } };
+    const from = Temporal.ZonedDateTime.from("2026-03-27T00:00[Europe/London]");
+    const context = { from, to: from.add({ days: 7 }) };
+
+    // When the canonical form is read alongside the document it came from.
+    // Then they cover the same time. They did not while the generator handed
+    // back the two nights the missing hour ran together as two intervals,
+    // because the complements either side of it coalesced them and the bare
+    // rule did not.
+    const normalized = canonical(rule);
+    expect(endpoints(intervals(normalized, context))).toStrictEqual(
+      endpoints(intervals(rule, context)),
+    );
+  });
+});
