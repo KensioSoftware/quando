@@ -23,6 +23,7 @@ const FIELDS = new Map<string, readonly string[]>([
   ["dates", ["dates", "zone"]],
   ["dateRange", ["from", "to", "zone"]],
   ["atMost", ["count", "per", "within", "zone"]],
+  ["atMostTime", ["total", "per", "within", "zone"]],
   ["spacedBy", ["gap"]],
   ["custom", ["name", "options", "zone"]],
   ["inCalendar", ["calendar", "rule"]],

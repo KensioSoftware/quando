@@ -64,6 +64,7 @@ function leafOf(rule: Rule): CalendarRule | undefined {
     case "always":
     case "never":
     case "atMost":
+    case "atMostTime":
     case "spacedBy":
     case "custom":
     case "inCalendar":

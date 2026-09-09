@@ -109,6 +109,7 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
     }
 
     case "atMost":
+    case "atMostTime":
     case "spacedBy": {
       // Complemented here, because a constraint is written as what it forbids.
       // An occurrence casts a shadow over the times another may not go, and

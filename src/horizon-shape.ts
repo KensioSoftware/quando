@@ -83,6 +83,7 @@ function walk(rule: Rule): Shape {
     case "dates":
     case "dateRange":
     case "atMost":
+    case "atMostTime":
     case "spacedBy": {
       return NOTHING_UNKNOWN;
     }

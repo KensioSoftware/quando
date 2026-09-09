@@ -9,8 +9,13 @@
  */
 
 import { build, type Built } from "./built-rule.js";
-import { type AtMostRule, PERIODS, type SpacedByRule } from "./rule.js";
-import { asCount, asGap } from "./occurrence-validation.js";
+import {
+  type AtMostRule,
+  type AtMostTimeRule,
+  PERIODS,
+  type SpacedByRule,
+} from "./rule.js";
+import { asCount, asExactGap, asGap } from "./occurrence-validation.js";
 import { asPeriod, asZone } from "./validation.js";
 
 /** Options for a cap. */
@@ -43,6 +48,44 @@ export function atMost(
 
 function isPeriodWord(per: string): boolean {
   return PERIODS.some((period) => period === per);
+}
+
+/**
+ * At most `total` time occupied in each window.
+ *
+ * The sibling of {@link atMost}, capping how long things went on rather than
+ * how many there were. `atMostTime("P90D", "P180D")` is ninety days in any
+ * rolling one hundred and eighty, and `atMostTime("PT56H", "weeks")` is
+ * fifty-six hours a week.
+ *
+ * Both durations are exact time. Years, months and weeks are refused, and a
+ * day is read as 24 hours. An occurrence with no `lasting` takes no time and
+ * fills nothing.
+ */
+export function atMostTime(
+  total: string,
+  per: string,
+  options: AtMostOptions = {},
+): Built<AtMostTimeRule> {
+  const checked = asExactGap(total, "total");
+  const zone =
+    options.zone === undefined ? {} : { zone: asZone(options.zone, "zone") };
+
+  return build(
+    isPeriodWord(per)
+      ? {
+          type: "atMostTime",
+          total: checked,
+          per: asPeriod(per, "per"),
+          ...zone,
+        }
+      : {
+          type: "atMostTime",
+          total: checked,
+          within: asExactGap(per, "per"),
+          ...zone,
+        },
+  );
 }
 
 /**

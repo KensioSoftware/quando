@@ -74,6 +74,7 @@ function collect(
       );
     }
     case "atMost":
+    case "atMostTime":
     case "spacedBy": {
       return unwritable(
         "it caps or spaces occurrences, which depends on what has already happened. Both notations describe a pattern on the calendar and neither can carry a history",
