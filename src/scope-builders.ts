@@ -6,12 +6,12 @@
  * wrap a subtree instead of sitting beside one.
  */
 
-import { build, type Built } from "./built-rule.js";
-import type { InCalendarRule, InZoneRule, Rule } from "./rule.js";
+import { build, type Rule } from "./built-rule.js";
+import type { InCalendarRule, InZoneRule, RuleData } from "./rule.js";
 import { asCalendar, asZone } from "./validation.js";
 
 /** Evaluates a rule subtree in a named time zone. */
-export function inZone(zone: string, rule: Rule): Built<InZoneRule> {
+export function inZone(zone: string, rule: RuleData): Rule<InZoneRule> {
   return build({ type: "inZone", zone: asZone(zone, "zone"), rule });
 }
 
@@ -27,8 +27,8 @@ export function inZone(zone: string, rule: Rule): Built<InZoneRule> {
  */
 export function inCalendar(
   calendar: string,
-  rule: Rule,
-): Built<InCalendarRule> {
+  rule: RuleData,
+): Rule<InCalendarRule> {
   return build({
     type: "inCalendar",
     calendar: asCalendar(calendar, "calendar"),

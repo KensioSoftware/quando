@@ -3,9 +3,9 @@
 A rule can be written as a line of terms instead of built from functions.
 
 ```ts
-import { parseTerms } from "@kensio/quando";
+import { parseRuleExpression } from "@kensio/quando";
 
-parseTerms("mon-fri 09:00-17:00 @Europe/London");
+parseRuleExpression("mon-fri 09:00-17:00 @Europe/London");
 ```
 
 The notation is whitespace-separated and additive. Each term says one more
@@ -19,10 +19,10 @@ This is the whole model, and cron found it first. A term between spaces is
 another condition to meet. A comma inside one term offers alternatives.
 
 ```ts
-parseTerms("mon-fri 09:00-17:00");
-// all(daysOfWeek(monday…friday), timeOfDay("09:00", "17:00"))
+parseRuleExpression("mon-fri 09:00-17:00");
+// all(daysOfWeek(monday…friday), timeOfDayRange("09:00", "17:00"))
 
-parseTerms("sat,sun");
+parseRuleExpression("sat,sun");
 // daysOfWeek("saturday", "sunday")
 ```
 
@@ -47,12 +47,12 @@ const saturdayTea = Temporal.ZonedDateTime.from(
 );
 
 shop.isOpen(saturdayTea); // false
-shop.opensNext(saturdayTea);
+shop.nextOpenInterval(saturdayTea)?.start?.toString();
 // 2026-03-16T09:00:00+00:00[Europe/London]
 ```
 
 Anywhere a schedule, rota or tally takes a rule it takes a line, so `open`,
-`closed` and `hoursOn` all read one.
+`closed` and `setHours` all read one.
 
 ## The terms
 
@@ -100,11 +100,11 @@ The notation takes a word in whatever case it arrives, in full or abbreviated,
 with or without a leading zero. A term it cannot make sense of stops it.
 
 ```ts
-parseTerms("weekdays excpet:2026-12-25");
+parseRuleExpression("weekdays excpet:2026-12-25");
 // RangeError: Term 2: "excpet:2026-12-25" is not a term.
 //   Did you mean "except:"?
 
-parseTerms("weekdys 09:00-17:00");
+parseRuleExpression("weekdys 09:00-17:00");
 // RangeError: Term 1: cannot read "weekdys". Did you mean "weekdays"?
 ```
 
@@ -124,6 +124,6 @@ for [JSON](../serialisation/), which holds every rule there is.
 
 <!-- card
 ```ts
-parseTerms("mon-fri 09:00-17:00 @Europe/London");
+parseRuleExpression("mon-fri 09:00-17:00 @Europe/London");
 ```
 -->

@@ -14,7 +14,7 @@ import { dates, weekdays } from "@kensio/quando";
 import { cascade, layer, resolve } from "@kensio/quando/core";
 
 const onCall = cascade(
-  layer(weekdays(), "alice", { label: "Primary support" }),
+  layer(weekdays(), "alice", { label: "Primary possibleValues" }),
   layer(dates("2026-03-11"), "bob", {
     label: "Wednesday swap",
     comment: "Bob is covering Alice's leave.",
@@ -73,12 +73,12 @@ Use `replace` when a scope needs its own complete definition. An office that
 closes early on one date is a common example:
 
 ```ts
-import { all, dates, timeOfDay, weekdays } from "@kensio/quando";
+import { all, dates, timeOfDayRange, weekdays } from "@kensio/quando";
 import { cascade, layer, replace, resolve } from "@kensio/quando/core";
 
 const openingHours = cascade(
-  layer(all(weekdays(), timeOfDay("09:00", "17:00")), true),
-  replace(dates("2026-03-11"), timeOfDay("09:00", "15:00")),
+  layer(all(weekdays(), timeOfDayRange("09:00", "17:00")), true),
+  replace(dates("2026-03-11"), timeOfDayRange("09:00", "15:00")),
 );
 ```
 
@@ -90,12 +90,12 @@ Passing a rule as the replacement creates a boolean cascade. Pass another
 cascade when you need a different value type:
 
 ```ts
-import { dates, timeOfDay, weekdays } from "@kensio/quando";
+import { dates, timeOfDayRange, weekdays } from "@kensio/quando";
 import { cascade, layer, replace } from "@kensio/quando/core";
 
 const holidayCover = cascade(
-  layer(timeOfDay("09:00", "12:00"), "alice"),
-  layer(timeOfDay("12:00", "17:00"), "bob"),
+  layer(timeOfDayRange("09:00", "12:00"), "alice"),
+  layer(timeOfDayRange("12:00", "17:00"), "bob"),
 );
 
 const onCall = cascade(
@@ -109,16 +109,16 @@ replacements.
 
 ## Query cascade values
 
-`valueAt` returns the value assigned at one instant. `nextValue` returns the
+`valueAt` returns the value assigned at one instant. `nextValueInterval` returns the
 next valued interval.
 
 ```ts
-import { nextValue, valueAt } from "@kensio/quando/core";
+import { nextValueInterval, valueAt } from "@kensio/quando/core";
 
 const now = Temporal.ZonedDateTime.from("2026-03-11T10:00[Europe/London]");
 
 console.log(valueAt(onCall, now));
-console.log(nextValue(onCall, { from: now }));
+console.log(nextValueInterval(onCall, { from: now }));
 ```
 
 Use `assigned(cascade, value)` to select the times carrying one value. The

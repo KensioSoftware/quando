@@ -9,11 +9,16 @@
 
 import { asDate, zonePart } from "./parse-fields.js";
 import { fail, shapeOf } from "./parse-shape.js";
-import type { InCalendarRule, InZoneRule, KnownRule, Rule } from "./rule.js";
+import type {
+  InCalendarRule,
+  InZoneRule,
+  KnownRule,
+  RuleData,
+} from "./rule.js";
 import { asCalendar } from "./validation.js";
 
 /** Parses the one rule a scope wraps. Passed in, because `parse.ts` recurses. */
-type ParseRule = (value: unknown, path: string) => Rule;
+type ParseRule = (value: unknown, path: string) => RuleData;
 
 export function parseInCalendarRule(
   node: Record<string, unknown>,

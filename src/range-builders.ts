@@ -7,12 +7,12 @@
  * writes the shape it fills rather than spreading optional fields together.
  */
 
-import { build, type Built } from "./built-rule.js";
+import { build, type Rule } from "./built-rule.js";
 import type { DateRangeRule } from "./rule.js";
 import { asDate, asZone } from "./validation.js";
 
 /** Every day from a date onwards, that day included. */
-export function onOrAfter(date: string, zone?: string): Built<DateRangeRule> {
+export function onOrAfter(date: string, zone?: string): Rule<DateRangeRule> {
   const from = asDate(date, "date");
   return build(
     zone === undefined
@@ -22,7 +22,7 @@ export function onOrAfter(date: string, zone?: string): Built<DateRangeRule> {
 }
 
 /** Every day up to a date, that day included. */
-export function onOrBefore(date: string, zone?: string): Built<DateRangeRule> {
+export function onOrBefore(date: string, zone?: string): Rule<DateRangeRule> {
   const to = asDate(date, "date");
   return build(
     zone === undefined
@@ -32,11 +32,11 @@ export function onOrBefore(date: string, zone?: string): Built<DateRangeRule> {
 }
 
 /** Every day from one date to another, both included. */
-export function between(
+export function datesBetween(
   from: string,
   to: string,
   zone?: string,
-): Built<DateRangeRule> {
+): Rule<DateRangeRule> {
   const start = asDate(from, "from");
   const end = asDate(to, "to");
   if (Temporal.PlainDate.compare(start, end) > 0) {

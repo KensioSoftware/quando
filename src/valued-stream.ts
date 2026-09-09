@@ -8,7 +8,7 @@
  * needed, and it is handed one rather than choosing.
  */
 
-import type { Valued } from "./cascade.js";
+import type { ValueInterval } from "./cascade.js";
 import { compareEnds, compareStarts, earlierEnd } from "./interval.js";
 import type { Merge } from "./merge.js";
 import { type Peekable, peekable } from "./stream.js";
@@ -21,7 +21,7 @@ import { type Peekable, peekable } from "./stream.js";
  * are merged, so where two intervals do touch, the values on either side of
  * the boundary differ.
  */
-export type ValuedStream<V> = Iterable<Valued<V>>;
+export type ValuedStream<V> = Iterable<ValueInterval<V>>;
 
 /**
  * Two streams laid over one another, with `merge` settling the overlap.
@@ -106,8 +106,8 @@ export function* overlay<V>(
  * than read again from the source, and the source's own copy of it dropped.
  */
 function* remainder<V>(
-  held: Valued<V> | undefined,
-  source: Peekable<Valued<V>>,
+  held: ValueInterval<V> | undefined,
+  source: Peekable<ValueInterval<V>>,
 ): ValuedStream<V> {
   if (held === undefined) {
     return;
@@ -132,10 +132,10 @@ function* remainder<V>(
  * front always holds something still to yield.
  */
 function cut<V>(
-  interval: Valued<V>,
+  interval: ValueInterval<V>,
   end: Temporal.ZonedDateTime | undefined,
-  source: Peekable<Valued<V>>,
-): Valued<V> | undefined {
+  source: Peekable<ValueInterval<V>>,
+): ValueInterval<V> | undefined {
   if (end === undefined || compareEnds(interval.end, end) <= 0) {
     source.drop();
     return source.peek();
@@ -157,7 +157,7 @@ function cut<V>(
  * caller meant to keep apart.
  */
 export function* coalesce<V>(source: ValuedStream<V>): ValuedStream<V> {
-  let open: Valued<V> | undefined;
+  let open: ValueInterval<V> | undefined;
 
   for (const next of source) {
     if (open === undefined) {
@@ -178,7 +178,10 @@ export function* coalesce<V>(source: ValuedStream<V>): ValuedStream<V> {
 }
 
 /** Whether one interval ends exactly where the next begins. */
-function touches(open: Valued<unknown>, next: Valued<unknown>): boolean {
+function touches(
+  open: ValueInterval<unknown>,
+  next: ValueInterval<unknown>,
+): boolean {
   return (
     open.end !== undefined &&
     next.start !== undefined &&

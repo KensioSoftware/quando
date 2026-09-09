@@ -4,6 +4,21 @@ import { layerOptionsOf } from "./layer-options.js";
 import type { RuleExplanation } from "./rule-explanation.js";
 import { skippedDescription } from "./skipped-explanation-text.js";
 
+/** Starts at the last matching replacement, which discards earlier layers. */
+export function firstEffectiveLayer<V>(
+  evaluated: readonly {
+    readonly layer: Layer<V>;
+    readonly match: RuleExplanation;
+  }[],
+): number {
+  return Math.max(
+    0,
+    evaluated.findLastIndex(
+      ({ layer, match }) => "replace" in layer && match.status === "matched",
+    ),
+  );
+}
+
 /** Accounts for layers rejected by their rule or a replacement. */
 export function skippedLayers<V>(
   evaluated: readonly {
@@ -14,11 +29,12 @@ export function skippedLayers<V>(
   prefix: string,
 ): readonly SkippedLayer[] {
   return evaluated.flatMap(({ layer, match }, index) => {
-    const reason = match.matched
-      ? index < first
-        ? "replaced"
-        : undefined
-      : "did-not-match";
+    const reason =
+      match.status === "matched"
+        ? index < first
+          ? "replaced"
+          : undefined
+        : "did-not-match";
     if (reason === undefined) {
       return [];
     }

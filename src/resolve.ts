@@ -21,6 +21,8 @@
 
 import { asCascade, type CascadeLike } from "./cascade.js";
 import type { Context } from "./context.js";
+import { evaluationOptions } from "./evaluation-options.js";
+import { cascadeHasHorizon } from "./horizon-shape.js";
 import type { IntervalStream } from "./interval-stream.js";
 import { assignments, unreplaced } from "./resolve-layers.js";
 import {
@@ -41,7 +43,7 @@ export function* resolve<V>(
   source: CascadeLike<V>,
   context: Context,
 ): ValuedStream<V> {
-  for (const span of settled<V>(source, context)) {
+  for (const span of settled<V>(source, evaluationOptions(source, context))) {
     if (isKnown(span.value)) {
       yield { start: span.start, end: span.end, value: span.value };
     }
@@ -55,11 +57,16 @@ export function* resolve<V>(
  * each stretch is time the layers disagree about or have run out of data for,
  * and {@link resolve} leaves it out rather than picking one of the answers.
  */
-export function* uncertainValues<V>(
+export function* unknownValueIntervals<V>(
   source: CascadeLike<V>,
   context: Context,
 ): IntervalStream {
-  for (const span of settled<V>(source, context)) {
+  const read = evaluationOptions(source, context);
+  checkWindow(read.from, read.to);
+  if (!cascadeHasHorizon(source, read.rules)) {
+    return;
+  }
+  for (const span of settled<V>(source, read)) {
     if (!isKnown(span.value)) {
       yield { start: span.start, end: span.end };
     }

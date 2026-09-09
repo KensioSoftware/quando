@@ -3,6 +3,8 @@ import type { Context } from "./context.js";
 import { explainCascade } from "./explain-cascade.js";
 import type { DefaultExplanation, Explanation } from "./explain-types.js";
 import { type ExplanationDomain, summary } from "./explanation-text.js";
+import { evaluationOptions } from "./evaluation-options.js";
+import { resultDescription } from "./explanation-result-text.js";
 
 export type {
   AssignmentStep,
@@ -20,7 +22,13 @@ export function explain<V>(
   at: Temporal.ZonedDateTime,
   context?: Omit<Context, "from" | "to">,
 ): Explanation<V> {
-  return explainCascade(asCascade(source), at, context, "", "cascade");
+  return explainCascade(
+    asCascade(source),
+    at,
+    evaluationOptions(source, context ?? {}),
+    "",
+    "cascade",
+  );
 }
 
 /** Explains a schedule using opening-hours vocabulary. */
@@ -70,6 +78,7 @@ function withDomainDefault<V>(
   return {
     ...explanation,
     value,
-    summary: summary(value, explanation.steps, explanation.skipped, at, domain),
+    summary: resultDescription(value, at, domain),
+    details: summary(value, explanation.steps, explanation.skipped, at, domain),
   };
 }

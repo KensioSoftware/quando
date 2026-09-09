@@ -13,16 +13,16 @@ Rule builders add `.and`, `.or`, and `.except` as non-enumerable methods.
 JSON storage sees the rule fields without seeing those functions.
 
 ```ts
-import { dates, parseRule, timeOfDay, weekdays } from "@kensio/quando";
+import { dates, parseRule, timeOfDayRange, weekdays } from "@kensio/quando";
 
 const openingHours = weekdays()
-  .and(timeOfDay("09:00", "17:00"))
+  .and(timeOfDayRange("09:00", "17:00"))
   .except(dates("2026-12-25"));
 
 const stored = JSON.stringify(openingHours);
 const restored = parseRule(JSON.parse(stored));
 
-const withLunchBreak = restored.except(timeOfDay("12:30", "13:30"));
+const withLunchBreak = restored.except(timeOfDayRange("12:30", "13:30"));
 ```
 
 `parseRule` reports the path to an invalid field:
@@ -43,14 +43,14 @@ TypeError: rule.rules[0].days[0]: "mondey" is not a day of the week. Expected on
 
 ### A custom rule stores its name
 
-A `custom` rule names a rule type the application implements. The document
+A `customRule` rule names a rule type the application implements. The document
 holds the name and its options, and the code that runs it arrives on
 `context.rules` at query time.
 
 ```ts
-import { custom, parseRule } from "@kensio/quando";
+import { customRule, parseRule } from "@kensio/quando";
 
-const stored = JSON.stringify(custom("easter", { offset: 1 }));
+const stored = JSON.stringify(customRule("easter", { offset: 1 }));
 const restored = parseRule(JSON.parse(stored));
 
 console.log(stored);
@@ -94,14 +94,14 @@ Rota values belong to your application. Pass a value parser to `parseRota` so
 Quando can validate them.
 
 ```ts
-import { asString, parseRota, rota, weekdays } from "@kensio/quando";
+import { parseString, parseRota, rota, weekdays } from "@kensio/quando";
 
 const onCall = rota().assign(weekdays(), "alice");
 const stored = JSON.stringify(onCall);
-const restored = parseRota(JSON.parse(stored), asString);
+const restored = parseRota(JSON.parse(stored), parseString);
 ```
 
-`asString` and `asBoolean` cover those primitive types. A custom parser
+`parseString` and `parseBoolean` cover those primitive types. A custom parser
 receives the value and its path:
 
 ```ts
@@ -147,7 +147,7 @@ strategy.
 Use `parseCascade` for a low-level cascade. Supply a parser for its values.
 
 ```ts
-import { asString, parseCascade } from "@kensio/quando/parsing";
+import { parseString, parseCascade } from "@kensio/quando/parsing";
 
 const stored: unknown = {
   type: "cascade",
@@ -159,7 +159,7 @@ const stored: unknown = {
   ],
 };
 
-const onCall = parseCascade(stored, asString);
+const onCall = parseCascade(stored, parseString);
 ```
 
 The parser checks nested replacement cascades and validates values against the
@@ -187,6 +187,15 @@ plain objects. Constructors reject values that JSON would lose or change:
 
 Parsers reject unknown fields. Deploy code that can read a new field before
 deploying code that writes it.
+
+Parsers throw `ParseError`, a `TypeError` with `path` and `code` fields.
+`code` is `"invalid-value"` or `"unknown-field"`. All parsers take decoded
+data: use `parseSchedule(JSON.parse(text))` for JSON text.
+
+Public function renames leave existing JSON tags unchanged. See the
+[migration guide](../migration/) for the additive stored forms and API changes.
+After parsing a custom rule document, reattach its executable registry with
+`restored.withCustomRules(registry)` before querying it.
 
 <!-- card
 ```ts

@@ -12,12 +12,13 @@
  * before horizons existed.
  */
 
-import type { Covers } from "./assigned.js";
-import type { Rule } from "./rule.js";
+import type { CoverageSource } from "./assigned.js";
+import type { RuleData } from "./rule.js";
 import type { CascadeLike } from "./cascade.js";
-import { uncertainValues } from "./resolve.js";
-import { uncertain } from "./bounds.js";
-import type { Context } from "./context.js";
+import { unknownValueIntervals } from "./resolve.js";
+import { unknownIntervals } from "./bounds.js";
+import type { Context, QueryWindow } from "./context.js";
+import { evaluationOptions } from "./evaluation-options.js";
 import { hasHorizon } from "./horizon-shape.js";
 import type { Interval } from "./interval.js";
 import { take } from "./stream.js";
@@ -34,7 +35,7 @@ export class BeyondHorizonError extends Error {
   constructor(
     query: string,
     from: Temporal.ZonedDateTime,
-    reader = "uncertain()",
+    reader = "unknownIntervals()",
   ) {
     super(
       `${query} cannot answer for ${from.toPlainDateTime().toString()}: ` +
@@ -52,21 +53,22 @@ export class BeyondHorizonError extends Error {
  * declares no horizon.
  */
 export function unknownIn<V>(
-  covers: Covers<V>,
+  covers: CoverageSource<V>,
   context: Context,
 ): Interval | undefined {
+  const read = evaluationOptions(covers, context);
   // A cascade asks which value holds, and unknown there is a third state on
   // every span rather than a second bound on a set of times. `resolve` carries
   // it, and this reads it back the same way.
   if (!isRule(covers)) {
     const cascade: CascadeLike<unknown> =
       "cascade" in covers ? covers.cascade : covers;
-    return unknownValueIn(cascade, context);
+    return unknownValueIn(cascade, read);
   }
-  if (!hasHorizon(covers, context.rules)) {
+  if (!hasHorizon(covers, read.rules)) {
     return undefined;
   }
-  const [first] = take(uncertain(covers, context), 1);
+  const [first] = take(unknownIntervals(covers, read), 1);
   return first;
 }
 
@@ -102,6 +104,20 @@ export function upTo(
   return at === undefined ? context : { ...context, to: at };
 }
 
+/** Includes an interval's end when it claims to end before the search does. */
+export function throughIntervalEnd(
+  context: QueryWindow,
+  end: Temporal.ZonedDateTime | undefined,
+): QueryWindow {
+  if (
+    end === undefined ||
+    Temporal.ZonedDateTime.compare(end, context.to) >= 0
+  ) {
+    return context;
+  }
+  return { ...context, to: end.add({ nanoseconds: 1 }) };
+}
+
 /**
  * The first stretch a cascade cannot settle a value for.
  *
@@ -112,12 +128,12 @@ export function unknownValueIn<V>(
   cascade: CascadeLike<V>,
   context: Context,
 ): Interval | undefined {
-  const [span] = take(uncertainValues(cascade, context), 1);
+  const [span] = take(unknownValueIntervals(cascade, context), 1);
   return span;
 }
 
 /** Whether a query is reading a rule or a cascade. */
-function isRule<V>(covers: Covers<V>): covers is Rule {
+function isRule<V>(covers: CoverageSource<V>): covers is RuleData {
   return (
     "type" in covers && covers.type !== "cascade" && !("cascade" in covers)
   );

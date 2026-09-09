@@ -10,8 +10,28 @@
  * know about time, such as days of the week and zones.
  */
 
-export function fail(path: string, problem: string): never {
-  throw new TypeError(`${path}: ${problem}`);
+/** A stored definition failed validation at a particular path. */
+export class ParseError extends TypeError {
+  public readonly path: string;
+  public readonly code: "invalid-value" | "unknown-field";
+  public constructor(
+    path: string,
+    code: "invalid-value" | "unknown-field",
+    problem: string,
+  ) {
+    super(`${path}: ${problem}`);
+    this.name = "ParseError";
+    this.path = path;
+    this.code = code;
+  }
+}
+
+export function fail(
+  path: string,
+  problem: string,
+  code: "invalid-value" | "unknown-field" = "invalid-value",
+): never {
+  throw new ParseError(path, code, problem);
 }
 
 /** What a value looks like, for an error message. */
@@ -68,18 +88,19 @@ export function checkFields(
         allowed.length === 0
           ? `is not a field of ${what}, which takes none`
           : `is not a field of ${what}. Expected ${allowed.join(", ")}`,
+        "unknown-field",
       );
     }
   }
 }
 
-export function asString(value: unknown, path: string): string {
+export function parseString(value: unknown, path: string): string {
   return typeof value === "string"
     ? value
     : fail(path, `expected a string, found ${shapeOf(value)}`);
 }
 
-export function asBoolean(value: unknown, path: string): boolean {
+export function parseBoolean(value: unknown, path: string): boolean {
   return typeof value === "boolean"
     ? value
     : fail(path, `expected a boolean, found ${shapeOf(value)}`);

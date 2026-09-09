@@ -1,6 +1,7 @@
 import {
   accumulate,
   renderTimeline,
+  timeline as evaluateTimeline,
   rota,
   schedule,
   tally,
@@ -38,16 +39,12 @@ const accumulated = accumulate(
   },
   "hour",
 );
-const timeline = office.renderTimeline(
+const timeline = office.timeline(
   Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
 );
-const textTimeline = office.renderTimeline(
-  Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
-  Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
-  { format: "text" },
-);
-const standaloneTimeline = renderTimeline(weekdays(), {
+const textTimeline = renderTimeline(timeline);
+const standaloneTimeline = evaluateTimeline(weekdays(), {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   to: Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]"),
 });

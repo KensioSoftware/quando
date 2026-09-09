@@ -1,23 +1,25 @@
-/** Opening-hours names for the common queries. */
-
 import { valueAt } from "./assigned.js";
-import { firstGap, slots } from "./availability.js";
+import { firstAvailableSlot, availableSlots } from "./availability.js";
 import type { Cascade } from "./cascade.js";
-import type { Context } from "./context.js";
+import type { EvaluationOptions } from "./context.js";
+import { withEvaluationOptions } from "./evaluation-options.js";
 import { coverageChanges } from "./coverage-changes.js";
 import { explainSchedule } from "./explain.js";
-import { advanceBy, coveredDuration, nextCoveredInterval } from "./query.js";
+import {
+  addCoveredTime,
+  coveredDuration,
+  nextCoveredInterval,
+} from "./query.js";
 import { addOpenDays, openDayCount } from "./schedule-days.js";
-import { scheduleSearchOptions } from "./schedule-search.js";
-import type { Schedule } from "./schedule-types.js";
-import { renderScheduleTimeline } from "./schedule-timeline.js";
+import type { Schedule, QueryArrival } from "./schedule-types.js";
+import { scheduleTimeline } from "./schedule-timeline.js";
 import { validate } from "./semantic-validation.js";
 
 type ScheduleQueries = Pick<
   Schedule,
   | "isOpen"
   | "explain"
-  | "opensNext"
+  | "nextOpenInterval"
   | "firstOpenSlot"
   | "openSlots"
   | "changesTo"
@@ -26,55 +28,49 @@ type ScheduleQueries = Pick<
   | "openDuration"
   | "addOpenDays"
   | "openDayCount"
-  | "renderTimeline"
+  | "timeline"
 >;
 
-/**
- * Creates the query methods restored onto a schedule.
- *
- * `read` is what the schedule carries beside its window: the registry a
- * `custom` rule in one of its scopes is looked up in. Every query builds its
- * own window, so each spreads `read` into the context it makes.
- */
+/** Creates schedule queries sharing the attached evaluation settings. */
 export function scheduleQueries(
   document: Cascade<boolean>,
   zone?: string,
-  read?: Omit<Context, "from" | "to">,
+  read?: EvaluationOptions,
 ): ScheduleQueries {
   return {
-    isOpen: (at) => valueAt(document, at, read) ?? false,
-    explain: (at) => explainSchedule(document, at, read),
-    opensNext: (at, search) =>
-      nextCoveredInterval(
-        document,
-        { ...read, from: at },
-        {
-          ...scheduleSearchOptions(search),
-          complete: true,
-        },
-      ),
-    firstOpenSlot: (from, lasting, search) =>
-      firstGap(
-        document,
-        lasting,
-        { ...read, from },
-        scheduleSearchOptions(search),
-      ),
+    isOpen: (at, options) =>
+      valueAt(document, at, { ...read, ...options }) ?? false,
+    explain: (at, options) =>
+      explainSchedule(document, at, { ...read, ...options }),
+    nextOpenInterval: (from, options) =>
+      nextCoveredInterval(document, { ...read, ...options, from }, options),
+    firstOpenSlot: (from, lasting, options) =>
+      firstAvailableSlot(document, lasting, { ...read, ...options, from }),
     openSlots: (from, to, options) =>
-      slots(document, { ...read, from, to }, options),
-    changesTo: (next, from, to) => {
-      const changed = coverageChanges(document, next, { ...read, from, to });
+      availableSlots(document, { ...read, ...options, from, to }, options),
+    changesTo: (next, from, to, options) => {
+      const source = withEvaluationOptions({ cascade: document }, read);
+      const changed = coverageChanges(source, next, { ...options, from, to });
       return { opened: changed.added, closed: changed.removed };
     },
-    validate: (from, to) => validate(document, { ...read, from, to }),
-    addOpenTime: (from, amount, search) =>
-      advanceBy(from, amount, { ...read, during: document, ...search }),
-    openDuration: (from, to) =>
-      coveredDuration(document, { ...read, from, to }),
+    validate: (from, to, options) =>
+      validate(document, { ...read, ...options, from, to }, options),
+    addOpenTime: (from, amount, options) =>
+      addCoveredTime(from, amount, {
+        ...read,
+        ...options,
+        during: document,
+      }) as QueryArrival<typeof amount>,
+    openDuration: (from, to, options) =>
+      coveredDuration(document, { ...read, ...options, from, to }),
     addOpenDays: (from, count, options) =>
-      addOpenDays(document, zone, from, count, { ...read, ...options }),
-    openDayCount: (from, to) => openDayCount(document, zone, from, to, read),
-    renderTimeline: (from, to, options) =>
-      renderScheduleTimeline(document, zone, from, to, options, read),
+      addOpenDays(document, zone, from, count, {
+        ...read,
+        ...options,
+      }) as QueryArrival<typeof count>,
+    openDayCount: (from, to, options) =>
+      openDayCount(document, zone, from, to, { ...read, ...options }),
+    timeline: (from, to, options) =>
+      scheduleTimeline(document, zone, from, to, { ...read, ...options }),
   };
 }

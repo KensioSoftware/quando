@@ -10,10 +10,16 @@
  */
 
 import { always, any, never } from "./build.js";
-import { daysOfWeek, dates, timeOfDay, weekdays, weekends } from "./build.js";
+import {
+  daysOfWeek,
+  dates,
+  timeOfDayRange,
+  weekdays,
+  weekends,
+} from "./build.js";
 import { monthCodes, monthsOfYear } from "./build.js";
-import { between, onOrAfter, onOrBefore } from "./build.js";
-import { MONTH_CODES, MONTHS, type Rule, WEEKDAYS } from "./rule.js";
+import { datesBetween, onOrAfter, onOrBefore } from "./build.js";
+import { MONTH_CODES, MONTHS, type RuleData, WEEKDAYS } from "./rule.js";
 import { listed } from "./terms-lists.js";
 import { asMonthWord, asWeekdayWord } from "./terms-words.js";
 
@@ -30,7 +36,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/u;
 const DATE_LIST = /^\d{4}-\d{2}-\d{2}(?:,\d{4}-\d{2}-\d{2})*$/u;
 
 /** The rule a bare term names, or `undefined` when its shape says nothing. */
-export function readShape(term: string): Rule | undefined {
+export function readShape(term: string): RuleData | undefined {
   return (
     keyword(term) ??
     hours(term) ??
@@ -42,7 +48,7 @@ export function readShape(term: string): Rule | undefined {
   );
 }
 
-function keyword(term: string): Rule | undefined {
+function keyword(term: string): RuleData | undefined {
   const said = term.toLowerCase();
   const found = Object.hasOwn(KEYWORD_RULES, said)
     ? KEYWORD_RULES[said as keyof typeof KEYWORD_RULES]
@@ -60,14 +66,14 @@ function keyword(term: string): Rule | undefined {
  * An hour written singly is padded, because `9:00` is what a person types and
  * `Temporal` wants the zero.
  */
-function hours(term: string): Rule | undefined {
+function hours(term: string): RuleData | undefined {
   const parts = term.split(",");
   if (!parts.every((part) => TIME_RANGE.test(part))) {
     return undefined;
   }
   const windows = parts.map((part) => {
     const [from = "", to = ""] = part.split("-");
-    return timeOfDay(padded(from), padded(to));
+    return timeOfDayRange(padded(from), padded(to));
   });
   const [only, ...rest] = windows;
   return only === undefined || rest.length === 0 ? only : any(only, ...rest);
@@ -78,12 +84,12 @@ function padded(time: string): string {
 }
 
 /**
- * A stretch between two dates, open at either end.
+ * A stretch datesBetween two dates, open at either end.
  *
  * `..` separates the ends, because a date already holds two dashes and
  * `2026-01-01-2026-12-31` reads as neither one date nor two.
  */
-function dateRange(term: string): Rule | undefined {
+function dateRange(term: string): RuleData | undefined {
   const ends = term.split("..");
   if (ends.length !== 2) {
     return undefined;
@@ -98,14 +104,14 @@ function dateRange(term: string): Rule | undefined {
   if (from === "") {
     return to === "" ? undefined : onOrBefore(to);
   }
-  return to === "" ? onOrAfter(from) : between(from, to);
+  return to === "" ? onOrAfter(from) : datesBetween(from, to);
 }
 
-function days(term: string): Rule | undefined {
+function days(term: string): RuleData | undefined {
   return DATE_LIST.test(term) ? dates(...term.split(",")) : undefined;
 }
 
-function codes(term: string): Rule | undefined {
+function codes(term: string): RuleData | undefined {
   const found = listed(term, MONTH_CODES, (word) => {
     // The whole word, rather than its tail put back behind an `M`. Rebuilding
     // it threw the first letter away, so `X01` and `101` both read as M01.
@@ -117,14 +123,14 @@ function codes(term: string): Rule | undefined {
     : monthCodes(...found);
 }
 
-function weekdayList(term: string): Rule | undefined {
+function weekdayList(term: string): RuleData | undefined {
   const found = listed(term, WEEKDAYS, asWeekdayWord);
   return found === undefined || found.length === 0
     ? undefined
     : daysOfWeek(...found);
 }
 
-function monthList(term: string): Rule | undefined {
+function monthList(term: string): RuleData | undefined {
   const found = listed(term, MONTHS, asMonthWord);
   return found === undefined || found.length === 0
     ? undefined

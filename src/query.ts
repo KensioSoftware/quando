@@ -1,3 +1,4 @@
+import { requireWindowEnd } from "./context.js";
 /**
  * Asking a question, rather than reading the times something covers.
  *
@@ -11,11 +12,13 @@
  * by how long it lasted rather than by what the clock said.
  */
 
-import { type Covers, covered } from "./assigned.js";
-import type { Context } from "./context.js";
+import { type CoverageSource, covered } from "./assigned.js";
+import type { Context, QueryWindow } from "./context.js";
+import { asDuration } from "./duration-input.js";
 import { duration, type Interval } from "./interval.js";
-import { refuse, unknownIn, upTo } from "./horizon-guard.js";
+import { refuse, unknownIn, throughIntervalEnd } from "./horizon-guard.js";
 import {
+  DEFAULT_SEARCH_LIMIT,
   boundSearch,
   restartSearch,
   SearchLimitExceededError,
@@ -29,9 +32,6 @@ export {
   type Search,
 } from "./search.js";
 
-/** Zero, as a duration to accumulate onto. */
-const NOTHING = Temporal.Duration.from({ seconds: 0 });
-
 /**
  * Whether a rule, or a value a cascade assigns, covers an instant.
  *
@@ -43,8 +43,8 @@ const NOTHING = Temporal.Duration.from({ seconds: 0 });
  * the instant asked about. A `false` from this is a `false` somebody has the
  * data for.
  */
-export function activeAt<V>(
-  covers: Covers<V>,
+export function isActiveAt<V>(
+  covers: CoverageSource<V>,
   at: Temporal.ZonedDateTime,
   context?: Omit<Context, "from" | "to">,
 ): boolean {
@@ -57,7 +57,7 @@ export function activeAt<V>(
     return true;
   }
   const fog = unknownIn(covers, moment);
-  return fog === undefined ? false : refuse("activeAt()", fog, moment);
+  return fog === undefined ? false : refuse("isActiveAt()", fog, moment);
 }
 
 /**
@@ -70,21 +70,20 @@ export function activeAt<V>(
  * makes the total unknown and throws {@link BeyondHorizonError}.
  */
 export function coveredDuration<V>(
-  covers: Covers<V>,
-  context: Context,
+  covers: CoverageSource<V>,
+  context: QueryWindow,
 ): Temporal.Duration {
-  if (context.to === undefined) {
-    throw new RangeError(
-      "coveredDuration() needs a window with an end: give the context a `to`.",
-    );
-  }
+  requireWindowEnd(
+    context,
+    "coveredDuration() needs a window with an end: give the context a `to`.",
+  );
 
   const fog = unknownIn(covers, context);
   if (fog !== undefined) {
     refuse("coveredDuration()", fog, context);
   }
 
-  let total = NOTHING;
+  let total = asDuration({ seconds: 0 });
   for (const interval of covered(covers, context)) {
     const length = duration(interval);
     if (length !== undefined) {
@@ -102,20 +101,18 @@ export function coveredDuration<V>(
  * there — "when does it next open" answers "it is open" rather than skipping
  * to tomorrow.
  *
- * Only the time before the stretch it finds can change the answer, so that is
- * the only part checked against the rules' horizon. Anything unknown in there
- * might have been the answer, and throws {@link BeyondHorizonError}. Fog after
- * it is somebody else's question.
+ * Unknown coverage before or within the result throws
+ * {@link BeyondHorizonError}. A complete end must also be known.
  */
 export function nextCoveredInterval<V>(
-  covers: Covers<V>,
+  covers: CoverageSource<V>,
   context: Context,
   search?: Search,
 ): Interval | undefined {
   const window = boundSearch(context, search);
   const [first] = take(covered(covers, window.context), 1);
 
-  const fog = unknownIn(covers, upTo(window.context, first?.start));
+  const fog = unknownIn(covers, throughIntervalEnd(window.context, first?.end));
   if (fog !== undefined) {
     refuse("nextCoveredInterval()", fog, window.context);
   }
@@ -129,11 +126,31 @@ export function nextCoveredInterval<V>(
     }
     return;
   }
-  if (search?.complete !== true || first.start === undefined) {
+  if (search?.intervalEnd !== "complete" || first.start === undefined) {
     return first;
   }
-  const [whole] = take(covered(covers, restartSearch(context, first.start)), 1);
+  const limit = asDuration(search.endWithin ?? DEFAULT_SEARCH_LIMIT);
+  const endSearch = boundSearch(restartSearch(context, first.start), {
+    within: limit,
+  });
+  const [whole] = take(covered(covers, endSearch.context), 1);
+  const unknown = unknownIn(
+    covers,
+    throughIntervalEnd(endSearch.context, whole?.end),
+  );
+  if (unknown !== undefined) {
+    refuse("nextCoveredInterval()", unknown, endSearch.context);
+  }
+  if (
+    whole?.end?.equals(endSearch.context.to) === true &&
+    isActiveAt(covers, endSearch.context.to, context)
+  ) {
+    throw new SearchLimitExceededError(
+      "nextCoveredInterval() interval end",
+      limit,
+    );
+  }
   return whole ?? first;
 }
 
-export { advanceBy } from "./advance.js";
+export { addCoveredTime } from "./advance.js";

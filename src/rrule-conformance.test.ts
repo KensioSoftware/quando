@@ -6,7 +6,7 @@ import {
 import { describe, it } from "vitest";
 
 import { intervals } from "./interpret.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { parseRRule } from "./rrule.js";
 
 /**
@@ -15,7 +15,8 @@ import { parseRRule } from "./rrule.js";
  * writing, which is what makes them worth testing against: every other
  * assertion in this suite is a date somebody here worked out.
  *
- * Every example below is quoted as the RFC writes it, including the dates. The
+ * Timestamp UNTIL values are replaced below with their equivalent final local
+ * dates for these particular start times. Timestamp refusal is tested separately. The
  * RFC assumes the Eastern United States time zone throughout.
  */
 describe("expanding the recurrences RFC 5545 works through", () => {
@@ -66,7 +67,7 @@ describe("expanding the recurrences RFC 5545 works through", () => {
     });
 
   /** The dates a rule covers in one year, read on the recurrence's clock. */
-  const occurrences = (rule: Rule, year: number): readonly string[] =>
+  const occurrences = (rule: RuleData, year: number): readonly string[] =>
     [
       ...intervals(rule, {
         from: Temporal.ZonedDateTime.from(`${year}-01-01T00:00[${NEW_YORK}]`),
@@ -78,16 +79,13 @@ describe("expanding the recurrences RFC 5545 works through", () => {
     );
 
   /** A recurrence started at the RFC's DTSTART, on the RFC's clock. */
-  const from = (start: string, text: string): Rule =>
+  const from = (start: string, text: string): RuleData =>
     parseRRule(text, { start, zone: NEW_YORK });
 
   describe("daily and weekly", () => {
     it("expands `Daily until December 24, 1997`", () => {
       // Given the RFC's example, DTSTART 19970902T090000.
-      const daily = from(
-        "1997-09-02T09:00",
-        "FREQ=DAILY;UNTIL=19971224T000000Z",
-      );
+      const daily = from("1997-09-02T09:00", "FREQ=DAILY;UNTIL=19971223");
 
       // When 1997 is expanded.
       // Then it matches what the RFC prints: September 2-30; October 1-25,
@@ -102,10 +100,7 @@ describe("expanding the recurrences RFC 5545 works through", () => {
     });
 
     it("expands `Weekly until December 24, 1997`", () => {
-      const weekly = from(
-        "1997-09-02T09:00",
-        "FREQ=WEEKLY;UNTIL=19971224T000000Z",
-      );
+      const weekly = from("1997-09-02T09:00", "FREQ=WEEKLY;UNTIL=19971223");
 
       assertArrayEquals(
         occurrences(weekly, 1997),
@@ -121,7 +116,7 @@ describe("expanding the recurrences RFC 5545 works through", () => {
       // Given the example that starts on Monday, September 1, 1997.
       const fortnightly = from(
         "1997-09-01T09:00",
-        "FREQ=WEEKLY;INTERVAL=2;UNTIL=19971224T000000Z;WKST=SU;BYDAY=MO,WE,FR",
+        "FREQ=WEEKLY;INTERVAL=2;UNTIL=19971223;WKST=SU;BYDAY=MO,WE,FR",
       );
 
       assertArrayEquals(
@@ -138,11 +133,11 @@ describe("expanding the recurrences RFC 5545 works through", () => {
       // Given the RFC's example, which it spells twice.
       const yearly = from(
         "1998-01-01T09:00",
-        "FREQ=YEARLY;UNTIL=20000131T140000Z;BYMONTH=1;BYDAY=SU,MO,TU,WE,TH,FR,SA",
+        "FREQ=YEARLY;UNTIL=20000131;BYMONTH=1;BYDAY=SU,MO,TU,WE,TH,FR,SA",
       );
       const daily = from(
         "1998-01-01T09:00",
-        "FREQ=DAILY;UNTIL=20000131T140000Z;BYMONTH=1",
+        "FREQ=DAILY;UNTIL=20000131;BYMONTH=1",
       );
 
       // Then both give the RFC's answer, and each other's.
@@ -163,7 +158,7 @@ describe("expanding the recurrences RFC 5545 works through", () => {
     it("expands `Monthly on the first Friday until December 24, 1997`", () => {
       const firstFriday = from(
         "1997-09-05T09:00",
-        "FREQ=MONTHLY;UNTIL=19971224T000000Z;BYDAY=1FR",
+        "FREQ=MONTHLY;UNTIL=19971223;BYDAY=1FR",
       );
 
       assertArrayEquals(

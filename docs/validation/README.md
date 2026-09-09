@@ -112,6 +112,14 @@ hide lower layers according to their order. Overlapping layers in `sum`, `max`,
 `min`, and `concat` cascades remain active because they participate in merging.
 Cascade order gives every layer a distinct priority.
 
+Each diagnostic includes `severity` and the evaluated `window` as string
+timestamps. Inactive rules and layers are `info`; a shadowed layer is a
+`warning`; uncovered time requested by `requireFullCoverage` is an `error`.
+An annual exception can be inactive in a one-week check and still be useful.
+Choose which severities fail your own checks. Rota methods and standalone
+`validate(rota, window)` both request full coverage by default; pass
+`{ requireFullCoverage: false }` to override that choice.
+
 <!-- card
 ```ts
 const diagnostics = onCall.validate(from, to);

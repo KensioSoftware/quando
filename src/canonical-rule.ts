@@ -23,10 +23,17 @@ import { canonicalCalendarRule } from "./canonical-calendar.js";
 import { canonicalDuration } from "./canonical-leaves.js";
 import { canonicalJson } from "./canonical-json.js";
 import { combined } from "./canonical-compound.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
-export function canonicalRule(rule: Rule): Rule {
+export function canonicalRule(rule: RuleData): RuleData {
   switch (rule.type) {
+    case "shiftDays": {
+      return {
+        type: "shiftDays",
+        days: rule.days,
+        rule: canonicalRule(rule.rule),
+      };
+    }
     case "always":
     case "never": {
       return { type: rule.type };

@@ -8,21 +8,21 @@
  */
 
 import {
-  custom,
+  customRule,
   daysOfMonth,
   monthsOfYear,
   not,
   nthDayOfWeekInMonth,
 } from "./build.js";
 import { readCycle } from "./terms-cycle.js";
-import { MONTHS, type Rule, WEEKDAYS } from "./rule.js";
+import { MONTHS, type RuleData, WEEKDAYS } from "./rule.js";
 import { badTerm, unreadableTerm } from "./terms-errors.js";
 import { listed } from "./terms-lists.js";
 import { asWeekdayWord } from "./terms-words.js";
 
 /** What one term adds: a rule to meet, or a scope the whole rule is read in. */
 export interface Contribution {
-  readonly rule?: Rule;
+  readonly rule?: RuleData;
   readonly zone?: string;
   readonly calendar?: string;
 }
@@ -74,7 +74,9 @@ export function readQualified(
       if (!CUSTOM_NAME.test(name)) {
         unreadableTerm(term, at);
       }
-      return { rule: value === "" ? custom(name) : custom(name, value) };
+      return {
+        rule: value === "" ? customRule(name) : customRule(name, value),
+      };
     }
   }
 }
@@ -87,11 +89,11 @@ function numbers(term: string, at: string, value: string): readonly number[] {
   return found;
 }
 
-function dayOfMonth(term: string, at: string, value: string): Rule {
+function dayOfMonth(term: string, at: string, value: string): RuleData {
   return daysOfMonth(...numbers(term, at, value));
 }
 
-function monthNumbers(term: string, at: string, value: string): Rule {
+function monthNumbers(term: string, at: string, value: string): RuleData {
   const picked = numbers(term, at, value).map((one) => MONTHS[one - 1]);
   if (picked.some((month) => month === undefined)) {
     badTerm(term, at, 'names a month outside 1 to 12, as in "month:3,6"');
@@ -105,7 +107,7 @@ function monthNumbers(term: string, at: string, value: string): Rule {
  * The count comes first because that is the order it is said in, and a
  * negative one counts back from the end the way `daysOfMonth` does.
  */
-function nth(term: string, at: string, value: string): Rule {
+function nth(term: string, at: string, value: string): RuleData {
   const comma = value.indexOf(",");
   if (comma === -1) {
     badTerm(term, at, 'wants a count and a weekday, as in "nth:1,monday"');
@@ -126,7 +128,7 @@ function excluded(
   at: string,
   value: string,
   readTerm: (term: string, at: string) => Contribution,
-): Rule {
+): RuleData {
   if (value === "") {
     badTerm(term, at, 'wants something to exclude, as in "except:2026-12-25"');
   }

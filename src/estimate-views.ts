@@ -3,7 +3,7 @@
  *
  * The whole point of keeping a distribution as the thing being computed is
  * that a range and a headline date and an SLA number are all views on it. Show
- * {@link support} to a customer, quote {@link quantile} at 0.95 in a contract,
+ * {@link possibleValues} to a customer, quote {@link quantile} at 0.95 in a contract,
  * and answer "will it arrive before Christmas?" with {@link chanceBefore}.
  *
  * There is deliberately no mean. The mean of a distribution over datetimes
@@ -23,20 +23,20 @@ import {
   orderedValues,
   valuesOf,
 } from "./estimate-coalesce.js";
-import { naturally, type Order } from "./estimate-order.js";
+import { naturalOrder, type Order } from "./estimate-order.js";
 
 /**
  * Every outcome an estimate allows, in order and each once.
  *
  * ```ts
- * support(spread([3, 1, 2, 1])); // [1, 2, 3]
+ * possibleValues(possibilities([3, 1, 2, 1])); // [1, 2, 3]
  * ```
  *
  * The plain range shown to an end user is the first and last of these.
  */
-export function support<V>(
+export function possibleValues<V>(
   estimate: Estimate<V>,
-  order: Order<V> = naturally,
+  order: Order<V> = naturalOrder,
 ): readonly V[] {
   return orderedValues(valuesOf(estimate), order);
 }
@@ -46,7 +46,10 @@ export function support<V>(
  *
  * Where two outcomes are equally likely, the earlier in order wins.
  */
-export function mode<V>(over: Distribution<V>, order: Order<V> = naturally): V {
+export function mode<V>(
+  over: Distribution<V>,
+  order: Order<V> = naturalOrder,
+): V {
   const outcomes = settled(over, order, "mode()");
 
   let best = outcomes[0];
@@ -71,7 +74,7 @@ export function mode<V>(over: Distribution<V>, order: Order<V> = naturally): V {
 export function quantile<V>(
   over: Distribution<V>,
   at: number,
-  order: Order<V> = naturally,
+  order: Order<V> = naturalOrder,
 ): V {
   return shareAt(over, at, order, "quantile()");
 }
@@ -79,7 +82,7 @@ export function quantile<V>(
 /** The outcome half the probability falls at or below. */
 export function median<V>(
   over: Distribution<V>,
-  order: Order<V> = naturally,
+  order: Order<V> = naturalOrder,
 ): V {
   return shareAt(over, 0.5, order, "median()");
 }
@@ -97,7 +100,7 @@ export function median<V>(
 export function chanceBefore<V>(
   over: Distribution<V>,
   value: V,
-  order: Order<V> = naturally,
+  order: Order<V> = naturalOrder,
 ): number {
   const outcomes = settled(over, order, "chanceBefore()");
 

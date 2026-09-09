@@ -6,7 +6,7 @@ import { difference } from "./interval-difference.js";
 import type { IntervalStream } from "./interval-stream.js";
 import { resolve } from "./resolve.js";
 import type {
-  ValidationDiagnostic,
+  DiagnosticFinding,
   ValidationWindow,
 } from "./semantic-validation.js";
 
@@ -14,7 +14,7 @@ import type {
 export function coverageDiagnostics(
   cascade: Cascade<unknown>,
   window: ValidationWindow,
-): readonly ValidationDiagnostic[] {
+): readonly DiagnosticFinding[] {
   const uncovered = difference(
     [windowOf(window)],
     assignedTime(cascade, window),

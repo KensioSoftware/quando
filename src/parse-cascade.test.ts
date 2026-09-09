@@ -10,7 +10,7 @@ import { describe, it } from "vitest";
 import { cascade, layer, merged, replace, whenever } from "./cascade.js";
 import { dates, daysOfWeek, weekdays, weekends } from "./build.js";
 import { parseCascade } from "./parse-cascade.js";
-import { asBoolean, asString, fail, shapeOf } from "./parse-shape.js";
+import { parseBoolean, parseString, fail, shapeOf } from "./parse-shape.js";
 import { resolve } from "./resolve.js";
 import { take } from "./stream.js";
 
@@ -21,7 +21,7 @@ describe("parsing a cascade from JSON", () => {
 
   /** The message from parsing something that should not parse. */
   const complaintAbout = (value: unknown): string => {
-    const error = assertThrowsError(() => parseCascade(value, asString));
+    const error = assertThrowsError(() => parseCascade(value, parseString));
     assertInstanceOf(error, TypeError);
     return error.message;
   };
@@ -49,7 +49,7 @@ describe("parsing a cascade from JSON", () => {
       // When it is read back and serialised again.
       // Then nothing has moved.
       assertIdentical(
-        JSON.stringify(parseCascade(document, asString)),
+        JSON.stringify(parseCascade(document, parseString)),
         JSON.stringify(document),
       );
     });
@@ -65,7 +65,7 @@ describe("parsing a cascade from JSON", () => {
       const document = stored(original);
 
       // When the cascade is parsed.
-      const parsed = parseCascade(document, asString);
+      const parsed = parseCascade(document, parseString);
 
       // Then the context survives as part of the layer document.
       assertIdentical(JSON.stringify(parsed), JSON.stringify(document));
@@ -84,7 +84,7 @@ describe("parsing a cascade from JSON", () => {
       // When it is read back and serialised again.
       // Then the nesting survives, layers and all.
       assertIdentical(
-        JSON.stringify(parseCascade(document, asBoolean)),
+        JSON.stringify(parseCascade(document, parseBoolean)),
         JSON.stringify(document),
       );
     });
@@ -99,7 +99,7 @@ describe("parsing a cascade from JSON", () => {
         layer(daysOfWeek("monday", "tuesday"), alice),
         layer(dates("2026-03-10"), bob),
       );
-      const parsed = parseCascade(stored(original), asString);
+      const parsed = parseCascade(stored(original), parseString);
 
       // When both are resolved over the same week.
       const week = {
@@ -123,7 +123,9 @@ describe("parsing a cascade from JSON", () => {
       // Then it is accepted. It assigns nothing, and refusing it would make
       // building a cascade from a list a special case.
       assertIdentical(
-        JSON.stringify(parseCascade({ type: "cascade", layers: [] }, asString)),
+        JSON.stringify(
+          parseCascade({ type: "cascade", layers: [] }, parseString),
+        ),
         '{"type":"cascade","layers":[]}',
       );
     });
@@ -164,7 +166,9 @@ describe("parsing a cascade from JSON", () => {
       };
 
       // When it is parsed.
-      const error = assertThrowsError(() => parseCascade(document, asString));
+      const error = assertThrowsError(() =>
+        parseCascade(document, parseString),
+      );
 
       // Then the mismatch is reported before resolution.
       assertIdentical(
@@ -235,7 +239,7 @@ describe("parsing a cascade from JSON", () => {
       // equivalent cascades compare as different documents.
       const plain = { type: "cascade", layers: [] };
       assertIdentical(
-        JSON.stringify(parseCascade(plain, asString)),
+        JSON.stringify(parseCascade(plain, parseString)),
         '{"type":"cascade","layers":[]}',
       );
     });
@@ -416,7 +420,7 @@ describe("parsing a cascade from JSON", () => {
           layers: [{ scope: { type: "weekdays" }, value: "alice" }],
         }),
         'cascade.layers[0].scope.type: "weekdays" is not a rule type. ' +
-          "Expected one of always, never, daysOfWeek, daysOfMonth, nthDayOfWeekInMonth, " +
+          "Expected one of shiftDays, always, never, daysOfWeek, daysOfMonth, nthDayOfWeekInMonth, " +
           "monthsOfYear, monthCodes, every, timeOfDay, dates, dateRange, atMost, atMostTime, spacedBy, custom, inCalendar, inZone, known, all, any, not",
       );
     });
@@ -453,7 +457,7 @@ describe("parsing a cascade from JSON", () => {
       // When it is parsed under the name that thing calls it.
       // Then every message is rooted there.
       const error = assertThrowsError(() =>
-        parseCascade({ type: "cascade" }, asString, "settings.openingHours"),
+        parseCascade({ type: "cascade" }, parseString, "settings.openingHours"),
       );
       assertIdentical(
         error.message,

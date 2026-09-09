@@ -24,10 +24,10 @@ The `@kensio/quando/core` entry point adds interval and cascade operations.
 A rule describes a set of covered times. It carries no application value.
 
 ```ts
-import { dates, timeOfDay, weekdays } from "@kensio/quando";
+import { dates, timeOfDayRange, weekdays } from "@kensio/quando";
 
 const dispatchHours = weekdays()
-  .and(timeOfDay("09:00", "17:00"))
+  .and(timeOfDayRange("09:00", "17:00"))
   .except(dates("2026-12-25"));
 ```
 
@@ -77,17 +77,17 @@ end. Adjacent intervals do not overlap at their shared boundary.
 Most applications do not need to iterate intervals directly. The common query
 functions answer nine questions:
 
-| Function               | Answer                                  |
-| ---------------------- | --------------------------------------- |
-| `activeAt`             | Whether an instant is covered           |
-| `nextCoveredInterval`  | The current or next covered interval    |
-| `firstGap`             | The first covered interval of a length  |
-| `slots`                | Candidate intervals at a fixed cadence  |
-| `coveredDuration`      | The covered time within a finite window |
-| `coveredDayCount`      | The covered days within a finite window |
-| `advanceBy`            | The result of adding only covered time  |
-| `advanceByCoveredDays` | The result of adding whole covered days |
-| `coverageChanges`      | Time added and removed between inputs   |
+| Function              | Answer                                  |
+| --------------------- | --------------------------------------- |
+| `isActiveAt`          | Whether an instant is covered           |
+| `nextCoveredInterval` | The current or next covered interval    |
+| `firstAvailableSlot`  | The first covered interval of a length  |
+| `availableSlots`      | Candidate intervals at a fixed cadence  |
+| `coveredDuration`     | The covered time within a finite window |
+| `coveredDayCount`     | The covered days within a finite window |
+| `addCoveredTime`      | The result of adding only covered time  |
+| `addCoveredDays`      | The result of adding whole covered days |
+| `coverageChanges`     | Time added and removed between inputs   |
 
 Schedules can be passed to all nine functions. Schedule methods give the
 single-input queries opening-hours names. `changesTo` compares two schedules.
@@ -148,7 +148,7 @@ yet.
 <!-- card
 ```ts
 const dispatchHours = weekdays()
-  .and(timeOfDay("09:00", "17:00"))
+  .and(timeOfDayRange("09:00", "17:00"))
   .except(dates("2026-12-25"));
 ```
 -->

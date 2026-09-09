@@ -8,7 +8,7 @@ import {
   always,
   dates,
   daysOfWeek,
-  timeOfDay,
+  timeOfDayRange,
   weekdays,
 } from "./build.js";
 import { type Cascade, cascade, layer, replace, whenever } from "./cascade.js";
@@ -102,7 +102,7 @@ describe("resolving a cascade", () => {
     it("lets a higher layer cut a hole rather than replace a whole run", () => {
       // Given weekday cover with one lunch hour handed to someone else.
       const [weekday = "", atLunch = ""] = names(2);
-      const lunch = all(WEDNESDAY, timeOfDay("12:00", "13:00"));
+      const lunch = all(WEDNESDAY, timeOfDayRange("12:00", "13:00"));
       const rota = cascade(layer(weekdays(), weekday), layer(lunch, atLunch));
 
       // When the week is resolved.
@@ -231,8 +231,8 @@ describe("resolving a cascade", () => {
   describe("a replacing layer", () => {
     /** Weekday office hours, closing at three on the Wednesday. */
     const openingHours = () => {
-      const usualHours = all(weekdays(), timeOfDay("09:00", "17:00"));
-      const early = replace(WEDNESDAY, timeOfDay("09:00", "15:00"));
+      const usualHours = all(weekdays(), timeOfDayRange("09:00", "17:00"));
+      const early = replace(WEDNESDAY, timeOfDayRange("09:00", "15:00"));
 
       return cascade(layer(usualHours, true), early);
     };
@@ -307,8 +307,8 @@ describe("resolving a cascade", () => {
       // hour of lunch inside them, standing in for a whole week.
       const lunch = cascade(layer({ type: "always" }, "lunch"));
       const inner = cascade(
-        layer(timeOfDay("09:00", "17:00"), "open"),
-        replace(timeOfDay("12:00", "13:00"), lunch),
+        layer(timeOfDayRange("09:00", "17:00"), "open"),
+        replace(timeOfDayRange("12:00", "13:00"), lunch),
       );
       const rota = cascade(
         layer(WEDNESDAY, "shut"),
@@ -350,7 +350,7 @@ describe("resolving a cascade", () => {
     it("hands an endless region to a replacement without bounding it", () => {
       // Given a layer claiming all of time, so the region it wins has no end
       // and the inner cascade has to be resolved against a context with none.
-      const rota = cascade(replace(always(), timeOfDay("09:00", "17:00")));
+      const rota = cascade(replace(always(), timeOfDayRange("09:00", "17:00")));
       const assigned = resolve(rota, inWindow("2026-03-09T00:00"));
 
       // When two days are taken.

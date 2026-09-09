@@ -6,7 +6,7 @@
  * state is rather than to act on it.
  */
 
-import { covered, type Covers } from "./assigned.js";
+import { covered, type CoverageSource } from "./assigned.js";
 import type { Context } from "./context.js";
 import { unknownIn } from "./horizon-guard.js";
 import { take } from "./stream.js";
@@ -22,7 +22,7 @@ export type Certainty = "covered" | "uncovered" | "unknown";
  * state is rather than to act on it.
  */
 export function certaintyAt<V>(
-  covers: Covers<V>,
+  covers: CoverageSource<V>,
   at: Temporal.ZonedDateTime,
   context: Omit<Context, "from" | "to"> | undefined,
 ): Certainty {

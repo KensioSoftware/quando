@@ -1,8 +1,19 @@
 /** Friendly APIs for schedules, rotas, tallies, and temporal rules. */
 
-export type { Context } from "./context.js";
+export type { Context, EvaluationOptions, QueryWindow } from "./context.js";
+export type * from "./rule.js";
+export type { DurationInput } from "./duration-input.js";
+export type { Interval } from "./interval.js";
+export type { ValueInterval } from "./cascade.js";
+export type { CoverageSource, Assigned, ValueSelection } from "./assigned.js";
+export { assigned, whereValueMatches } from "./assigned.js";
+export type { ValueParser } from "./parse-cascade.js";
+export type { AdvanceOptions } from "./advance.js";
+export type { CalendarPeriod } from "./occurrence-builders.js";
+export { ParseError } from "./parse-shape.js";
+export { UnresolvedOutcomeError } from "./estimate-query.js";
 export type { JsonCompatible, JsonPrimitive, JsonValue } from "./json.js";
-export type { PlainRule } from "./plain-forms.js";
+export type { RuleInput } from "./plain-forms.js";
 export type {
   CustomRule,
   InCalendarRule,
@@ -11,26 +22,26 @@ export type {
   AtMostTimeRule,
   MonthCode,
   Period,
-  Rule,
+  RuleData,
   Weekday,
 } from "./rule.js";
 export { MONTH_CODES, MONTHS, PERIODS, WEEKDAYS } from "./rule.js";
 
-export type { Built } from "./build.js";
+export type { Rule } from "./build.js";
 export type { EveryOptions } from "./every-builders.js";
 export type { AtMostOptions } from "./occurrence-builders.js";
 export {
   all,
   always,
   any,
-  atMost,
-  atMostTime,
-  between,
-  custom,
+  atMostOccurrences,
+  atMostOccupiedTime,
+  datesBetween,
+  customRule,
   dates,
   daysOfMonth,
   daysOfWeek,
-  every,
+  everyNthPeriod,
   inCalendar,
   inZone,
   monthCodes,
@@ -40,18 +51,23 @@ export {
   nthDayOfWeekInMonth,
   onOrAfter,
   onOrBefore,
-  spacedBy,
-  timeOfDay,
+  minimumGap,
+  timeOfDayRange,
   weekdays,
   weekends,
 } from "./build.js";
-export { canonical, equals, fingerprint } from "./canonical.js";
+export { canonical, sameDefinition, fingerprint } from "./canonical.js";
 export { knownThrough } from "./horizon.js";
 export { BeyondHorizonError } from "./horizon-guard.js";
-export { uncertainValues } from "./resolve.js";
-export { uncertain } from "./bounds.js";
+export { unknownValueIntervals } from "./resolve.js";
+export { unknownIntervals } from "./bounds.js";
 export { CustomRuleStreamError } from "./custom-rule-stream.js";
-export type { CustomRuleType, RuleRegistry } from "./custom-rules.js";
+export type {
+  CustomRuleType,
+  CustomRuleDefinition,
+  RuleRegistry,
+} from "./custom-rules.js";
+export { defineCustomRule } from "./custom-rules.js";
 export { UnknownCustomRuleError } from "./custom-rules.js";
 export type { CronOptions } from "./cron.js";
 export { parseCron } from "./cron.js";
@@ -65,7 +81,7 @@ export type {
   WrittenRRule,
 } from "./rrule-export.js";
 export { toRRule } from "./rrule-export.js";
-export { parseTerms } from "./terms.js";
+export { parseRuleExpression } from "./terms.js";
 export type { Occurrence } from "./occurrence.js";
 export { MissingOccurrencesError } from "./occurrence.js";
 export type { Unwritable } from "./export-result.js";
@@ -88,11 +104,10 @@ export type {
   Timeline,
   TimelineDay,
   TimelineFormat,
-  TimelineOptions,
-  TimelineOutput,
   TimelineSpan,
 } from "./timeline.js";
-export { renderTimeline, TIMELINE_FORMATS } from "./timeline.js";
+export { timeline, renderTimeline, TIMELINE_FORMATS } from "./timeline.js";
+export { explainRule } from "./explain.js";
 
 export type {
   AssignmentStep,
@@ -104,8 +119,8 @@ export type {
 } from "./explain.js";
 export type { LayerOptions } from "./layer-options.js";
 
-export type { SlotOptions } from "./availability.js";
-export { firstGap, slots } from "./availability.js";
+export type { Slot, SlotOptions } from "./availability.js";
+export { firstAvailableSlot, availableSlots } from "./availability.js";
 
 export type {
   Schedule,
@@ -113,44 +128,59 @@ export type {
   ScheduleData,
   ScheduleExplanation,
   ScheduleOptions,
+  ScheduleSearch,
+  QueryArrival,
 } from "./schedule.js";
 export { parseSchedule, schedule } from "./schedule.js";
 export type { OpenDayOptions } from "./schedule-days.js";
-export type { Rota, RotaData } from "./rota.js";
+export type { Rota, RotaData, RotaOptions } from "./rota.js";
 export { parseRota, rota } from "./rota.js";
-export type { Tally, TallyData, TallyExplanation } from "./tally.js";
+export type {
+  Tally,
+  TallyData,
+  TallyExplanation,
+  TallyOptions,
+} from "./tally.js";
 export { parseTally, tally } from "./tally.js";
 
-export { asBoolean, asString } from "./parse-shape.js";
+export { parseBoolean, parseString } from "./parse-shape.js";
 export type { Search } from "./query.js";
 export {
-  activeAt,
-  advanceBy,
+  isActiveAt,
+  addCoveredTime,
   coveredDuration,
   DEFAULT_SEARCH_LIMIT,
   nextCoveredInterval,
   SearchLimitExceededError,
 } from "./query.js";
 export type { Breach } from "./plan.js";
-export { admits, firstBreach } from "./plan.js";
+export { allowsPlan, firstBreach } from "./plan.js";
 export type { CoveredDayOptions, StartingDay } from "./covered-days.js";
-export { advanceByCoveredDays, coveredDayCount } from "./covered-days.js";
+export { addCoveredDays, coveredDayCount } from "./covered-days.js";
 
-export type { Distribution, Estimate, Outcome, Spread } from "./estimate.js";
+export type {
+  Distribution,
+  Estimate,
+  Outcome,
+  Possibilities,
+} from "./estimate.js";
 export {
   assumeUniform,
   certainly,
   chances,
   isDistribution,
-  spread,
+  possibilities,
 } from "./estimate.js";
 export type { Order } from "./estimate-order.js";
-export { naturally } from "./estimate-order.js";
-export { combineOutcomes, mapOutcomes } from "./estimate-outcomes.js";
+export { naturalOrder } from "./estimate-order.js";
+export {
+  combineIndependentOutcomes,
+  mapOutcomes,
+} from "./estimate-outcomes.js";
 export {
   chanceBefore,
   median,
   mode,
   quantile,
-  support,
+  possibleValues,
 } from "./estimate-views.js";

@@ -1,231 +1,118 @@
 # Getting started
 
-This guide builds a weekly schedule, adds two exceptions, and queries the
-result.
+Build weekday opening hours, add exceptions, then find a booking slot or deadline.
 
-## Requirements
-
-Quando reads `Temporal` from the global scope and imports no polyfill of its
-own. Node 26 has a global `Temporal`, as do Chrome 144, Edge 144 and Firefox 139.
-
-Install the package:
+## Install
 
 ```bash
 npm install @kensio/quando
 ```
 
-TypeScript projects must include `ESNext` in the compiler libraries:
-
-```json
-{
-  "compilerOptions": {
-    "lib": ["ESNext"]
-  }
-}
-```
-
-The `engines` field floors at Node 22. That number is the oldest Node the
-published JavaScript runs on. What Quando actually needs is a global
-`Temporal`, and a version range has no way to say so. Older Node and current
-Safari take the polyfill route below.
-
-### Runtimes without global `Temporal`
-
-Node 22, Node 24 and Safari have no global `Temporal`. Install
-[`temporal-polyfill`](https://www.npmjs.com/package/temporal-polyfill) and
-assign it to `globalThis.Temporal` before Quando loads. This is a supported
-configuration (the test suite runs on Node 22 this way), and the AWS Lambda
-`nodejs22.x` and `nodejs24.x` runtimes are the usual reason for it.
+Quando uses a global `Temporal`. If your runtime does not provide it:
 
 ```bash
 npm install temporal-polyfill
 ```
 
-Put the assignment in a module of its own:
-
 ```ts
-// temporal-global.ts
-import { Temporal } from "temporal-polyfill";
-
-globalThis.Temporal ??= Temporal;
-```
-
-Import that module ahead of Quando:
-
-```ts
-import "./temporal-global.js";
+import "temporal-polyfill/global";
 import { schedule, weekdays } from "@kensio/quando";
 ```
 
-Two details make the separate module worth the trouble. Importing
-`temporal-polyfill` leaves `globalThis` alone. The assignment is what installs
-the global.
+Importing Quando itself is safe before Temporal is installed. Install the global before
+calling its date and time functions. For calendars beyond ISO and Gregorian,
+use `temporal-polyfill/full/global`. Your application provides the Temporal implementation. TypeScript projects should include `ESNext` in `compilerOptions.lib`.
 
-A module also evaluates all of its imports before its own first statement. An
-assignment written beside a Quando import therefore runs too late:
+## Build and query opening hours
 
-```ts
-// Wrong. Quando is evaluated before the assignment reaches the global.
-import { Temporal } from "temporal-polyfill";
-import { schedule } from "@kensio/quando";
-
-globalThis.Temporal ??= Temporal;
-```
-
-```text
-ReferenceError: Temporal is not defined
-```
-
-`??=` keeps a native `Temporal` where the runtime already has one. The same
-entry point then works on Node 26 and on Node 22.
-
-### Calendars need the full polyfill build
-
-The default `temporal-polyfill` entry point carries the ISO and Gregorian
-calendars only. [`inCalendar`](../rules/#set-a-calendar) reads a rule on any
-calendar the runtime implements, so a Hebrew or Islamic rule needs the `full`
-build:
-
-```ts
-// temporal-global.ts
-import { Temporal } from "temporal-polyfill/full";
-
-globalThis.Temporal ??= Temporal;
-```
-
-The `full` build carries the calendar data and is correspondingly larger. Stay
-on the default entry point unless a rule names a calendar.
-
-The `quando` command reads the same global. Preload the module to run it on a
-runtime that lacks one:
-
-```bash
-node --import ./temporal-global.js node_modules/.bin/quando timeline opening-hours.json \
-  --from '2026-03-09T00:00[Europe/London]' \
-  --to '2026-03-10T00:00[Europe/London]'
-```
-
-Bundling the polyfill would charge every consumer for it, including the
-majority whose runtime already has `Temporal`. Reading the global leaves that
-cost with the runtimes that need it.
-
-## Create a schedule
+<!-- example: quickstart -->
 
 ```ts
 import { schedule, weekdays } from "@kensio/quando";
 
-const openingHours = schedule({ zone: "Europe/London" })
+const office = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00")
   .closed("2026-12-25")
-  .hoursOn("2026-12-24", "09:00-15:00");
-```
+  .setHours("2026-12-24", "09:00-15:00");
 
-`open` combines a scope with a range of local times. Here the scope is Monday
-through Friday. The next two calls add exceptions for Christmas Day and
-Christmas Eve.
+const friday = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
+const search = { within: { days: 7 } };
 
-Later methods take precedence within their scope. This makes the definition
-read from the usual case to its exceptions.
+console.log(office.isOpen(friday));
+// true
 
-## Ask whether it is open
+const meeting = office.firstOpenSlot(friday, { minutes: 30 }, search);
+console.log(meeting?.start.toString());
+// 2026-03-16T09:00:00+00:00[Europe/London]
 
-All query instants are `Temporal.ZonedDateTime` values.
-
-```ts
-const placed = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
-
-console.log(openingHours.isOpen(placed));
-```
-
-```text
-true
-```
-
-The schedule is open at 16:55 on that Friday. Closing time is excluded because
-Quando uses half-open intervals.
-
-## Find the next opening
-
-```ts
-const fridayEvening = placed.add({ hours: 2 });
-const next = openingHours.opensNext(fridayEvening);
-
-console.log(next?.start?.toString());
-```
-
-```text
-2026-03-16T09:00:00+00:00[Europe/London]
-```
-
-The next opening begins at 09:00 on Monday.
-
-## Add working time
-
-`addOpenTime` moves through open periods and skips closed periods.
-
-```ts
-const dispatch = openingHours.addOpenTime(
-  placed,
-  Temporal.Duration.from({ hours: 3 }),
-);
-
+const dispatch = office.addOpenTime(friday, { hours: 3 }, search);
 console.log(dispatch?.toString());
+// 2026-03-16T11:55:00+00:00[Europe/London]
 ```
 
-```text
-2026-03-16T11:55:00+00:00[Europe/London]
-```
+Later calls take precedence where their scopes overlap. `setHours` replaces the
+selected day's hours completely, so Christmas Eve closes at 15:00. Closing
+instants are excluded: 09:00–17:00 includes 09:00 and excludes 17:00.
 
-Five minutes count on Friday. The remaining two hours and fifty-five minutes
-finish on Monday.
+Five minutes of the deadline count on Friday. The remaining two hours and
+fifty-five minutes finish on Monday. Duration arguments accept objects such as
+`{ hours: 3 }`, ISO strings such as `"PT3H"`, and `Temporal.Duration` values.
 
-## Measure open time
+Every query instant is a `Temporal.ZonedDateTime`. The schedule's `zone` fixes
+its local clock even when the query instant is displayed in another zone.
+
+## Overnight hours
 
 ```ts
-const from = Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]");
-const to = Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]");
-
-console.log(openingHours.openDuration(from, to).toString());
+const nightShift = schedule({ zone: "Europe/London" }).open(
+  "fri",
+  "22:00-06:00",
+);
 ```
 
-```text
-PT40H
-```
+This covers Friday evening through Saturday morning. The starting Friday owns
+the shift. `setHours` on that Friday also replaces its Saturday spillover.
 
-The window includes `from` and excludes `to`.
+## No answer and unknown answers
 
-## Store and restore the schedule
+An explicit `within` search returns `undefined` when no answer fits. Without a
+limit, searches stop after 100 years and throw `SearchLimitExceededError`.
+A slot that exists has both `start` and `end`.
 
-The schedule is JSON-compatible data with non-enumerable methods attached.
-Store it with the JSON tools you already use, then pass the stored value to
-`parseSchedule`.
+If a definition declares a knowledge horizon, a query throws
+`BeyondHorizonError` when missing knowledge could change its answer. That is
+different from a known closed period. See [horizons](../horizon/).
+
+## Store and restore
 
 ```ts
 import { parseSchedule } from "@kensio/quando";
 
-const stored = JSON.stringify(openingHours);
-const restored = parseSchedule(JSON.parse(stored));
-
-console.log(restored.isOpen(placed));
+const text = JSON.stringify(office);
+const restored = parseSchedule(JSON.parse(text));
+console.log(restored.isOpen(friday));
+// true
 ```
 
-```text
-true
-```
+Parsers accept decoded data and restore fluent methods. Invalid documents throw
+`ParseError` with a readable message, a `path`, and a `code`. Custom callbacks
+stay outside JSON. Reattach them with `withCustomRules(registry)` after parsing.
 
-`parseSchedule` validates the complete document and restores the schedule
-methods.
+## Choose the next guide
 
-## Continue reading
-
-[Schedules and rotas](../schedules/) covers the other domain methods.
-[Rules](../rules/) explains how to describe custom periods. [Queries](../queries/)
-covers the standalone query functions.
+| Task                                | API and guide                       |
+| ----------------------------------- | ----------------------------------- |
+| Open and closed periods             | [Schedules](../schedules/)          |
+| People or values assigned over time | [Rotas](../schedules/#build-a-rota) |
+| Numeric contributions and totals    | [Tallies](../accumulation/)         |
+| Reusable descriptions of when       | [Rules](../rules/)                  |
+| Limits involving existing bookings  | [Constraints](../constraints/)      |
+| Upgrading existing code             | [Migration](../migration/)          |
 
 <!-- card
 ```ts
-const openingHours = schedule({ zone: "Europe/London" })
+const office = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00")
-  .closed("2026-12-25");
+  .setHours("2026-12-24", "09:00-15:00");
 ```
 -->

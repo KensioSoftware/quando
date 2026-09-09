@@ -5,6 +5,9 @@ simplest API for a task.
 
 ## Start here
 
+Upgrading existing code? Read [Migrating from 1.x](migration/) for renamed
+APIs, changed query contracts, and stored-definition compatibility.
+
 Read the pages in this order if Quando is new to you:
 
 1. [Getting started](getting-started/) builds opening hours and runs the first

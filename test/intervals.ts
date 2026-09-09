@@ -3,8 +3,8 @@
  * as the timeline they describe rather than as Temporal construction.
  */
 
-import type { Valued } from "../src/cascade.js";
-import type { Context } from "../src/context.js";
+import type { ValueInterval } from "../src/cascade.js";
+import type { Context, QueryWindow } from "../src/context.js";
 import type { Interval } from "../src/interval.js";
 
 export const LONDON = "Europe/London";
@@ -49,7 +49,7 @@ function edge(at: Temporal.ZonedDateTime | undefined): string {
  * The same, for a stream that carries values: `[start,end)=value`. Keeps a
  * cascade assertion readable as the timeline it describes.
  */
-export function renderValued<V>(assigned: Iterable<Valued<V>>): string {
+export function renderValued<V>(assigned: Iterable<ValueInterval<V>>): string {
   const parts: string[] = [];
   for (const interval of assigned) {
     const value =
@@ -103,6 +103,8 @@ export function* dailyForever(
 }
 
 /** A context over a window, for evaluating rules in tests. */
+export function inWindow(from: string, to: string, zone?: string): QueryWindow;
+export function inWindow(from: string, to?: string, zone?: string): Context;
 export function inWindow(
   from: string,
   to?: string,

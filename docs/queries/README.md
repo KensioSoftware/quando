@@ -3,20 +3,20 @@
 Quando provides nine common queries for rules, schedules, and selected cascade
 values.
 
-| Function               | Question                                           |
-| ---------------------- | -------------------------------------------------- |
-| `activeAt`             | Is this instant covered?                           |
-| `nextCoveredInterval`  | What is the current or next covered interval?      |
-| `firstGap`             | Where does a duration fit in covered time?         |
-| `slots`                | Which fixed-length candidates fit in covered time? |
-| `coveredDuration`      | How much covered time is inside this window?       |
-| `coveredDayCount`      | How many days inside this window are covered?      |
-| `advanceBy`            | Where does an amount of covered time finish?       |
-| `advanceByCoveredDays` | Where does a count of covered days finish?         |
-| `coverageChanges`      | What covered time was added or removed?            |
+| Function              | Question                                           |
+| --------------------- | -------------------------------------------------- |
+| `isActiveAt`          | Is this instant covered?                           |
+| `nextCoveredInterval` | What is the current or next covered interval?      |
+| `firstAvailableSlot`  | Where does a duration fit in covered time?         |
+| `availableSlots`      | Which fixed-length candidates fit in covered time? |
+| `coveredDuration`     | How much covered time is inside this window?       |
+| `coveredDayCount`     | How many days inside this window are covered?      |
+| `addCoveredTime`      | Where does an amount of covered time finish?       |
+| `addCoveredDays`      | Where does a count of covered days finish?         |
+| `coverageChanges`     | What covered time was added or removed?            |
 
 Schedules can be passed directly to all nine functions. They also expose
-`isOpen`, `opensNext`, `firstOpenSlot`, `openSlots`, `openDuration`,
+`isOpen`, `nextOpenInterval`, `firstOpenSlot`, `openSlots`, `openDuration`,
 `openDayCount`, `addOpenTime`, and `addOpenDays` with opening-hours names. Use
 `changesTo` to compare two schedules.
 
@@ -28,20 +28,22 @@ The standalone functions accept any of these inputs:
 - A schedule or another boolean cascade
 - One value selected from a cascade with `assigned`
 
-Every instant is a `Temporal.ZonedDateTime`. A range is a `Context` with
-`from` and optional `to` values.
+Every instant is a `Temporal.ZonedDateTime`. Finite queries take a `QueryWindow` with required `from` and `to` values.
+Lazy core streams take `Context`, whose `to` is optional. Query options also
+accept `occurrences`, `rules`, and `disambiguation`. Duration inputs accept
+Temporal durations, ISO duration strings, or objects such as `{ minutes: 30 }`.
 
 ## Check an instant
 
-`activeAt` returns whether its input covers one instant.
+`isActiveAt` returns whether its input covers one instant.
 
 ```ts
-import { activeAt, timeOfDay, weekdays } from "@kensio/quando";
+import { isActiveAt, timeOfDayRange, weekdays } from "@kensio/quando";
 
-const office = weekdays().and(timeOfDay("09:00", "17:00"));
+const office = weekdays().and(timeOfDayRange("09:00", "17:00"));
 const monday = Temporal.ZonedDateTime.from("2026-03-09T10:00[Europe/London]");
 
-console.log(activeAt(office, monday));
+console.log(isActiveAt(office, monday));
 ```
 
 ```text
@@ -74,23 +76,25 @@ If `context.from` is already covered, the result begins at that instant. The
 query answers what is covered from now onward.
 
 A finite search can clip the end of the returned interval. Pass
-`{ complete: true }` to continue far enough to return the interval's complete
-end.
+`{ intervalEnd: "complete", endWithin: { days: 7 } }` to continue far enough to return the interval's complete
+end. The end search is bounded too: `endWithin` defaults to 100 years and is
+measured from the returned interval start. Failure to find its end throws
+`SearchLimitExceededError`, including when an explicit end limit was supplied.
 
 ## Find an available gap
 
-`firstGap` returns the earliest interval of the requested length that fits
+`firstAvailableSlot` returns the earliest interval of the requested length that fits
 wholly inside covered time. Intersect rules first to find time shared by
 several people.
 
 ```ts
-import { firstGap, timeOfDay, weekdays } from "@kensio/quando";
+import { firstAvailableSlot, timeOfDayRange, weekdays } from "@kensio/quando";
 
-const alice = weekdays().and(timeOfDay("09:00", "17:00"));
-const bob = weekdays().and(timeOfDay("10:00", "16:00"));
+const alice = weekdays().and(timeOfDayRange("09:00", "17:00"));
+const bob = weekdays().and(timeOfDayRange("10:00", "16:00"));
 const shared = alice.and(bob);
 
-const gap = firstGap(shared, Temporal.Duration.from({ hours: 2 }), {
+const gap = firstAvailableSlot(shared, Temporal.Duration.from({ hours: 2 }), {
   from: Temporal.ZonedDateTime.from("2026-03-09T13:00[Europe/London]"),
   to: Temporal.ZonedDateTime.from("2026-03-09T18:00[Europe/London]"),
 });
@@ -104,6 +108,9 @@ console.log(gap?.end?.toPlainTime().toString());
 15:00:00
 ```
 
+A found slot has required `start` and `end` fields. Only the slot itself can
+be `undefined`.
+
 The gap begins at the start of the first covered interval long enough to hold
 it. An interval ending exactly when the gap ends is an exact fit.
 
@@ -112,13 +119,13 @@ schedule.
 
 ## Produce booking slots
 
-`slots` lazily emits candidate intervals. `lasting` sets each candidate's
+`availableSlots` lazily emits candidate intervals. `lasting` sets each candidate's
 length and `every` sets the time between candidate starts.
 
 ```ts
-import { slots } from "@kensio/quando";
+import { availableSlots } from "@kensio/quando";
 
-const candidates = slots(
+const candidates = availableSlots(
   shared,
   {
     from: Temporal.ZonedDateTime.from("2026-03-09T14:00[Europe/London]"),
@@ -173,15 +180,15 @@ exact elapsed time, including across clock changes.
 
 ## Add covered time
 
-`advanceBy` moves forward while counting only the time covered by its
+`addCoveredTime` moves forward while counting only the time covered by its
 `during` input.
 
 ```ts
-import { advanceBy } from "@kensio/quando";
+import { addCoveredTime } from "@kensio/quando";
 
 const placed = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
 
-const dispatch = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
+const dispatch = addCoveredTime(placed, Temporal.Duration.from({ hours: 3 }), {
   during: office,
 });
 
@@ -207,7 +214,7 @@ import { schedule, weekdays } from "@kensio/quando";
 
 const openingHours = schedule().open(weekdays(), "09:00-17:00");
 
-const dispatch = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
+const dispatch = addCoveredTime(placed, Temporal.Duration.from({ hours: 3 }), {
   during: openingHours,
 });
 ```
@@ -246,10 +253,10 @@ hours.
 
 ## Add whole covered days
 
-`advanceByCoveredDays` answers "three working days from now".
+`addCoveredDays` answers "three working days from now".
 
 ```ts
-import { advanceByCoveredDays, schedule, weekdays } from "@kensio/quando";
+import { addCoveredDays, schedule, weekdays } from "@kensio/quando";
 
 const courier = schedule({ zone: "Europe/London" }).open(
   weekdays(),
@@ -257,7 +264,7 @@ const courier = schedule({ zone: "Europe/London" }).open(
 );
 const ordered = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
 
-const delivery = advanceByCoveredDays(ordered, 3, { during: courier });
+const delivery = addCoveredDays(ordered, 3, { during: courier });
 
 console.log(delivery?.toString());
 ```
@@ -272,7 +279,7 @@ morning. Call `.toPlainDate()` for the date on its own.
 
 The count is a whole number of days and cannot be negative. A zero count
 returns the starting instant. Part of a day is an elapsed duration, and
-`advanceBy` is the query that takes one.
+`addCoveredTime` is the query that takes one.
 
 Stepping through `nextCoveredInterval` gives a different answer, and a wrong
 one. Consecutive covered days coalesce into a single interval, so a schedule
@@ -288,7 +295,7 @@ Pass `startingDay: "included"` to count the starting date first, when covered
 time remains on it:
 
 ```ts
-const sameDay = advanceByCoveredDays(ordered, 1, {
+const sameDay = addCoveredDays(ordered, 1, {
   during: courier,
   startingDay: "included",
 });
@@ -312,10 +319,10 @@ time covered only by the new definition. `removed` contains time covered only
 by the old definition.
 
 ```ts
-import { coverageChanges, timeOfDay, weekdays } from "@kensio/quando";
+import { coverageChanges, timeOfDayRange, weekdays } from "@kensio/quando";
 
-const oldHours = weekdays().and(timeOfDay("09:00", "17:00"));
-const newHours = weekdays().and(timeOfDay("10:00", "18:00"));
+const oldHours = weekdays().and(timeOfDayRange("09:00", "17:00"));
+const newHours = weekdays().and(timeOfDayRange("10:00", "18:00"));
 
 const changed = coverageChanges(oldHours, newHours, {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -344,7 +351,7 @@ in the old schedule.
 
 ## Bound a search
 
-`nextCoveredInterval`, `firstGap`, `advanceBy`, and `advanceByCoveredDays` may
+`nextCoveredInterval`, `firstAvailableSlot`, `addCoveredTime`, and `addCoveredDays` may
 need to search for a future answer. When no end is supplied, they apply a 100-year safety limit.
 
 If the automatic limit expires, the query throws `SearchLimitExceededError`.
@@ -363,8 +370,8 @@ An existing `context.to` also provides an explicit limit. When both are
 present, `within` can shorten the context window and cannot extend it.
 
 The low-level `intervals` and `resolve` functions do not add a safety limit.
-They return lazy streams. `slots` does too. The caller decides how much of a
-stream to consume.
+They return lazy streams. `availableSlots` is also lazy but requires a finite
+window. These iterators are consumed once; call the query again to restart.
 
 ## Query a cascade value
 
@@ -384,10 +391,12 @@ const week = {
 const aliceHours = coveredDuration(assigned(onCall, "alice"), week);
 ```
 
-Values are matched with `Object.is`. An assigned selection is a query input and
-has no stored rule form.
+Values are matched with `Object.is`. For object values restored from JSON, use
+`whereValueMatches(onCall, duty => duty.person === "alice")` to select by a stable
+field. Both selectors preserve an attached custom-rule registry. They are query
+inputs and have no stored rule form.
 
-Use `valueAt` and `nextValue` from `@kensio/quando/core` when you want the
+Use `valueAt` and `nextValueInterval` from `@kensio/quando/core` when you want the
 assigned value itself.
 
 <!-- card

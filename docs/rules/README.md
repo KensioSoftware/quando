@@ -9,10 +9,10 @@ Use a [schedule](../schedules/) for opening hours or a
 ## Build a rule
 
 ```ts
-import { dates, timeOfDay, weekdays } from "@kensio/quando";
+import { dates, timeOfDayRange, weekdays } from "@kensio/quando";
 
 const officeHours = weekdays()
-  .and(timeOfDay("09:00", "17:00"))
+  .and(timeOfDayRange("09:00", "17:00"))
   .except(dates("2026-12-25"));
 ```
 
@@ -24,29 +24,29 @@ store. There is no final `.build()` call.
 
 ## Rule builders
 
-| Builder                             | Covered time                                        |
-| ----------------------------------- | --------------------------------------------------- |
-| `always()`                          | All time                                            |
-| `never()`                           | No time                                             |
-| `daysOfWeek(...days)`               | Whole days with the selected weekday names          |
-| `weekdays()`                        | Monday through Friday                               |
-| `weekends()`                        | Saturday and Sunday                                 |
-| `daysOfMonth(...days)`              | Whole days at the selected positions in each month  |
-| `nthDayOfWeekInMonth(nth, ...days)` | The nth Monday, Friday and so on, in each month     |
-| `monthsOfYear(...months)`           | The selected months, in full                        |
-| `monthCodes(...codes)`              | The selected months, named as `Temporal` names them |
-| `every(n, period, options)`         | Every nth day, week, month or year                  |
-| `timeOfDay(from, to, zone?)`        | A local time range on every day                     |
-| `dates(...dates)`                   | The selected calendar dates                         |
-| `onOrAfter(date, zone?)`            | Every day from a date onwards                       |
-| `onOrBefore(date, zone?)`           | Every day up to a date                              |
-| `between(from, to, zone?)`          | Every day from one date to another                  |
-| `all(...rules)`                     | Times covered by every rule                         |
-| `any(...rules)`                     | Times covered by at least one rule                  |
-| `not(rule)`                         | Times outside the rule                              |
-| `inZone(zone, rule)`                | A rule subtree evaluated in one time zone           |
-| `inCalendar(calendar, rule)`        | A rule subtree counted on one calendar              |
-| `custom(name, options?, zone?)`     | A rule type the application supplies                |
+| Builder                              | Covered time                                        |
+| ------------------------------------ | --------------------------------------------------- |
+| `always()`                           | All time                                            |
+| `never()`                            | No time                                             |
+| `daysOfWeek(...days)`                | Whole days with the selected weekday names          |
+| `weekdays()`                         | Monday through Friday                               |
+| `weekends()`                         | Saturday and Sunday                                 |
+| `daysOfMonth(...days)`               | Whole days at the selected positions in each month  |
+| `nthDayOfWeekInMonth(nth, ...days)`  | The nth Monday, Friday and so on, in each month     |
+| `monthsOfYear(...months)`            | The selected months, in full                        |
+| `monthCodes(...codes)`               | The selected months, named as `Temporal` names them |
+| `everyNthPeriod(n, period, options)` | Every nth day, week, month or year                  |
+| `timeOfDayRange(from, to, zone?)`    | A local time range on every day                     |
+| `dates(...dates)`                    | The selected calendar dates                         |
+| `onOrAfter(date, zone?)`             | Every day from a date onwards                       |
+| `onOrBefore(date, zone?)`            | Every day up to a date                              |
+| `datesBetween(from, to, zone?)`      | Every day from one date to another                  |
+| `all(...rules)`                      | Times covered by every rule                         |
+| `any(...rules)`                      | Times covered by at least one rule                  |
+| `not(rule)`                          | Times outside the rule                              |
+| `inZone(zone, rule)`                 | A rule subtree evaluated in one time zone           |
+| `inCalendar(calendar, rule)`         | A rule subtree counted on one calendar              |
+| `customRule(name, options?, zone?)`  | A rule type the application supplies                |
 
 Builders validate their inputs immediately. Invalid weekday names, dates,
 times, and time zones fail where the rule is created.
@@ -159,13 +159,13 @@ The names are Gregorian. To name a month on another calendar, see
 
 ## Repeat every nth period
 
-`every` steps through the calendar a period at a time. The anchor fixes which
+`everyNthPeriod` steps through the calendar a period at a time. The anchor fixes which
 cycle counts as the first:
 
 ```ts
-import { daysOfWeek, every, onOrAfter } from "@kensio/quando";
+import { daysOfWeek, everyNthPeriod, onOrAfter } from "@kensio/quando";
 
-const fortnightly = every(2, "weeks", { anchor: "2026-03-09" }).and(
+const fortnightly = everyNthPeriod(2, "weeks", { anchor: "2026-03-09" }).and(
   daysOfWeek("monday"),
 );
 ```
@@ -174,7 +174,7 @@ Periods are `"days"`, `"weeks"`, `"months"` and `"years"`. The `PERIODS` export
 lists them.
 
 The whole of each selected period is covered. On its own,
-`every(2, "weeks", { anchor: "2026-03-09" })` covers seven days out of every
+`everyNthPeriod(2, "weeks", { anchor: "2026-03-09" })` covers seven days out of every
 fourteen. Intersect it with something narrower for the day within them, as
 above.
 
@@ -189,7 +189,7 @@ the right weeks in March, so bound it with a date when the recurrence has a
 start:
 
 ```ts
-const meetings = every(2, "weeks", { anchor: "2026-03-09" })
+const meetings = everyNthPeriod(2, "weeks", { anchor: "2026-03-09" })
   .and(daysOfWeek("monday"))
   .and(onOrAfter("2026-03-23"));
 ```
@@ -201,13 +201,13 @@ An interval of `1` selects every period, which covers all of time.
 
 ## Select times of day
 
-`timeOfDay` uses local wall-clock time:
+`timeOfDayRange` uses local wall-clock time:
 
 ```ts
-import { timeOfDay } from "@kensio/quando";
+import { timeOfDayRange } from "@kensio/quando";
 
-const office = timeOfDay("09:00", "17:00");
-const nightShift = timeOfDay("22:00", "06:00");
+const office = timeOfDayRange("09:00", "17:00");
+const nightShift = timeOfDayRange("22:00", "06:00");
 ```
 
 An end earlier than the start continues into the next day. The night shift runs
@@ -216,7 +216,7 @@ from 22:00 until 06:00.
 Equal endpoints are ambiguous and rejected:
 
 ```ts
-timeOfDay("09:00", "09:00");
+timeOfDayRange("09:00", "09:00");
 // RangeError: A time-of-day window must have different endpoints.
 ```
 
@@ -243,21 +243,21 @@ Calling `dates()` with no arguments covers no time.
 
 ## Bound a stretch of the calendar
 
-Every rule above recurs forever. `onOrAfter`, `onOrBefore` and `between` bound
+Every rule above recurs forever. `onOrAfter`, `onOrBefore` and `datesBetween` bound
 one. A schedule can then start on a date, stop on a date, or run for a season:
 
 ```ts
-import { between, onOrAfter, weekdays, weekends } from "@kensio/quando";
+import { datesBetween, onOrAfter, weekdays, weekends } from "@kensio/quando";
 
 const newHours = weekdays().and(onOrAfter("2026-04-01"));
-const summerWeekends = weekends().and(between("2026-06-01", "2026-08-31"));
+const summerWeekends = weekends().and(datesBetween("2026-06-01", "2026-08-31"));
 ```
 
 `newHours` covers no weekday before 1 April and every weekday from then on.
 
 Both ends are included. A date names a whole day here, the way it does in
-`dates`, so `between("2026-04-01", "2026-04-30")` covers the whole of 30 April
-and `between(d, d)` covers that one day.
+`dates`, so `datesBetween("2026-04-01", "2026-04-30")` covers the whole of 30 April
+and `datesBetween(d, d)` covers that one day.
 
 An unbounded end stays unbounded. Read `onOrAfter("2026-04-01")` over a context
 with no end and one interval comes back, open at the far end.
@@ -272,12 +272,12 @@ for all of time.
 
 ## Combine rules
 
-Built rules have `.and`, `.or`, and `.except` methods:
+Fluent rules have `.and`, `.or`, and `.except` methods:
 
 ```ts
-const officeHours = weekdays().and(timeOfDay("09:00", "17:00"));
+const officeHours = weekdays().and(timeOfDayRange("09:00", "17:00"));
 const supportHours = officeHours.or(
-  weekends().and(timeOfDay("10:00", "14:00")),
+  weekends().and(timeOfDayRange("10:00", "14:00")),
 );
 const openWithoutHolidays = supportHours.except(bankHolidays);
 ```
@@ -287,10 +287,10 @@ The same operations are available as functions:
 ```ts
 import { all, any, not } from "@kensio/quando";
 
-const officeHours = all(weekdays(), timeOfDay("09:00", "17:00"));
+const officeHours = all(weekdays(), timeOfDayRange("09:00", "17:00"));
 const supportHours = any(
   officeHours,
-  all(weekends(), timeOfDay("10:00", "14:00")),
+  all(weekends(), timeOfDayRange("10:00", "14:00")),
 );
 const openWithoutHolidays = all(supportHours, not(bankHolidays));
 ```
@@ -316,7 +316,7 @@ import { inZone } from "@kensio/quando";
 
 const londonOffice = inZone(
   "Europe/London",
-  weekdays().and(timeOfDay("09:00", "17:00")),
+  weekdays().and(timeOfDayRange("09:00", "17:00")),
 );
 ```
 
@@ -376,8 +376,8 @@ const workingRoshChodesh = inCalendar("hebrew", daysOfMonth(1)).and(weekdays());
 
 ### Month names stay Gregorian
 
-`monthsOfYear` names the twelve Gregorian months, and `every(n, "months")` and
-`every(n, "years")` count them. Another calendar names its months differently
+`monthsOfYear` names the twelve Gregorian months, and `everyNthPeriod(n, "months")` and
+`everyNthPeriod(n, "years")` count them. Another calendar names its months differently
 and a Hebrew leap year holds thirteen of them, which moves the index a
 Gregorian name would map to. Both are refused under `inCalendar` rather than
 answered wrongly:
@@ -393,7 +393,7 @@ RangeError: monthsOfYear() names Gregorian months, so it cannot be read on the h
 Name the month with `monthCodes` below, select its days with `daysOfMonth`, or
 name the dates with `dates`.
 
-`dates` and `between` name ISO dates whatever calendar surrounds them. Note
+`dates` and `datesBetween` name ISO dates whatever calendar surrounds them. Note
 that a calendar annotation on a date string does not name a date on that
 calendar. `Temporal.PlainDate.from("5786-07-15[u-ca=hebrew]")` reads the fields
 as ISO and then relabels them, giving Hebrew year 9546.
@@ -473,7 +473,7 @@ Gregorian and the output has to be one of those notations.
 The root package provides the common queries:
 
 ```ts
-import { activeAt, coverageChanges, coveredDuration } from "@kensio/quando";
+import { isActiveAt, coverageChanges, coveredDuration } from "@kensio/quando";
 
 const monday = Temporal.ZonedDateTime.from("2026-03-09T10:00[Europe/London]");
 const week = {
@@ -481,7 +481,7 @@ const week = {
   to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 };
 
-activeAt(officeHours, monday);
+isActiveAt(officeHours, monday);
 coveredDuration(officeHours, week);
 coverageChanges(officeHours, officeHours.except(dates("2026-03-11")), week);
 ```
@@ -530,11 +530,11 @@ searching an unbounded future.
 
 Some rules are functions rather than patterns. Easter is computed from a year,
 sunset from a date and a pair of coordinates, and the start of a lunar month
-has historically been observed. `custom` names a rule type the application
+has historically been observed. `customRule` names a rule type the application
 supplies, and `context.rules` holds the code that runs it.
 
 ```ts
-import { activeAt, custom, schedule, weekdays } from "@kensio/quando";
+import { isActiveAt, customRule, schedule, weekdays } from "@kensio/quando";
 
 // The application's own computus. Quando ships no calendar data.
 import { easterSunday } from "./computus.js";
@@ -566,8 +566,8 @@ const easter = {
 
 const office = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00")
-  .closed(custom("easter", { offset: 1 }))
-  .withRules({ easter });
+  .closed(customRule("easter", { offset: 1 }))
+  .withCustomRules({ easter });
 
 const easterMonday = Temporal.ZonedDateTime.from(
   "2026-04-06T10:00[Europe/London]",
@@ -586,7 +586,7 @@ between tests.
 
 ### Attaching one to a schedule, rota or tally
 
-`withRules` gives a schedule, a rota or a tally the registry its scopes need,
+`withCustomRules` gives a schedule, a rota or a tally the registry its scopes need,
 and returns a new one. Every method then reads it. So does the account each one
 gives of itself:
 
@@ -603,15 +603,15 @@ const bankHolidays = {
 
 const openingHours = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00")
-  .closed(custom("bankHolidays"))
-  .withRules({ bankHolidays });
+  .closed(customRule("bankHolidays"))
+  .withCustomRules({ bankHolidays });
 
 const christmas = Temporal.ZonedDateTime.from(
   "2026-12-25T10:00[Europe/London]",
 );
 
 console.log(openingHours.isOpen(christmas));
-console.log(openingHours.opensNext(christmas)?.start?.toString());
+console.log(openingHours.nextOpenInterval(christmas)?.start?.toString());
 ```
 
 ```text
@@ -620,26 +620,26 @@ false
 ```
 
 The search skipped the holiday and the weekend after it. `explain`, `validate`,
-`renderTimeline` and the rest read the registry the same way, and a rule type's
+`timeline` and the other queries read the registry the same way, and a rule type's
 own `describe` is what puts "It is a bank holiday." into the explanation.
 
 A registry holds functions, so it never enters the stored document. `toJSON`
-returns what it always returned, and `withRules` called twice replaces the
+returns what it always returned, and `withCustomRules` called twice replaces the
 registry rather than merging the two. Attach it before or after the layers that
 need it, since each builder method carries it into the object it returns.
 
 The core queries take the same registry on the context instead. That is what
-`activeAt(openingHours, christmas, { rules: { bankHolidays } })` does, and it
+`isActiveAt(openingHours, christmas, { rules: { bankHolidays } })` does, and it
 is the route to use where the rule set is not a schedule, a rota or a tally.
 
 ### The document holds a name, not a function
 
-A `custom` rule stores and travels like every other rule. Only evaluating one
+A `customRule` rule stores and travels like every other rule. Only evaluating one
 needs the registry. A service can hold, forward and canonicalise a schedule
 whose rules it cannot itself run.
 
 ```ts
-console.log(JSON.stringify(custom("easter", { offset: 1 })));
+console.log(JSON.stringify(customRule("easter", { offset: 1 })));
 ```
 
 ```text
@@ -684,7 +684,7 @@ See [serialisation](../serialisation/) for stored forms and parser errors.
 <!-- card
 ```ts
 const officeHours = weekdays()
-  .and(timeOfDay("09:00", "17:00"))
+  .and(timeOfDayRange("09:00", "17:00"))
   .except(dates("2026-12-25"));
 ```
 -->

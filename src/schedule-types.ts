@@ -1,18 +1,22 @@
-import type { SlotOptions } from "./availability.js";
+import type { QueryArrival } from "./query-arrival.js";
+export type { QueryArrival } from "./query-arrival.js";
+import type { Slot, SlotOptions } from "./availability.js";
 import type { Cascade } from "./cascade.js";
+import type { EvaluationOptions } from "./context.js";
 import type { RuleRegistry } from "./custom-rules.js";
+import type { DurationInput } from "./duration-input.js";
 import type { DefaultExplanation } from "./explain.js";
+import type { Estimate } from "./estimate.js";
 import type { Interval } from "./interval.js";
 import type { LayerOptions } from "./layer-options.js";
-import type { PlainRule } from "./plain-forms.js";
+import type { RuleInput } from "./plain-forms.js";
 import type { Search } from "./query.js";
 import type { OpenDayOptions } from "./schedule-days.js";
-import type { ValidationDiagnostic } from "./semantic-validation.js";
 import type {
-  TimelineFormat,
-  TimelineOptions,
-  TimelineOutput,
-} from "./timeline.js";
+  ValidationDiagnostic,
+  ValidationOptions,
+} from "./semantic-validation.js";
+import type { Timeline } from "./timeline.js";
 
 /** The stored form of opening hours. */
 export interface ScheduleData {
@@ -27,81 +31,86 @@ export interface ScheduleChanges {
   readonly closed: Iterable<Interval>;
 }
 
-/** How a schedule reaches its open or closed value at one instant. */
 export type ScheduleExplanation = DefaultExplanation<boolean>;
 
-/** Opening hours with methods for common schedule questions. */
+/** Search limits and the settings needed to evaluate a schedule. */
+export type ScheduleSearch = Search & EvaluationOptions;
+
+/** Opening hours with immutable methods for definitions and queries. */
 export interface Schedule extends ScheduleData {
   readonly open: {
-    (scope: PlainRule, options?: LayerOptions): Schedule;
-    (scope: PlainRule, hours: PlainRule, options?: LayerOptions): Schedule;
+    (scope: RuleInput, options?: LayerOptions): Schedule;
+    (scope: RuleInput, hours: RuleInput, options?: LayerOptions): Schedule;
   };
-  readonly closed: (scope: PlainRule, options?: LayerOptions) => Schedule;
-  readonly hoursOn: (
-    day: PlainRule,
-    hours: PlainRule,
+  readonly closed: (scope: RuleInput, options?: LayerOptions) => Schedule;
+  readonly setHours: (
+    scope: RuleInput,
+    hours: RuleInput,
     options?: LayerOptions,
   ) => Schedule;
-
-  /**
-   * The same schedule, reading `custom` rules from this registry.
-   *
-   * A registry holds functions, so it cannot live in the stored document the
-   * way the zone does. It rides beside it, and `toJSON` is unchanged. Calling
-   * this twice replaces the registry rather than merging the two.
-   */
-  readonly withRules: (rules: RuleRegistry) => Schedule;
-  readonly isOpen: (at: Temporal.ZonedDateTime) => boolean;
-  readonly explain: (at: Temporal.ZonedDateTime) => ScheduleExplanation;
-  readonly opensNext: (
+  readonly withCustomRules: (rules: RuleRegistry) => Schedule;
+  readonly isOpen: (
     at: Temporal.ZonedDateTime,
-    search?: Search | Temporal.Duration,
+    options?: EvaluationOptions,
+  ) => boolean;
+  readonly explain: (
+    at: Temporal.ZonedDateTime,
+    options?: EvaluationOptions,
+  ) => ScheduleExplanation;
+  readonly nextOpenInterval: (
+    from: Temporal.ZonedDateTime,
+    options?: ScheduleSearch,
   ) => Interval | undefined;
   readonly firstOpenSlot: (
     from: Temporal.ZonedDateTime,
-    lasting: Temporal.Duration,
-    search?: Pick<Search, "within"> | Temporal.Duration,
-  ) => Interval | undefined;
+    lasting: DurationInput,
+    options?: ScheduleSearch,
+  ) => Slot | undefined;
   readonly openSlots: (
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
-    options: SlotOptions,
-  ) => Iterable<Interval>;
+    options: SlotOptions & EvaluationOptions,
+  ) => Iterable<Slot>;
   readonly changesTo: (
     next: Schedule,
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
+    options?: EvaluationOptions,
   ) => ScheduleChanges;
   readonly validate: (
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
+    options?: EvaluationOptions & ValidationOptions,
   ) => readonly ValidationDiagnostic[];
-  readonly addOpenTime: (
+  readonly addOpenTime: <A extends DurationInput | Estimate<DurationInput>>(
     from: Temporal.ZonedDateTime,
-    amount: Temporal.Duration,
-    search?: Search,
-  ) => Temporal.ZonedDateTime | undefined;
+    amount: A,
+    options?: ScheduleSearch,
+  ) => QueryArrival<A>;
   readonly openDuration: (
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
+    options?: EvaluationOptions,
   ) => Temporal.Duration;
-  readonly addOpenDays: (
+  readonly addOpenDays: <A extends number | Estimate<number>>(
     from: Temporal.ZonedDateTime,
-    count: number,
+    count: A,
     options?: OpenDayOptions,
-  ) => Temporal.ZonedDateTime | undefined;
+  ) => QueryArrival<A>;
   readonly openDayCount: (
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
+    options?: EvaluationOptions,
   ) => number;
-  readonly renderTimeline: <F extends TimelineFormat = "json">(
+  readonly timeline: (
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
-    options?: TimelineOptions & { readonly format?: F },
-  ) => TimelineOutput<F>;
+    options?: EvaluationOptions,
+  ) => Timeline;
   readonly toJSON: () => ScheduleData;
 }
 
+/** The local time zone used by schedule definitions. */
 export interface ScheduleOptions {
   readonly zone?: string;
 }

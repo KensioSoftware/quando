@@ -8,13 +8,13 @@
  * rules.
  *
  * Two shapes live here because they answer different questions. A
- * {@link Spread} carries the outcomes and no weights. A {@link Distribution}
+ * {@link Possibilities} carries the outcomes and no weights. A {@link Distribution}
  * carries a probability against each outcome. Asking a spread for a median
  * throws, because the weights that would answer it were never supplied.
  * {@link assumeUniform} is how a caller says that assumption out loud.
  *
  * ```ts
- * const basic = spread([1, 2, 3]);
+ * const basic = possibilities([1, 2, 3]);
  * const advanced = chances([
  *   { value: 1, probability: 0.25 },
  *   { value: 2, probability: 0.5 },
@@ -33,7 +33,7 @@ export interface Outcome<V> {
 }
 
 /** The outcomes an estimate allows, with nothing said about their weights. */
-export interface Spread<V> {
+export interface Possibilities<V> {
   readonly kind: "spread";
 
   /**
@@ -64,7 +64,7 @@ export interface Distribution<V> {
 }
 
 /** An answer with more than one possible outcome, weighted or otherwise. */
-export type Estimate<V> = Distribution<V> | Spread<V>;
+export type Estimate<V> = Distribution<V> | Possibilities<V>;
 
 /** How far a total may drift from one before the weights are refused. */
 const TOLERANCE = 1e-9;
@@ -73,18 +73,18 @@ const TOLERANCE = 1e-9;
  * The outcomes something allows, with no claim about how likely each is.
  *
  * ```ts
- * spread([1, 2, 3]); // one to three working days, and nothing more said
+ * possibilities([1, 2, 3]); // one to three working days, and nothing more said
  * ```
  *
  * This is the honest reading of "one to three working days". It composes by
  * carrying its outcomes forward, and every view that needs weights refuses it.
  * Duplicates are kept as given and coalesced by the views that order them.
  */
-export function spread<V>(values: Iterable<V>): Spread<V> {
+export function possibilities<V>(values: Iterable<V>): Possibilities<V> {
   const listed = [...values];
   if (listed.length === 0) {
     throw new RangeError(
-      "spread() needs at least one outcome. An estimate with none describes " +
+      "possibilities() needs at least one outcome. An estimate with none describes " +
         "nothing that can happen.",
     );
   }
@@ -131,7 +131,7 @@ export function certainly<V>(value: V): Distribution<V> {
  * A spread read as though every outcome were equally likely.
  *
  * ```ts
- * assumeUniform(spread([1, 2, 3])); // each at a third, and marked as assumed
+ * assumeUniform(possibilities([1, 2, 3])); // each at a third, and marked as assumed
  * ```
  *
  * The assumption is the caller's to make. Quando will not make it on their
@@ -139,7 +139,7 @@ export function certainly<V>(value: V): Distribution<V> {
  * says nothing about their weights. The result carries `assumed`, and
  * everything mapped or combined from it carries `assumed` too.
  */
-export function assumeUniform<V>(over: Spread<V>): Distribution<V> {
+export function assumeUniform<V>(over: Possibilities<V>): Distribution<V> {
   const share = 1 / over.values.length;
   return {
     kind: "distribution",

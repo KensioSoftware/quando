@@ -1,4 +1,4 @@
-import { type Covers, covered } from "./assigned.js";
+import { type CoverageSource, covered } from "./assigned.js";
 import type { Context } from "./context.js";
 import type { Interval } from "./interval.js";
 import type { Timeline, TimelineDay, TimelineSpan } from "./timeline-types.js";
@@ -48,7 +48,7 @@ function clipped(
 }
 
 function timelineDays<V>(
-  source: Covers<V>,
+  source: CoverageSource<V>,
   context: Context & { readonly to: Temporal.ZonedDateTime },
 ): readonly TimelineDay[] {
   const to = context.to;
@@ -84,7 +84,7 @@ function timelineDays<V>(
 
 /** Returns JSON-compatible coverage data for a finite window. */
 export function timelineData<V>(
-  source: Covers<V>,
+  source: CoverageSource<V>,
   context: Context & { readonly to: Temporal.ZonedDateTime },
 ): Timeline {
   return {

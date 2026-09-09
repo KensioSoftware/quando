@@ -11,14 +11,14 @@
  */
 
 import { any } from "./build.js";
-import { timeOfDay } from "./calendar-rules.js";
+import { timeOfDayRange } from "./calendar-rules.js";
 import { always } from "./build.js";
 import {
   clockOf,
   MINUTES_IN_A_DAY,
   MINUTES_IN_AN_HOUR,
 } from "./day-windows.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 /** The minutes of the day the hour and minute fields select together. */
 export function coveredMinutes(
@@ -35,15 +35,15 @@ export function coveredMinutes(
 }
 
 /** A rule covering each selected minute, with neighbours joined. */
-export function timeOfDayRule(selected: readonly number[]): Rule {
+export function timeOfDayRule(selected: readonly number[]): RuleData {
   if (selected.length === MINUTES_IN_A_DAY) {
     // Every minute of the day, which has no pair of clock times to write: a
-    // window from 00:00 to 00:00 is the one `timeOfDay` refuses.
+    // window from 00:00 to 00:00 is the one `timeOfDayRange` refuses.
     return always();
   }
 
   const windows = runsOf(selected).map(([from, to]) =>
-    timeOfDay(clockOf(from), clockOf(to)),
+    timeOfDayRange(clockOf(from), clockOf(to)),
   );
 
   const only = windows.length === 1 ? windows[0] : undefined;

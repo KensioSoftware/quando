@@ -11,7 +11,13 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { always, dates, daysOfWeek, timeOfDay, weekdays } from "./build.js";
+import {
+  always,
+  dates,
+  daysOfWeek,
+  timeOfDayRange,
+  weekdays,
+} from "./build.js";
 import { cascade, layer, merged, replace } from "./cascade.js";
 import { explain } from "./explain.js";
 
@@ -26,7 +32,7 @@ describe("explaining a cascade", () => {
     assertArrayEmpty(explanation.steps);
     assertArrayEmpty(explanation.skipped);
     assertStringIncludes(
-      explanation.summary,
+      explanation.details,
       "No layer exists to assign a value.",
     );
   });
@@ -55,10 +61,10 @@ describe("explaining a cascade", () => {
     );
     assertIdentical(explanation.steps[0]?.scope, usual);
     assertIdentical(explanation.steps[1]?.scope, swapped);
-    assertStringIncludes(explanation.summary, "Wednesday is a weekday.");
-    assertStringIncludes(explanation.summary, "The date is 2026-03-11.");
+    assertStringIncludes(explanation.details, "Wednesday is a weekday.");
+    assertStringIncludes(explanation.details, "The date is 2026-03-11.");
     assertStringIncludes(
-      explanation.summary,
+      explanation.details,
       'changes the value from "alice" to "bob"',
     );
   });
@@ -81,9 +87,9 @@ describe("explaining a cascade", () => {
       final.comment,
       "The warehouse is closed for the public holiday.",
     );
-    assertStringIncludes(explanation.summary, "Christmas Day.");
-    assertStringIncludes(explanation.summary, "The date is 2026-12-25.");
-    assertStringIncludes(explanation.summary, "warehouse is closed");
+    assertStringIncludes(explanation.details, "Christmas Day.");
+    assertStringIncludes(explanation.details, "The date is 2026-12-25.");
+    assertStringIncludes(explanation.details, "warehouse is closed");
   });
 
   it("explains non-matching layers separately from contributors", () => {
@@ -107,8 +113,8 @@ describe("explaining a cascade", () => {
       "Wednesday is not a weekend day.",
     );
     const skipped = explanation.skipped[0].description;
-    assertStringIncludes(explanation.summary, skipped);
-    assertArrayLength(explanation.summary.split(skipped), 2);
+    assertStringIncludes(explanation.details, skipped);
+    assertArrayLength(explanation.details.split(skipped), 2);
   });
 
   it("shows how a merge combines matching layers", () => {
@@ -136,7 +142,7 @@ describe("explaining a cascade", () => {
   it("starts again inside the highest matching replacement", () => {
     // Given ordinary hours replaced by a shorter Wednesday definition.
     const inner = cascade(
-      layer(timeOfDay("09:00", "15:00"), true),
+      layer(timeOfDayRange("09:00", "15:00"), true),
       layer(daysOfWeek("saturday"), false),
     );
     const openingHours = cascade(
@@ -167,15 +173,15 @@ describe("explaining a cascade", () => {
     );
     const nestedSkipped = replacement.explanation.skipped[0]?.description;
     assertNonNullable(nestedSkipped);
-    assertStringIncludes(explanation.summary, nestedSkipped);
-    assertArrayLength(explanation.summary.split(nestedSkipped), 2);
+    assertStringIncludes(explanation.details, nestedSkipped);
+    assertArrayLength(explanation.details.split(nestedSkipped), 2);
   });
 
   it("shows when a replacement deliberately leaves the instant unassigned", () => {
     // Given Wednesday hours that replace the usual day and end at three.
     const openingHours = cascade(
       layer(weekdays(), true),
-      replace(dates("2026-03-11"), timeOfDay("09:00", "15:00")),
+      replace(dates("2026-03-11"), timeOfDayRange("09:00", "15:00")),
     );
 
     // When half past three on Wednesday is explained.
@@ -225,7 +231,7 @@ describe("explaining a cascade", () => {
     assertArrayEmpty(explanation.steps);
     assertIdentical(explanation.skipped[0]?.reason, "did-not-match");
     assertStringIncludes(
-      explanation.summary,
+      explanation.details,
       "Saturday is not a weekday. This layer does not apply.",
     );
   });

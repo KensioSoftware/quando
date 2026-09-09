@@ -7,7 +7,7 @@ import {
 import { faker } from "@faker-js/faker";
 import { describe, it } from "vitest";
 
-import { all, dates, daysOfWeek, timeOfDay, weekdays } from "./build.js";
+import { all, dates, daysOfWeek, timeOfDayRange, weekdays } from "./build.js";
 import { type Cascade, cascade, layer, merged, replace } from "./cascade.js";
 import type { Context } from "./context.js";
 import { resolve } from "./resolve.js";
@@ -168,8 +168,8 @@ describe("merging values that overlap", () => {
       // Given hours that a shorter day replaces on one date. A replacing layer
       // claims its whole scope, and what the replacement leaves out has to
       // stay unassigned rather than falling through to the base hours.
-      const fullDay = all(weekdays(), timeOfDay("09:00", "17:00"));
-      const shorterDay = timeOfDay("09:00", "15:00");
+      const fullDay = all(weekdays(), timeOfDayRange("09:00", "17:00"));
+      const shorterDay = timeOfDayRange("09:00", "15:00");
       const openingHours = merged(
         "override",
         layer(fullDay, true),

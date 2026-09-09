@@ -1,25 +1,19 @@
 import type { Cascade } from "./cascade.js";
-import type { Context } from "./context.js";
-import {
-  renderTimeline,
-  type TimelineFormat,
-  type TimelineOptions,
-  type TimelineOutput,
-} from "./timeline.js";
+import type { EvaluationOptions } from "./context.js";
+import { timeline, type Timeline } from "./timeline.js";
 
-/** Renders a schedule in its declared zone, or in the caller's zone. */
-export function renderScheduleTimeline<F extends TimelineFormat = "json">(
+/** Evaluates a schedule in its declared zone or the query's zone. */
+export function scheduleTimeline(
   document: Cascade<boolean>,
   zone: string | undefined,
   from: Temporal.ZonedDateTime,
   to: Temporal.ZonedDateTime,
-  options?: TimelineOptions & { readonly format?: F },
-  read?: Omit<Context, "from" | "to">,
-): TimelineOutput<F> {
+  options?: EvaluationOptions,
+): Timeline {
   const inZone = zone ?? from.timeZoneId;
-  return renderTimeline(
-    document,
-    { ...read, from: from.withTimeZone(inZone), to: to.withTimeZone(inZone) },
-    options,
-  );
+  return timeline(document, {
+    ...options,
+    from: from.withTimeZone(inZone),
+    to: to.withTimeZone(inZone),
+  });
 }

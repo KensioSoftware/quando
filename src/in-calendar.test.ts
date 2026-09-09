@@ -12,7 +12,7 @@ import { describe, it } from "vitest";
 import {
   dates,
   daysOfMonth,
-  every,
+  everyNthPeriod,
   inCalendar,
   inZone,
   monthsOfYear,
@@ -24,7 +24,7 @@ import type { Context } from "./context.js";
 import { toCron } from "./cron-export.js";
 import { intervals } from "./interpret.js";
 import { parseRule } from "./parse.js";
-import { activeAt } from "./query.js";
+import { isActiveAt } from "./query.js";
 import { explainRule } from "./rule-explanation.js";
 
 describe("reading a rule on another calendar", () => {
@@ -101,7 +101,7 @@ describe("reading a rule on another calendar", () => {
       // When the window is evaluated.
       // Then the three on weekdays survive and the April and May ones, a
       // Saturday and a Sunday, do not. A weekday is the same seven-day cycle
-      // on every calendar here, so it needs no wrapper of its own.
+      // on everyNthPeriod calendar here, so it needs no wrapper of its own.
       assertIdentical(
         startDates(workingRoshChodesh),
         "2026-01-19 2026-02-18 2026-03-19",
@@ -131,8 +131,8 @@ describe("reading a rule on another calendar", () => {
 
       // When two instants are checked.
       // Then the calendar decides which is covered.
-      assertTrue(activeAt(roshChodesh, when("2026-01-19T10:00", JERUSALEM)));
-      assertFalse(activeAt(roshChodesh, when("2026-01-01T10:00", JERUSALEM)));
+      assertTrue(isActiveAt(roshChodesh, when("2026-01-19T10:00", JERUSALEM)));
+      assertFalse(isActiveAt(roshChodesh, when("2026-01-01T10:00", JERUSALEM)));
     });
   });
 
@@ -156,7 +156,7 @@ describe("reading a rule on another calendar", () => {
       // Given a two-month cycle read on the Hebrew calendar.
       const wrong = inCalendar(
         "hebrew",
-        every(2, "months", { anchor: "2026-01-01" }),
+        everyNthPeriod(2, "months", { anchor: "2026-01-01" }),
       );
 
       // When it is evaluated.
@@ -164,14 +164,14 @@ describe("reading a rule on another calendar", () => {
 
       // Then it is refused for the same reason.
       assertInstanceOf(error, RangeError);
-      assertStringIncludes(error.message, "every()");
+      assertStringIncludes(error.message, "everyNthPeriod()");
     });
 
     it("counts days and weeks on any calendar", () => {
       // Given a fortnightly cycle read on the Hebrew calendar.
       const fortnightly = inCalendar(
         "hebrew",
-        every(2, "weeks", { anchor: "2026-01-07" }),
+        everyNthPeriod(2, "weeks", { anchor: "2026-01-07" }),
       );
 
       // When it is evaluated.
@@ -215,7 +215,7 @@ describe("reading a rule on another calendar", () => {
       // Then the account of the inner rule counts Hebrew months. Read on the
       // ISO calendar it would be the fourth Sunday, and would report a miss
       // under a wrapper that reported a match.
-      assertTrue(inner?.matched ?? false);
+      assertTrue(inner?.status === "matched");
       assertIdentical(
         inner?.description,
         "This is the 3rd Sunday of the month.",
@@ -233,12 +233,12 @@ describe("reading a rule on another calendar", () => {
       // Then the wrapper and the rule it holds report the same thing. The
       // wrapper quotes the inner account, so a disagreement would print as one
       // sentence contradicting the one before it.
-      assertTrue(explanation.matched);
+      assertTrue(explanation.status === "matched");
       assertIdentical(
         explanation.description,
         "The rule counts on the hebrew calendar. The 16th matches the 16th.",
       );
-      assertTrue(explanation.conditions[0]?.matched ?? false);
+      assertTrue(explanation.conditions[0]?.status === "matched");
     });
 
     it("carries a zone and a calendar down together", () => {
@@ -253,7 +253,7 @@ describe("reading a rule on another calendar", () => {
 
       // Then both reach the leaf, and the account names the zone the way it
       // always did.
-      assertTrue(explanation.matched);
+      assertTrue(explanation.status === "matched");
       assertIdentical(
         explanation.description,
         "The rule uses Asia/Jerusalem. The rule counts on the hebrew " +
@@ -271,7 +271,7 @@ describe("reading a rule on another calendar", () => {
 
       // Then the account gives the ISO date, and not the Hebrew one the
       // surrounding calendar would print.
-      assertTrue(inner?.matched ?? false);
+      assertTrue(inner?.status === "matched");
       assertIdentical(inner?.description, "The date is 2024-02-25.");
     });
 
@@ -279,7 +279,7 @@ describe("reading a rule on another calendar", () => {
       // Given a fortnightly cycle read on the Hebrew calendar.
       const rule = inCalendar(
         "hebrew",
-        every(2, "weeks", { anchor: "2024-01-07" }),
+        everyNthPeriod(2, "weeks", { anchor: "2024-01-07" }),
       );
 
       // When it is explained. The anchor is an ISO date and the instant is
@@ -288,7 +288,7 @@ describe("reading a rule on another calendar", () => {
       const [inner] = explainRule(rule, inAdarI()).conditions;
 
       // Then it says which cycle the instant is in.
-      assertFalse(inner?.matched ?? true);
+      assertFalse(inner?.status === "matched");
       assertStringIncludes(inner?.description ?? "", "7 weeks after");
     });
   });
@@ -359,7 +359,7 @@ describe("reading a rule on another calendar", () => {
       );
 
       // Then the account names the calendar, the way it names a zone.
-      assertTrue(explanation.matched);
+      assertTrue(explanation.status === "matched");
       assertStringIncludes(explanation.description, "hebrew calendar");
     });
   });

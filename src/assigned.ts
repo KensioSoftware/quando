@@ -1,7 +1,8 @@
+export { valueAt, nextValueInterval } from "./value-query.js";
 /**
  * Asking the four questions of a cascade rather than of a rule.
  *
- * `activeAt`, `coveredDuration`, `nextCoveredInterval` and `advanceBy` are
+ * `isActiveAt`, `coveredDuration`, `nextCoveredInterval` and `addCoveredTime` are
  * about *when*, and a rule is what they read. A cascade says *what holds when*,
  * which is a different question. Narrowing one to a single value turns it back
  * into the first.
@@ -12,19 +13,16 @@
  * {@link valueAt} is the one question a rule has no version of.
  */
 
-import {
-  asCascade,
-  type Cascade,
-  type CascadeLike,
-  type Valued,
-} from "./cascade.js";
+import { asCascade, type Cascade, type CascadeLike } from "./cascade.js";
 import type { Context } from "./context.js";
-import { refuse, unknownValueIn, upTo } from "./horizon-guard.js";
+import {
+  evaluationOptions,
+  withEvaluationOptions,
+} from "./evaluation-options.js";
 import { bounds } from "./bounds.js";
 import type { IntervalStream } from "./interval-stream.js";
 import { resolve } from "./resolve.js";
-import type { Rule } from "./rule.js";
-import { take } from "./stream.js";
+import type { RuleData } from "./rule.js";
 
 /**
  * A cascade narrowed to the times it assigns one value.
@@ -39,25 +37,49 @@ export interface Assigned<V> {
 }
 
 /** Either of the two things a query can read as the times it covers. */
-export type Covers<V> = Rule | Assigned<V> | CascadeLike<boolean>;
+export type CoverageSource<V = unknown> =
+  | RuleData
+  | Assigned<V>
+  | ValueSelection<V>
+  | CascadeLike<boolean>;
+
+/** A value predicate applied to a resolved cascade. */
+export interface ValueSelection<V> {
+  readonly cascade: Cascade<V>;
+  readonly matches: (value: V) => boolean;
+}
+
+/** Selects the intervals whose assigned value satisfies a predicate. */
+export function whereValueMatches<V>(
+  source: CascadeLike<V>,
+  matches: (value: V) => boolean,
+): ValueSelection<V> {
+  return withEvaluationOptions(
+    { cascade: asCascade(source), matches },
+    evaluationOptions(source, {}),
+  );
+}
 
 /**
  * The times a cascade assigns a value.
  *
  * ```ts
  * coveredDuration(assigned(onCall, "alice"), week);
- * advanceBy(from, threeHours, { during: assigned(onCall, "alice") });
+ * addCoveredTime(from, threeHours, { during: assigned(onCall, "alice") });
  * ```
  *
  * Sameness is `Object.is`, the same test {@link coalesce} uses, so a value
  * matches by identity rather than by shape.
  */
 export function assigned<V>(cascade: CascadeLike<V>, is: V): Assigned<V> {
-  return { cascade: asCascade(cascade), is };
+  return withEvaluationOptions(
+    { cascade: asCascade(cascade), is },
+    evaluationOptions(cascade, {}),
+  );
 }
 
 /** Whether a query is reading a rule or a narrowed cascade. */
-export function isRule<V>(covers: Covers<V>): covers is Rule {
+export function isRule<V>(covers: CoverageSource<V>): covers is RuleData {
   return (
     "type" in covers && covers.type !== "cascade" && !("cascade" in covers)
   );
@@ -74,78 +96,31 @@ export function isRule<V>(covers: Covers<V>): covers is Rule {
  * horizon is every time it covers. See [bounds.ts](./bounds.ts).
  */
 export function covered<V>(
-  covers: Covers<V>,
+  covers: CoverageSource<V>,
   context: Context,
 ): IntervalStream {
+  const read = evaluationOptions(covers, context);
   if (isRule(covers)) {
-    return bounds(covers, context).certain;
+    return bounds(covers, read).certain;
   }
-  if ("is" in covers) {
-    return matching(covers, context);
+  if ("is" in covers || "matches" in covers) {
+    return matching(covers, read);
   }
-  return matching({ cascade: asCascade(covers), is: true }, context);
+  return matching({ cascade: asCascade(covers), is: true }, read);
 }
 
 /** The stretches of a resolved cascade carrying the value asked for. */
-function* matching<V>(covers: Assigned<V>, context: Context): IntervalStream {
+function* matching<V>(
+  covers: Assigned<V> | ValueSelection<V>,
+  context: Context,
+): IntervalStream {
   for (const span of resolve(covers.cascade, context)) {
-    if (Object.is(span.value, covers.is)) {
+    if (
+      "matches" in covers
+        ? covers.matches(span.value)
+        : Object.is(span.value, covers.is)
+    ) {
       yield { start: span.start, end: span.end };
     }
   }
-}
-
-/**
- * What a cascade assigns at an instant, or `undefined` where nothing does.
- *
- * The question a rule has no version of. `activeAt` asks whether a rule covers
- * a moment, and the answer for a cascade is not whether but what.
- *
- * Always terminates, whatever the layers say, because it asks about the
- * smallest window there is.
- *
- * Throws {@link BeyondHorizonError} where the layers cannot settle which value
- * holds. An `undefined` from this means no layer claims the moment, and never
- * that one might have.
- */
-export function valueAt<V>(
-  cascade: CascadeLike<V>,
-  at: Temporal.ZonedDateTime,
-  context?: Omit<Context, "from" | "to">,
-): V | undefined {
-  const moment: Context = {
-    ...context,
-    from: at,
-    to: at.add({ nanoseconds: 1 }),
-  };
-  const [now] = take(resolve(cascade, moment), 1);
-  if (now !== undefined) {
-    return now.value;
-  }
-  const fog = unknownValueIn(cascade, moment);
-  return fog === undefined
-    ? undefined
-    : refuse("valueAt()", fog, moment, "uncertainValues()");
-}
-
-/**
- * The next stretch a cascade assigns anything at all, with its value.
- *
- * `next` narrowed to one value answers "when is Alice next on". This answers
- * "what happens next", whatever that turns out to be, which is the question a
- * timeline asks.
- *
- * Only the time before the stretch it finds can change the answer, so that is
- * the only part checked against the layers' horizons.
- */
-export function nextValue<V>(
-  cascade: CascadeLike<V>,
-  context: Context,
-): Valued<V> | undefined {
-  const [first] = take(resolve(cascade, context), 1);
-  const fog = unknownValueIn(cascade, upTo(context, first?.start));
-  if (fog !== undefined) {
-    refuse("nextValue()", fog, context, "uncertainValues()");
-  }
-  return first;
 }

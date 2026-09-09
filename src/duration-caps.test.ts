@@ -9,15 +9,15 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { atMostTime } from "./build.js";
+import { atMostOccupiedTime } from "./build.js";
 import { canonical } from "./canonical.js";
 import { toCron } from "./cron-export.js";
 import type { Occurrence } from "./occurrence.js";
 import { MissingOccurrencesError } from "./occurrence.js";
 import { parseRule } from "./parse.js";
-import { activeAt, nextCoveredInterval } from "./query.js";
+import { isActiveAt, nextCoveredInterval } from "./query.js";
 import { explainRule } from "./rule-explanation.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 describe("capping the total time something takes", () => {
   const days = (count: number): Temporal.Duration =>
@@ -28,7 +28,8 @@ describe("capping the total time something takes", () => {
 
   describe("a rolling window", () => {
     /** Ninety days of presence in any rolling one hundred and eighty. */
-    const schengen = (): Rule => atMostTime("P90D", "P180D");
+    const schengen = (): RuleData =>
+      atMostOccupiedTime("P90D", { within: "P180D" });
 
     /**
      * A stay using the whole allowance, 1 January to 1 April.
@@ -45,7 +46,7 @@ describe("capping the total time something takes", () => {
       // When a day in May is asked about.
       // Then it is refused, because the whole stay is still in the window.
       assertFalse(
-        activeAt(schengen(), when("2026-05-01T00:00", "UTC"), {
+        isActiveAt(schengen(), when("2026-05-01T00:00", "UTC"), {
           occurrences: stay(),
         }),
       );
@@ -57,7 +58,7 @@ describe("capping the total time something takes", () => {
       // Then it is allowed, because the start of the stay is more than one
       // hundred and eighty days behind.
       assertTrue(
-        activeAt(schengen(), when("2026-07-01T00:00", "UTC"), {
+        isActiveAt(schengen(), when("2026-07-01T00:00", "UTC"), {
           occurrences: stay(),
         }),
       );
@@ -92,7 +93,7 @@ describe("capping the total time something takes", () => {
       // When a day after both is asked about.
       // Then it is allowed, because nobody is in two places at once.
       assertTrue(
-        activeAt(schengen(), when("2026-03-01T00:00", "UTC"), {
+        isActiveAt(schengen(), when("2026-03-01T00:00", "UTC"), {
           occurrences: twice,
         }),
       );
@@ -101,7 +102,8 @@ describe("capping the total time something takes", () => {
 
   describe("a calendar bucket", () => {
     /** Fifty-six hours of driving in a week. */
-    const tachograph = (): Rule => atMostTime("PT56H", "weeks");
+    const tachograph = (): RuleData =>
+      atMostOccupiedTime("PT56H", { per: "week" });
 
     /** A stint using the week's whole allowance, from Monday. */
     const driven = (): Occurrence[] => [
@@ -113,7 +115,7 @@ describe("capping the total time something takes", () => {
       // When the Friday of that week is asked about.
       // Then it is refused.
       assertFalse(
-        activeAt(tachograph(), when("2026-03-13T10:00"), {
+        isActiveAt(tachograph(), when("2026-03-13T10:00"), {
           occurrences: driven(),
         }),
       );
@@ -124,7 +126,7 @@ describe("capping the total time something takes", () => {
       // When the Monday morning it began is asked about.
       // Then it is refused, because a full week is full at either end of it.
       assertFalse(
-        activeAt(tachograph(), when("2026-03-09T00:00"), {
+        isActiveAt(tachograph(), when("2026-03-09T00:00"), {
           occurrences: driven(),
         }),
       );
@@ -135,7 +137,7 @@ describe("capping the total time something takes", () => {
       // When the Monday after it is asked about.
       // Then it is allowed, because a calendar bucket resets.
       assertTrue(
-        activeAt(tachograph(), when("2026-03-16T10:00"), {
+        isActiveAt(tachograph(), when("2026-03-16T10:00"), {
           occurrences: driven(),
         }),
       );
@@ -149,14 +151,14 @@ describe("capping the total time something takes", () => {
       ];
 
       // When a cap of three hours a day is asked about either day.
-      const rule = atMostTime("PT3H", "days");
+      const rule = atMostOccupiedTime("PT3H", { per: "day" });
 
       // Then both are allowed, because neither day holds more than two hours.
       assertTrue(
-        activeAt(rule, when("2026-03-09T12:00"), { occurrences: overnight }),
+        isActiveAt(rule, when("2026-03-09T12:00"), { occurrences: overnight }),
       );
       assertTrue(
-        activeAt(rule, when("2026-03-10T12:00"), { occurrences: overnight }),
+        isActiveAt(rule, when("2026-03-10T12:00"), { occurrences: overnight }),
       );
     });
 
@@ -167,14 +169,14 @@ describe("capping the total time something takes", () => {
       ];
 
       // When a cap of two hours a day is asked about either day.
-      const rule = atMostTime("PT2H", "days");
+      const rule = atMostOccupiedTime("PT2H", { per: "day" });
 
       // Then both are refused, because each holds its whole two hours.
       assertFalse(
-        activeAt(rule, when("2026-03-09T12:00"), { occurrences: overnight }),
+        isActiveAt(rule, when("2026-03-09T12:00"), { occurrences: overnight }),
       );
       assertFalse(
-        activeAt(rule, when("2026-03-10T12:00"), { occurrences: overnight }),
+        isActiveAt(rule, when("2026-03-10T12:00"), { occurrences: overnight }),
       );
     });
   });
@@ -193,7 +195,10 @@ describe("capping the total time something takes", () => {
       };
 
       // When the next allowed stretch is asked for.
-      const next = nextCoveredInterval(atMostTime("P45D", "P180D"), window);
+      const next = nextCoveredInterval(
+        atMostOccupiedTime("P45D", { within: "P180D" }),
+        window,
+      );
 
       // Then nothing opens until 28 August, which is 1 March plus 180 days,
       // when the second stay finally falls out of the window.
@@ -216,9 +221,13 @@ describe("capping the total time something takes", () => {
       // about a day inside the window.
       // Then the stay is an hour short of filling it.
       assertTrue(
-        activeAt(atMostTime("P90D", "P180D"), when("2026-05-01T00:00"), {
-          occurrences: stay,
-        }),
+        isActiveAt(
+          atMostOccupiedTime("P90D", { within: "P180D" }),
+          when("2026-05-01T00:00"),
+          {
+            occurrences: stay,
+          },
+        ),
       );
 
       // And an hour more of it fills the cap exactly.
@@ -226,9 +235,13 @@ describe("capping the total time something takes", () => {
         { at: when("2026-01-01T00:00"), lasting: days(90).add({ hours: 1 }) },
       ];
       assertFalse(
-        activeAt(atMostTime("P90D", "P180D"), when("2026-05-01T00:00"), {
-          occurrences: withTheHour,
-        }),
+        isActiveAt(
+          atMostOccupiedTime("P90D", { within: "P180D" }),
+          when("2026-05-01T00:00"),
+          {
+            occurrences: withTheHour,
+          },
+        ),
       );
     });
   });
@@ -243,16 +256,23 @@ describe("capping the total time something takes", () => {
       // When a cap on time is asked about that day.
       // Then nothing is refused, because a moment fills no part of a window.
       assertTrue(
-        activeAt(atMostTime("PT1H", "days"), when("2026-03-10T21:00"), {
-          occurrences: doses,
-        }),
+        isActiveAt(
+          atMostOccupiedTime("PT1H", { per: "day" }),
+          when("2026-03-10T21:00"),
+          {
+            occurrences: doses,
+          },
+        ),
       );
     });
 
     it("refuses to answer with no history at all", () => {
       // Given a context that says nothing about what has happened.
       const asking = (): boolean =>
-        activeAt(atMostTime("PT56H", "weeks"), when("2026-03-13T10:00"));
+        isActiveAt(
+          atMostOccupiedTime("PT56H", { per: "week" }),
+          when("2026-03-13T10:00"),
+        );
 
       // Then it refuses, the way every constraint does.
       assertInstanceOf(assertThrowsError(asking), MissingOccurrencesError);
@@ -262,7 +282,8 @@ describe("capping the total time something takes", () => {
   describe("the durations it accepts", () => {
     it("refuses a window whose length depends on where it falls", () => {
       // Given a cap written in months.
-      const writing = (): Rule => atMostTime("PT1H", "P1M");
+      const writing = (): RuleData =>
+        atMostOccupiedTime("PT1H", { within: "P1M" });
 
       // Then it is refused, because a month is four different lengths.
       const refusal = assertThrowsError(writing);
@@ -272,7 +293,8 @@ describe("capping the total time something takes", () => {
 
     it("refuses a total written in weeks", () => {
       // Given an allowance written in weeks.
-      const writing = (): Rule => atMostTime("P2W", "P180D");
+      const writing = (): RuleData =>
+        atMostOccupiedTime("P2W", { within: "P180D" });
 
       // Then it is refused for the same reason.
       assertStringIncludes(
@@ -285,13 +307,15 @@ describe("capping the total time something takes", () => {
   describe("as a document", () => {
     it("survives a round trip through JSON", () => {
       // Given a cap written out and read back.
-      const written = JSON.stringify(atMostTime("P90D", "P180D"));
+      const written = JSON.stringify(
+        atMostOccupiedTime("P90D", { within: "P180D" }),
+      );
       const read = parseRule(JSON.parse(written));
 
       // When the same question is asked of the rule that came back.
       // Then it answers the way the original did.
       assertFalse(
-        activeAt(read, when("2026-05-01T00:00", "UTC"), {
+        isActiveAt(read, when("2026-05-01T00:00", "UTC"), {
           occurrences: [
             { at: when("2026-01-01T00:00", "UTC"), lasting: days(90) },
           ],
@@ -301,7 +325,7 @@ describe("capping the total time something takes", () => {
 
     it("canonicalises to the fields in a fixed order", () => {
       // Given a cap on time.
-      const rule = atMostTime("PT56H", "weeks");
+      const rule = atMostOccupiedTime("PT56H", { per: "week" });
 
       // When it is canonicalised.
       // Then the window it counts in stays the one it was written with.
@@ -313,7 +337,7 @@ describe("capping the total time something takes", () => {
 
     it("refuses to be written as cron, saying why", () => {
       // Given a cap on time.
-      const written = toCron(atMostTime("PT56H", "weeks"));
+      const written = toCron(atMostOccupiedTime("PT56H", { per: "week" }));
 
       // Then cron cannot carry it, because it has nowhere to put a history.
       assertFalse(written.ok);
@@ -324,7 +348,7 @@ describe("capping the total time something takes", () => {
   describe("the fields a document may hold", () => {
     it("refuses a document naming both windows", () => {
       // Given a cap on time that says both how it counts.
-      const reading = (): Rule =>
+      const reading = (): RuleData =>
         parseRule({
           type: "atMostTime",
           total: "PT1H",
@@ -338,7 +362,7 @@ describe("capping the total time something takes", () => {
 
     it("refuses a document naming neither", () => {
       // Given a cap on time with no window at all.
-      const reading = (): Rule =>
+      const reading = (): RuleData =>
         parseRule({ type: "atMostTime", total: "PT1H" });
 
       // Then it is refused, because the window is what a cap counts in.
@@ -350,7 +374,10 @@ describe("capping the total time something takes", () => {
 
     it("keeps the zone it counts buckets in", () => {
       // Given a cap counting days on a Tokyo clock.
-      const rule = atMostTime("PT2H", "days", { zone: "Asia/Tokyo" });
+      const rule = atMostOccupiedTime("PT2H", {
+        per: "day",
+        zone: "Asia/Tokyo",
+      });
 
       // When it is written out and read back.
       const read = parseRule(structuredClone<unknown>(rule));
@@ -369,7 +396,7 @@ describe("capping the total time something takes", () => {
       // window then reaches back to 2 February, so 58 of the 90 days are
       // still inside it.
       const account = explainRule(
-        atMostTime("P90D", "P180D"),
+        atMostOccupiedTime("P90D", { within: "P180D" }),
         when("2026-08-01T00:00", "UTC"),
         {
           occurrences: [
@@ -380,7 +407,7 @@ describe("capping the total time something takes", () => {
 
       // When the account is read.
       // Then it names what is used and what is allowed.
-      assertTrue(account.matched);
+      assertTrue(account.status === "matched");
       assertStringIncludes(account.description, "58 days");
       assertStringIncludes(account.description, "at most 90 days is allowed");
     });
@@ -388,7 +415,7 @@ describe("capping the total time something takes", () => {
     it("says how full a calendar bucket is", () => {
       // Given fifty-six hours driven from Monday, asked about on the Friday.
       const account = explainRule(
-        atMostTime("PT56H", "weeks"),
+        atMostOccupiedTime("PT56H", { per: "week" }),
         when("2026-03-13T10:00"),
         {
           occurrences: [{ at: when("2026-03-09T00:00"), lasting: hours(56) }],
@@ -398,7 +425,7 @@ describe("capping the total time something takes", () => {
       // When the account is read.
       // Then it names the week and what filled it, fifty-six hours being two
       // days and eight.
-      assertFalse(account.matched);
+      assertFalse(account.status === "matched");
       assertStringIncludes(account.description, "2 days 8 hours of this week");
       assertStringIncludes(account.description, "the most allowed");
     });
@@ -407,7 +434,7 @@ describe("capping the total time something takes", () => {
       // Given four hours running from ten at night into the next day, asked
       // about on the first of the two days.
       const account = explainRule(
-        atMostTime("PT3H", "days"),
+        atMostOccupiedTime("PT3H", { per: "day" }),
         when("2026-03-09T12:00"),
         {
           occurrences: [{ at: when("2026-03-09T22:00"), lasting: hours(4) }],
@@ -416,7 +443,7 @@ describe("capping the total time something takes", () => {
 
       // When the account is read.
       // Then two of the four hours are counted, because the rest is tomorrow.
-      assertTrue(account.matched);
+      assertTrue(account.status === "matched");
       assertStringIncludes(account.description, "2 hours of this day");
     });
   });

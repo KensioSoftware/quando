@@ -10,7 +10,7 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { dates, timeOfDay, weekdays } from "./build.js";
+import { dates, timeOfDayRange, weekdays } from "./build.js";
 import {
   type Cascade,
   cascade,
@@ -145,7 +145,7 @@ describe("cascades as data", () => {
     it("stores a bare rule as the cascade it stands for", () => {
       // Given an early closing written with the rule form of the sugar.
       // When the layer is built.
-      const early = replace(WEDNESDAY, timeOfDay("09:00", "15:00"));
+      const early = replace(WEDNESDAY, timeOfDayRange("09:00", "15:00"));
 
       // Then what it holds is the lifted cascade. The sugar is resolved as the
       // layer is written, and a stored document carries only the one form.
@@ -167,7 +167,7 @@ describe("cascades as data", () => {
     it("attaches context to a replacement", () => {
       // Given a changed-hours rule with a business label.
       // When its replacement layer is built.
-      const early = replace(WEDNESDAY, timeOfDay("09:00", "15:00"), {
+      const early = replace(WEDNESDAY, timeOfDayRange("09:00", "15:00"), {
         label: "Team meeting",
       });
 
@@ -177,7 +177,7 @@ describe("cascades as data", () => {
 
     it("keeps a cascade replacement as it was given", () => {
       // Given a replacement that is already a cascade.
-      const inner = cascade(layer(timeOfDay("09:00", "15:00"), "short"));
+      const inner = cascade(layer(timeOfDayRange("09:00", "15:00"), "short"));
 
       // When the layer is built.
       const layered = replace(WEDNESDAY, inner);

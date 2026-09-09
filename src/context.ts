@@ -58,6 +58,21 @@ export interface Context {
   readonly occurrences?: readonly Occurrence[];
 }
 
+/** Evaluation settings shared by point, window, and search queries. */
+export type EvaluationOptions = Omit<Context, "from" | "to">;
+
+/** A query window with both endpoints. */
+export interface QueryWindow extends Context {
+  readonly to: Temporal.ZonedDateTime;
+}
+
+/** Checks the finite-window contract for JavaScript callers. */
+export function requireWindowEnd(context: Context, message: string): void {
+  if (context.to === undefined) {
+    throw new RangeError(message);
+  }
+}
+
 /** The context's window, in the form the interval algebra takes. */
 export function windowOf(context: Context): {
   readonly start: Temporal.ZonedDateTime;

@@ -7,10 +7,10 @@
  */
 
 import { byCodeUnit } from "./code-unit-order.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 /** A rule's stable string form, which is what sorting and equality compare. */
-function key(rule: Rule): string {
+function key(rule: RuleData): string {
   return JSON.stringify(rule);
 }
 
@@ -22,13 +22,13 @@ function key(rule: Rule): string {
  */
 export function combined(
   type: "all" | "any",
-  rules: readonly Rule[],
-  canonical: (rule: Rule) => Rule,
-): Rule {
+  rules: readonly RuleData[],
+  canonical: (rule: RuleData) => RuleData,
+): RuleData {
   const absorbed = type === "all" ? "always" : "never";
   const settles = type === "all" ? "never" : "always";
 
-  const flat: Rule[] = [];
+  const flat: RuleData[] = [];
   for (const rule of rules) {
     const inner = canonical(rule);
 

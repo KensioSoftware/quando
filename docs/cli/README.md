@@ -119,8 +119,8 @@ npx quando validate opening-hours.json \
 []
 ```
 
-The command exits with status 0 when the array is empty. It prints diagnostics
-and exits with status 1 when it finds a problem. Pass `--format text` to print
+The command exits with status 0 for an empty result or informational findings.
+Warnings and errors exit with status 1. Pass `--format text` to print
 one readable diagnostic per line.
 
 Schedule validation permits closed time. Rota validation reports periods when

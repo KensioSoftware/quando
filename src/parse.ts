@@ -21,17 +21,18 @@ import {
 import { parseCustomRule } from "./parse-custom.js";
 import { asRecord, fail, shapeOf } from "./parse-shape.js";
 import { checkedType } from "./parse-rule-fields.js";
-import { build, type Built } from "./build.js";
+import { build, type Rule } from "./build.js";
 import {
   parseInCalendarRule,
   parseInZoneRule,
   parseKnownRule,
 } from "./parse-scope.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
+import { parsed } from "./parse-error.js";
 
 export { RULE_TYPES } from "./parse-rule-fields.js";
 
-function asRules(value: unknown, path: string): Rule[] {
+function asRules(value: unknown, path: string): RuleData[] {
   if (!Array.isArray(value)) {
     return fail(path, `expected an array of rules, found ${shapeOf(value)}`);
   }
@@ -44,11 +45,22 @@ function asRules(value: unknown, path: string): Rule[] {
  * The `path` is what appears in front of every message, so a rule nested six
  * deep reports as `rule.rules[2].rules[0].days[3]` rather than as a puzzle.
  */
-function parseRuleData(value: unknown, path: string): Rule {
+function parseRuleData(value: unknown, path: string): RuleData {
   const node = asRecord(value, path, "a rule object");
   const type = checkedType(node, path);
 
   switch (type) {
+    case "shiftDays": {
+      const days = node["days"];
+      if (typeof days !== "number" || !Number.isSafeInteger(days)) {
+        return fail(`${path}.days`, "expected a whole number of calendar days");
+      }
+      return {
+        type: "shiftDays",
+        days,
+        rule: parseRuleData(node["rule"], `${path}.rule`),
+      };
+    }
     case "always": {
       return { type: "always" };
     }
@@ -115,6 +127,6 @@ function parseRuleData(value: unknown, path: string): Rule {
 }
 
 /** A validated rule with fluent composition methods restored. */
-export function parseRule(value: unknown, path = "rule"): Built<Rule> {
-  return build(parseRuleData(value, path));
+export function parseRule(value: unknown, path = "rule"): Rule {
+  return parsed(path, () => build(parseRuleData(value, path)));
 }

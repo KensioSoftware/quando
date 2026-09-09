@@ -1,7 +1,9 @@
 import type { Cascade } from "./cascade.js";
 import type { Context } from "./context.js";
+import type { Estimate } from "./estimate.js";
+import { mapOutcomes } from "./estimate-outcomes.js";
 import {
-  advanceByCoveredDays,
+  addCoveredDays,
   coveredDayCount,
   type CoveredDayOptions,
 } from "./covered-days.js";
@@ -15,7 +17,7 @@ export type OpenDayOptions = Omit<CoveredDayOptions<boolean>, "during">;
  * A day is a date on a wall calendar, and a London schedule keeps London dates
  * however the query instant is written. `renderTimeline` picks its zone the
  * same way for the same reason. The standalone `coveredDayCount` and
- * `advanceByCoveredDays` have no schedule to ask and read the context's zone.
+ * `addCoveredDays` have no schedule to ask and read the context's zone.
  */
 function dayZone(zone: string | undefined, at: Temporal.ZonedDateTime): string {
   return zone ?? at.timeZoneId;
@@ -47,13 +49,15 @@ export function addOpenDays(
   document: Cascade<boolean>,
   zone: string | undefined,
   from: Temporal.ZonedDateTime,
-  count: number,
+  count: number | Estimate<number>,
   options?: OpenDayOptions,
-): Temporal.ZonedDateTime | undefined {
+): Temporal.ZonedDateTime | Estimate<Temporal.ZonedDateTime> | undefined {
   const inZone = dayZone(zone, from);
-  const reached = advanceByCoveredDays(from.withTimeZone(inZone), count, {
+  const reached = addCoveredDays(from.withTimeZone(inZone), count, {
     ...options,
     during: document,
   });
-  return reached?.withTimeZone(from.timeZoneId);
+  return reached !== undefined && "kind" in reached
+    ? mapOutcomes(reached, (at) => at.withTimeZone(from.timeZoneId))
+    : reached?.withTimeZone(from.timeZoneId);
 }

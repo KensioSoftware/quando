@@ -5,12 +5,12 @@ answer yes, because it is a Tuesday. Nobody has loaded 2029's holidays.
 
 ```ts
 import {
-  activeAt,
+  isActiveAt,
   all,
   dates,
   knownThrough,
   not,
-  uncertain,
+  unknownIntervals,
   weekdays,
 } from "@kensio/quando";
 
@@ -26,15 +26,15 @@ included, the way it is in [`onOrBefore`](../rules/). Inside the horizon
 everything answers the way it always did.
 
 ```ts
-activeAt(open, at("2026-03-09T10:00")); // true
+isActiveAt(open, at("2026-03-09T10:00")); // true
 ```
 
 Past the horizon a query refuses.
 
 ```ts
-activeAt(open, at("2029-04-03T10:00"));
-// BeyondHorizonError: activeAt() cannot answer for 2029-04-03T10:00:00: the
-// rules stop being known before then. Use uncertain() to read where the answer
+isActiveAt(open, at("2029-04-03T10:00"));
+// BeyondHorizonError: isActiveAt() cannot answer for 2029-04-03T10:00:00: the
+// rules stop being known before then. Use unknownIntervals() to read where the answer
 // runs out, or widen the horizon the rules declare.
 ```
 
@@ -44,7 +44,7 @@ A missing holiday cannot open a weekend. A Saturday past the same horizon still
 gets an answer.
 
 ```ts
-activeAt(open, at("2029-04-07T10:00")); // false
+isActiveAt(open, at("2029-04-07T10:00")); // false
 ```
 
 Quando refuses only where the missing data could have changed what came back.
@@ -54,17 +54,17 @@ both bounds, `any` unions both, and `not` swaps them.
 
 ## Reading where the answer runs out
 
-`uncertain` returns the stretches that fall between the two bounds.
+`unknownIntervals` returns the stretches that fall between the two bounds.
 
 ```ts
 const week = { from: at("2029-04-02T00:00"), to: at("2029-04-09T00:00") };
 
-[...uncertain(open, week)];
+[...unknownIntervals(open, week)];
 // [{ start: 2029-04-02T00:00, end: 2029-04-07T00:00 }]
 ```
 
 That week runs Monday to Monday, and only the five weekdays come back. The
-weekend is settled. For a rule with no horizon anywhere in it, `uncertain` is
+weekend is settled. For a rule with no horizon anywhere in it, `unknownIntervals` is
 always empty.
 
 ## A table declares its own horizon
@@ -76,18 +76,18 @@ knows exactly.
 ```ts
 const holidayTable: CustomRuleType = {
   intervals: (context) => loadedHolidays(context),
-  known: () => "2026-12-31",
+  knownThrough: () => "2026-12-31",
 };
 
-const schedule = all(weekdays(), not(custom("holidays")));
+const schedule = all(weekdays(), not(customRule("holidays")));
 
-activeAt(schedule, at("2029-04-03T10:00"), {
+isActiveAt(schedule, at("2029-04-03T10:00"), {
   rules: { holidays: holidayTable },
 });
 // BeyondHorizonError
 ```
 
-`known` is optional. A rule type without one vouches for all of time, which is
+`knownThrough` is optional. A rule type without one vouches for all of time, which is
 what every rule type did before horizons existed.
 
 ## A horizon is not a scope
@@ -101,15 +101,14 @@ two are different, and the difference is the whole reason the rule type exists.
 ```ts
 const account = explainRule(open, at("2029-04-03T10:00"));
 
-account.known; // false
-account.matched; // false
+account.status; // "unknown"
 account.description;
 // "Whether this matches is not known. The rules stop being known before this
 //  time."
 ```
 
-`known` is `true` for every rule that declares no horizon. Where it is `false`,
-read `matched` as an absence of evidence.
+`status` distinguishes missing knowledge from a known match or rejection.
+Read it before presenting an answer.
 
 ## Storage
 
@@ -131,7 +130,7 @@ forever, and writing the rule out would drop the horizon.
 ## Cascades
 
 A cascade assigns values, and unknown inside one means not knowing _which_
-value holds. `uncertainValues` returns the stretches it cannot settle, and
+value holds. `unknownValueIntervals` returns the stretches it cannot settle, and
 `resolve` leaves them out rather than picking one of the answers.
 
 ```ts
@@ -143,7 +142,7 @@ const schedule = {
   ],
 };
 
-[...uncertainValues(schedule, week)];
+[...unknownValueIntervals(schedule, week)];
 // the whole week: past its horizon the holiday layer might claim any of it
 
 valueAt(schedule, at("2029-04-03T10:00"));
@@ -172,7 +171,7 @@ const schedule = {
 [...resolve(schedule, week)];
 // [{ start: Mon, end: Sat, value: "open" }]
 
-[...uncertainValues(schedule, week)];
+[...unknownValueIntervals(schedule, week)];
 // [{ start: Sat, end: Mon }]
 
 valueAt(schedule, at("2029-04-03T10:00")); // "open"
@@ -208,6 +207,6 @@ const headcount = {
 <!-- card
 ```ts
 const open = all(weekdays(), not(knownThrough("2026-12-31", holidays)));
-activeAt(open, tuesdayIn2029); // BeyondHorizonError
+isActiveAt(open, tuesdayIn2029); // BeyondHorizonError
 ```
 -->

@@ -11,7 +11,7 @@ import { describe, it } from "vitest";
 
 import {
   any,
-  between,
+  datesBetween,
   dates,
   daysOfMonth,
   daysOfWeek,
@@ -19,12 +19,12 @@ import {
   monthsOfYear,
   nthDayOfWeekInMonth,
   onOrAfter,
-  timeOfDay,
+  timeOfDayRange,
   weekdays,
 } from "./build.js";
-import { every } from "./every-builders.js";
+import { everyNthPeriod } from "./every-builders.js";
 import { intervals } from "./interpret.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { parseRRule } from "./rrule.js";
 import {
   toRRule,
@@ -34,14 +34,14 @@ import {
 
 describe("writing a rule as a recurrence rule", () => {
   /** The recurrence a rule comes to. Fails the test when it has none. */
-  const written = (rule: Rule, options?: ToRRuleOptions): WrittenRRule => {
+  const written = (rule: RuleData, options?: ToRRuleOptions): WrittenRRule => {
     const result = toRRule(rule, options);
     assertTrue(result.ok);
     return result;
   };
 
   /** Why a rule has no recurrence. Fails the test when it has one. */
-  const refusal = (rule: Rule, options?: ToRRuleOptions): string => {
+  const refusal = (rule: RuleData, options?: ToRRuleOptions): string => {
     const result = toRRule(rule, options);
     assertFalse(result.ok);
     return result.reason;
@@ -53,7 +53,7 @@ describe("writing a rule as a recurrence rule", () => {
   describe("the recurrence a rule comes to", () => {
     it("writes a weekly pattern as the days it runs on", () => {
       // Given a standup, as the minute it starts in on each weekday.
-      const standup = weekdays().and(timeOfDay("09:30", "09:31"));
+      const standup = weekdays().and(timeOfDayRange("09:30", "09:31"));
 
       // When it is written out.
       const result = written(standup, FROM_MARCH);
@@ -66,7 +66,7 @@ describe("writing a rule as a recurrence rule", () => {
 
     it("carries how long an occurrence runs, which no RRULE says", () => {
       // Given office hours, which cover eight hours rather than an instant.
-      const office = weekdays().and(timeOfDay("09:00", "17:00"));
+      const office = weekdays().and(timeOfDayRange("09:00", "17:00"));
 
       // When it is written out.
       const result = written(office, FROM_MARCH);
@@ -124,8 +124,8 @@ describe("writing a rule as a recurrence rule", () => {
     it("writes several start times as the hours and minutes they are", () => {
       // Given a job at 09:00 and 17:00, as the minutes it starts in.
       const twice = any(
-        timeOfDay("09:00", "09:01"),
-        timeOfDay("17:00", "17:01"),
+        timeOfDayRange("09:00", "09:01"),
+        timeOfDayRange("17:00", "17:01"),
       );
 
       // When it is written out.
@@ -160,7 +160,7 @@ describe("writing a rule as a recurrence rule", () => {
 
     it("bounds a whole-day recurrence with a date", () => {
       // Given a rule pinned to one stretch of the calendar.
-      const quarter = between("2026-04-01", "2026-06-30");
+      const quarter = datesBetween("2026-04-01", "2026-06-30");
 
       // When it is written out.
       // Then UNTIL is a date, which is the value type a date DTSTART needs.
@@ -169,20 +169,15 @@ describe("writing a rule as a recurrence rule", () => {
       assertIdentical(result.start, "2026-04-01");
     });
 
-    it("bounds a timed recurrence at the end of its last day", () => {
+    it("refuses a timed upper bound that cannot be read back", () => {
       // Given the same stretch, with a time of day on it. UNTIL has to be the
       // same kind of value as DTSTART, so a date will not do.
-      const quarter = between("2026-04-01", "2026-06-30").and(
-        timeOfDay("09:00", "09:01"),
+      const quarter = datesBetween("2026-04-01", "2026-06-30").and(
+        timeOfDayRange("09:00", "09:01"),
       );
 
-      // When it is written out with no zone.
-      // Then the last day ends at 23:59:59 UTC, which is the reading a
-      // recurrence with no zone gets going the other way too.
-      assertIdentical(
-        written(quarter).rrule,
-        "FREQ=DAILY;UNTIL=20260630T235959Z",
-      );
+      // When exported, then it explains the unsupported timestamp bound.
+      assertStringIncludes(refusal(quarter), "timestamp UNTIL support");
     });
 
     it("throws for a start that is not a date", () => {
@@ -199,7 +194,7 @@ describe("writing a rule as a recurrence rule", () => {
     it("writes the days a whole period covers", () => {
       // Given every other week, whole. A weekly recurrence names one day of
       // the week, so covering the week means naming all seven.
-      const fortnight = every(2, "weeks", { anchor: "2026-03-02" });
+      const fortnight = everyNthPeriod(2, "weeks", { anchor: "2026-03-02" });
 
       assertIdentical(
         written(fortnight, FROM_MARCH).rrule,
@@ -211,9 +206,9 @@ describe("writing a rule as a recurrence rule", () => {
       // Given a fortnightly cycle anchored on a Sunday. Which days share a
       // week decides which fortnight they are in, and RFC 5545 takes that
       // from WKST rather than from DTSTART.
-      const fortnight = every(2, "weeks", { anchor: "2026-03-01" }).and(
-        daysOfWeek("monday"),
-      );
+      const fortnight = everyNthPeriod(2, "weeks", {
+        anchor: "2026-03-01",
+      }).and(daysOfWeek("monday"));
 
       assertIdentical(
         written(fortnight, { start: "2026-03-01" }).rrule,
@@ -223,9 +218,9 @@ describe("writing a rule as a recurrence rule", () => {
 
     it("leaves WKST out when the weeks start where RFC 5545 assumes", () => {
       // Given the same cycle anchored on a Monday, which is the default.
-      const fortnight = every(2, "weeks", { anchor: "2026-03-02" }).and(
-        daysOfWeek("monday"),
-      );
+      const fortnight = everyNthPeriod(2, "weeks", {
+        anchor: "2026-03-02",
+      }).and(daysOfWeek("monday"));
 
       assertIdentical(
         written(fortnight, FROM_MARCH).rrule,
@@ -237,7 +232,7 @@ describe("writing a rule as a recurrence rule", () => {
       // Given every other year, narrowed to one date in it. A yearly cycle
       // covering whole years writes out every month, and this one does not
       // cover whole years.
-      const biennial = every(2, "years", { anchor: "2026-03-04" }).and(
+      const biennial = everyNthPeriod(2, "years", { anchor: "2026-03-04" }).and(
         monthsOfYear("march"),
         daysOfMonth(4),
       );
@@ -252,7 +247,7 @@ describe("writing a rule as a recurrence rule", () => {
       // Given a fortnightly cycle and a start in the week between two of its
       // weeks. RFC 5545 leaves a recurrence undefined when DTSTART is not one
       // of its own occurrences.
-      const fortnight = every(2, "weeks", { anchor: "2026-03-02" });
+      const fortnight = everyNthPeriod(2, "weeks", { anchor: "2026-03-02" });
 
       // When it is written out from the Monday of the week it skips.
       // Then DTSTART is the Monday of the week after, which the cycle covers.
@@ -273,7 +268,6 @@ describe("writing a rule as a recurrence rule", () => {
         ["FREQ=YEARLY;BYMONTH=11;BYDAY=4TH", "2026-11-26"],
         ["FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;WKST=SU", "2026-03-02"],
         ["FREQ=DAILY;UNTIL=20261231", "2026-03-30"],
-        ["FREQ=DAILY;UNTIL=20261231T235959Z", "2026-03-30T09:00"],
         ["FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=15", "2026-03-15T08:00"],
         ["FREQ=DAILY;BYHOUR=9,17", "2026-03-30T09:00"],
         ["FREQ=DAILY;BYMINUTE=0,30", "2026-03-30T09:00"],
@@ -304,7 +298,7 @@ describe("writing a rule as a recurrence rule", () => {
       // When what was written is read again.
       const again = parseRRule(result.rrule, { start: result.start });
 
-      // Then every Monday morning of the month, asserted against the calendar
+      // Then everyNthPeriod Monday morning of the month, asserted against the calendar
       // rather than against the other rule, which would agree about nothing.
       assertIdentical(
         render(intervals(again, march)),
@@ -345,19 +339,13 @@ describe("writing a rule as a recurrence rule", () => {
     });
 
     it("carries the clock the recurrence runs on", () => {
-      // Given a recurrence pinned to a zone, bounded at the end of a day.
-      const tokyo = parseRRule("FREQ=DAILY;UNTIL=20261231T145959Z", {
+      // Given a recurrence pinned to Tokyo.
+      const tokyo = parseRRule("FREQ=DAILY", {
         start: "2026-03-30T09:00",
         zone: "Asia/Tokyo",
       });
-
-      // When it is written out.
-      const result = written(tokyo);
-
-      // Then the zone comes back beside the recurrence, and UNTIL is still
-      // the instant that day ends in Tokyo.
-      assertIdentical(result.rrule, "FREQ=DAILY;UNTIL=20261231T145959Z");
-      assertIdentical(result.zone, "Asia/Tokyo");
+      // When exported, then its time zone is retained.
+      assertIdentical(written(tokyo).zone, "Asia/Tokyo");
     });
   });
 
@@ -381,7 +369,7 @@ describe("writing a rule as a recurrence rule", () => {
     it("refuses days of the month inside a weekly cycle", () => {
       // Given a fortnightly cycle narrowed to the 1st. RFC 5545 forbids the
       // pair, because a week has no day of the month to select.
-      const wrong = every(2, "weeks", { anchor: "2026-03-02" }).and(
+      const wrong = everyNthPeriod(2, "weeks", { anchor: "2026-03-02" }).and(
         daysOfMonth(1),
       );
 
@@ -392,9 +380,9 @@ describe("writing a rule as a recurrence rule", () => {
     });
 
     it("refuses an ordinal inside a daily cycle", () => {
-      // Given every other day, narrowed to the first Monday of the month. The
+      // Given everyNthPeriod other day, narrowed to the first Monday of the month. The
       // cycle wants FREQ=DAILY and the ordinal needs a month to count in.
-      const wrong = every(2, "days", { anchor: "2026-03-02" }).and(
+      const wrong = everyNthPeriod(2, "days", { anchor: "2026-03-02" }).and(
         nthDayOfWeekInMonth(1, "monday"),
       );
 
@@ -408,8 +396,8 @@ describe("writing a rule as a recurrence rule", () => {
       // Given an hour in the morning and half an hour in the afternoon. One
       // recurrence carries one duration.
       const uneven = any(
-        timeOfDay("09:00", "10:00"),
-        timeOfDay("14:00", "14:30"),
+        timeOfDayRange("09:00", "10:00"),
+        timeOfDayRange("14:00", "14:30"),
       );
 
       assertStringIncludes(
@@ -422,8 +410,8 @@ describe("writing a rule as a recurrence rule", () => {
       // Given 09:00 and 14:30. BYHOUR and BYMINUTE would also select 09:30
       // and 14:00, which the rule does not cover.
       const scattered = any(
-        timeOfDay("09:00", "09:01"),
-        timeOfDay("14:30", "14:31"),
+        timeOfDayRange("09:00", "09:01"),
+        timeOfDayRange("14:30", "14:31"),
       );
 
       assertStringIncludes(
@@ -435,7 +423,7 @@ describe("writing a rule as a recurrence rule", () => {
     it("refuses a rule read on two clocks at once", () => {
       const split = inZone(
         "Europe/London",
-        timeOfDay("09:00", "09:01", "Asia/Tokyo"),
+        timeOfDayRange("09:00", "09:01", "Asia/Tokyo"),
       );
 
       assertStringIncludes(refusal(split, FROM_MARCH), "runs on one clock");
@@ -456,12 +444,12 @@ describe("writing a rule as a recurrence rule", () => {
       // Given rules offering a choice of the two parts a recurrence has
       // exactly one of.
       const cycles = any(
-        every(2, "weeks", { anchor: "2026-03-02" }),
-        every(3, "weeks", { anchor: "2026-03-02" }),
+        everyNthPeriod(2, "weeks", { anchor: "2026-03-02" }),
+        everyNthPeriod(3, "weeks", { anchor: "2026-03-02" }),
       );
       const ranges = any(
-        between("2026-04-01", "2026-04-30"),
-        between("2026-06-01", "2026-06-30"),
+        datesBetween("2026-04-01", "2026-04-30"),
+        datesBetween("2026-06-01", "2026-06-30"),
       );
 
       assertStringIncludes(refusal(cycles, FROM_MARCH), "a union of cycles");

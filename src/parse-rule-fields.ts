@@ -11,6 +11,7 @@ import { checkFields, fail, shapeOf } from "./parse-shape.js";
 
 /** Every rule type, and the fields it is allowed to carry. */
 const FIELDS = new Map<string, readonly string[]>([
+  ["shiftDays", ["days", "rule"]],
   ["always", []],
   ["never", []],
   ["daysOfWeek", ["days", "zone"]],

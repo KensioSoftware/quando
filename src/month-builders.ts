@@ -8,7 +8,7 @@
  * the clock.
  */
 
-import { build, type Built } from "./built-rule.js";
+import { build, type Rule } from "./built-rule.js";
 import type {
   DaysOfMonthRule,
   Month,
@@ -27,9 +27,7 @@ import {
 } from "./validation.js";
 
 /** Whole days, by position in the month. Negative days count from the end. */
-export function daysOfMonth(
-  ...days: readonly number[]
-): Built<DaysOfMonthRule> {
+export function daysOfMonth(...days: readonly number[]): Rule<DaysOfMonthRule> {
   return build({
     type: "daysOfMonth",
     days: days.map((day, index) => asDayOfMonth(day, `days[${index}]`)),
@@ -39,7 +37,7 @@ export function daysOfMonth(
 /** Whole months, by name. */
 export function monthsOfYear(
   ...months: readonly Month[]
-): Built<MonthsOfYearRule> {
+): Rule<MonthsOfYearRule> {
   return build({
     type: "monthsOfYear",
     months: months.map((month, index) => asMonth(month, `months[${index}]`)),
@@ -56,7 +54,7 @@ export function monthsOfYear(
  */
 export function monthCodes(
   ...codes: readonly MonthCode[]
-): Built<MonthCodesRule> {
+): Rule<MonthCodesRule> {
   return build({
     type: "monthCodes",
     codes: codes.map((code, index) => asMonthCode(code, `codes[${index}]`)),
@@ -73,7 +71,7 @@ export function monthCodes(
 export function nthDayOfWeekInMonth(
   nth: number,
   ...days: readonly Weekday[]
-): Built<NthDayOfWeekInMonthRule> {
+): Rule<NthDayOfWeekInMonthRule> {
   return build({
     type: "nthDayOfWeekInMonth",
     nth: asNthOfMonth(nth, "nth"),

@@ -25,12 +25,9 @@ zones.
 npm install @kensio/quando
 ```
 
-Quando reads `Temporal` from the global scope. Node 26 has one, as do Chrome
-144, Edge 144 and Firefox 139. On Node 22, Node 24 or Safari, install
-[`temporal-polyfill`](https://www.npmjs.com/package/temporal-polyfill) and
-assign it to `globalThis.Temporal` before importing Quando. The
-[getting started guide](docs/getting-started/#runtimes-without-global-temporal)
-shows the two lines it takes.
+Quando uses a global `Temporal`. If your runtime does not provide it, install
+`temporal-polyfill` and add `import "temporal-polyfill/global"` to your entry
+point before evaluating rules. See [getting started](docs/getting-started/).
 
 TypeScript projects must include `ESNext` in `compilerOptions.lib`.
 
@@ -42,29 +39,27 @@ import { schedule, weekdays } from "@kensio/quando";
 const openingHours = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00")
   .closed("2026-12-25")
-  .hoursOn("2026-12-24", "09:00-15:00");
+  .setHours("2026-12-24", "09:00-15:00");
 
 const placed = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
 
 openingHours.isOpen(placed);
 // true
 
-openingHours.opensNext(placed.add({ hours: 2 }))?.start?.toString();
+openingHours.nextOpenInterval(placed.add({ hours: 2 }))?.start?.toString();
 // 2026-03-16T09:00:00+00:00[Europe/London]
 
 openingHours
-  .firstOpenSlot(placed, Temporal.Duration.from({ minutes: 30 }))
+  .firstOpenSlot(placed, { minutes: 30 }, { within: { days: 7 } })
   ?.start?.toString();
 // 2026-03-16T09:00:00+00:00[Europe/London]
 
-openingHours
-  .addOpenTime(placed, Temporal.Duration.from({ hours: 3 }))
-  ?.toString();
+openingHours.addOpenTime(placed, { hours: 3 })?.toString();
 // 2026-03-16T11:55:00+00:00[Europe/London]
 ```
 
 The first call to `open` sets the usual hours. Later calls add exceptions.
-`closed` closes Christmas Day, and `hoursOn` gives Christmas Eve its own hours.
+`closed` closes Christmas Day, and `setHours` gives Christmas Eve its own hours.
 
 ## Choose an API
 
@@ -84,7 +79,7 @@ import { rota, tally, weekdays, weekends } from "@kensio/quando";
 const onCall = rota()
   .assign(weekdays(), "alice")
   .assign(weekends(), "bob")
-  .swap("2026-03-11", "carol");
+  .assign("2026-03-11", "carol");
 
 const staffing = tally().plus(weekdays(), 3).plus("2026-03-11", 2);
 ```
@@ -119,6 +114,8 @@ Commands return JSON by default. Pass `--format text` for terminal output. The
 
 ## Documentation
 
+For changes from 1.x, read the [migration guide](docs/migration/).
+
 Start with the [getting started guide](docs/getting-started/). The remaining
 guides cover:
 
@@ -143,9 +140,9 @@ The same documentation is published at
 Quando calculates times and intervals. It leaves job execution, persistence,
 and holiday data to the application.
 
-Constraints that depend on previous occurrences are in scope. `atMost` caps how
-many things may happen in a window, `spacedBy` sets the least time between
-them, and `atMostTime` caps the total _time_ they take. All three read against
+Constraints that depend on previous occurrences are in scope. `atMostOccurrences` caps how
+many things may happen in a window, `minimumGap` sets the least time between
+them, and `atMostOccupiedTime` caps the total _time_ they take. All three read against
 a history the query carries, and `firstBreach` checks a whole proposed plan
 against them, feeding each occurrence into the history before asking about the
 next. See [constraints](docs/constraints/).
@@ -153,12 +150,12 @@ next. See [constraints](docs/constraints/).
 How far a rule can be trusted is in scope too. `knownThrough` declares the last
 day a subtree counts as evidence, and a query whose answer would rest on
 anything past it refuses. A cascade carries the same thing per value, so
-`uncertainValues` says which stretches its layers cannot settle. See
+`unknownValueIntervals` says which stretches its layers cannot settle. See
 [horizons](docs/horizon/).
 
 So is an answer with several possible outcomes. "One to three working days"
 goes into a query as an estimate and comes back as dates, with the weekends and
-the holidays already applied. Read the plain range off it for a customer, a
+the holidays already applied. Read the possible dates off it for a customer, a
 quantile for a contract, or the chance of beating a date. See
 [uncertainty](docs/uncertainty/).
 

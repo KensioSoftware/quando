@@ -1,20 +1,11 @@
 import type { Context } from "./context.js";
 import { certaintyAt } from "./rule-certainty.js";
 import { describeRuleMatch } from "./rule-explanation-text.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 /** Why one rule does or does not cover an instant. */
 export interface RuleExplanation {
-  readonly rule: Rule;
-  readonly matched: boolean;
-  /**
-   * Whether the rules can answer for this instant at all.
-   *
-   * `true` for every rule that declares no horizon. Where it is `false` the
-   * rule stopped being evidence before the instant asked about, and `matched`
-   * is `false` because nothing is known to match rather than because anything
-   * was ruled out.
-   */
-  readonly known: boolean;
+  readonly rule: RuleData;
+  readonly status: "matched" | "unmatched" | "unknown";
   readonly description: string;
   readonly conditions: readonly RuleExplanation[];
 }
@@ -36,7 +27,7 @@ export interface RuleScope {
 
 /** Describes how a rule evaluates at one instant. */
 export function explainRule(
-  rule: Rule,
+  rule: RuleData,
   at: Temporal.ZonedDateTime,
   context?: Omit<Context, "from" | "to">,
 ): RuleExplanation {
@@ -44,7 +35,7 @@ export function explainRule(
 }
 
 /** The rule wrapped in its scope. This is the form that is evaluated. */
-function scoped(rule: Rule, scope: RuleScope): Rule {
+function scoped(rule: RuleData, scope: RuleScope): RuleData {
   const onCalendar =
     scope.calendar === undefined
       ? rule
@@ -55,7 +46,7 @@ function scoped(rule: Rule, scope: RuleScope): Rule {
 }
 
 function explainInScope(
-  rule: Rule,
+  rule: RuleData,
   at: Temporal.ZonedDateTime,
   context: Omit<Context, "from" | "to"> | undefined,
   scope: RuleScope,
@@ -66,8 +57,7 @@ function explainInScope(
   const conditions = childConditions(rule, at, context, scope);
   return {
     rule,
-    matched,
-    known,
+    status: known ? (matched ? "matched" : "unmatched") : "unknown",
     description: known
       ? describeRuleMatch(rule, at, matched, conditions, scope, context)
       : "Whether this matches is not known. The rules stop being known " +
@@ -77,12 +67,22 @@ function explainInScope(
 }
 
 function childConditions(
-  rule: Rule,
+  rule: RuleData,
   at: Temporal.ZonedDateTime,
   context: Omit<Context, "from" | "to"> | undefined,
   scope: RuleScope,
 ): readonly RuleExplanation[] {
   switch (rule.type) {
+    case "shiftDays": {
+      return [
+        explainInScope(
+          rule.rule,
+          at.subtract({ days: rule.days }),
+          context,
+          scope,
+        ),
+      ];
+    }
     case "inZone": {
       return [
         explainInScope(rule.rule, at, context, { ...scope, zone: rule.zone }),

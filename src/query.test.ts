@@ -10,19 +10,19 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { dates, timeOfDay, weekdays } from "./build.js";
+import { dates, timeOfDayRange, weekdays } from "./build.js";
 import {
-  activeAt,
-  advanceBy,
+  isActiveAt,
+  addCoveredTime,
   coveredDuration,
   nextCoveredInterval,
   SearchLimitExceededError,
 } from "./query.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 describe("asking a rule questions", () => {
   /** Weekdays, nine to five. */
-  const open = (): Rule => weekdays().and(timeOfDay("09:00", "17:00"));
+  const open = (): RuleData => weekdays().and(timeOfDayRange("09:00", "17:00"));
 
   /** Monday 2026-03-09 to the Monday after it. */
   const WEEK = inWindow("2026-03-09T00:00", "2026-03-16T00:00");
@@ -35,28 +35,28 @@ describe("asking a rule questions", () => {
       // Given a Monday mid-morning.
       // When the rule is asked about it.
       // Then it is covered.
-      assertTrue(activeAt(open(), when("2026-03-09T10:00")));
+      assertTrue(isActiveAt(open(), when("2026-03-09T10:00")));
     });
 
     it("is true exactly at the start, which the interval includes", () => {
       // Given nine o'clock exactly.
       // When the rule is asked about it.
       // Then it is covered. A half-open interval holds its start.
-      assertTrue(activeAt(open(), when("2026-03-09T09:00")));
+      assertTrue(isActiveAt(open(), when("2026-03-09T09:00")));
     });
 
     it("is false exactly at the end, which the interval excludes", () => {
       // Given five o'clock exactly.
       // When the rule is asked about it.
       // Then it is outside. Closing time is when it is shut.
-      assertFalse(activeAt(open(), when("2026-03-09T17:00")));
+      assertFalse(isActiveAt(open(), when("2026-03-09T17:00")));
     });
 
     it("is false at the weekend", () => {
       // Given a Saturday morning.
       // When the rule is asked about it.
       // Then no weekday claims it.
-      assertFalse(activeAt(open(), when("2026-03-14T10:00")));
+      assertFalse(isActiveAt(open(), when("2026-03-14T10:00")));
     });
 
     it("terminates even for a rule that covers nothing at all", () => {
@@ -64,7 +64,7 @@ describe("asking a rule questions", () => {
       // When one instant is asked about.
       // Then it answers. A search for the next opening would run on forever
       // here, and asking about a single instant has nowhere to look.
-      assertFalse(activeAt({ type: "never" }, when("2026-03-09T10:00")));
+      assertFalse(isActiveAt({ type: "never" }, when("2026-03-09T10:00")));
     });
   });
 
@@ -105,6 +105,7 @@ describe("asking a rule questions", () => {
       // Then it is refused. The alternative is a number that never finishes
       // being counted.
       const error = assertThrowsError(() =>
+        // @ts-expect-error A missing end is also rejected for JavaScript callers.
         coveredDuration(open(), inWindow("2026-03-09T00:00")),
       );
 
@@ -232,7 +233,7 @@ describe("asking a rule questions", () => {
       // Given four in the afternoon on a Monday, with an hour left before
       // closing, and two hours of work to do.
       // When the work is advanced through.
-      const reached = advanceBy(when("2026-03-09T16:00"), hours(2), {
+      const reached = addCoveredTime(when("2026-03-09T16:00"), hours(2), {
         during: open(),
       });
 
@@ -246,7 +247,7 @@ describe("asking a rule questions", () => {
     it("carries a whole day's worth over into the next", () => {
       // Given twelve hours of work starting at nine, in eight-hour days.
       // When it is advanced through.
-      const reached = advanceBy(when("2026-03-09T09:00"), hours(12), {
+      const reached = addCoveredTime(when("2026-03-09T09:00"), hours(12), {
         during: open(),
       });
 
@@ -260,7 +261,7 @@ describe("asking a rule questions", () => {
     it("crosses a weekend, which is the case people get wrong by hand", () => {
       // Given three operating hours from five to five on a Friday.
       // When they are advanced through.
-      const reached = advanceBy(when("2026-03-13T16:55"), hours(3), {
+      const reached = addCoveredTime(when("2026-03-13T16:55"), hours(3), {
         during: open(),
       });
 
@@ -275,11 +276,11 @@ describe("asking a rule questions", () => {
       // Given opening hours with the Tuesday taken out, and two hours of work
       // starting an hour before the Monday closes.
       const openExceptTuesday = weekdays()
-        .and(timeOfDay("09:00", "17:00"))
+        .and(timeOfDayRange("09:00", "17:00"))
         .except(dates("2026-03-10"));
 
       // When the work is advanced through.
-      const reached = advanceBy(when("2026-03-09T16:00"), hours(2), {
+      const reached = addCoveredTime(when("2026-03-09T16:00"), hours(2), {
         during: openExceptTuesday,
       });
 
@@ -294,7 +295,7 @@ describe("asking a rule questions", () => {
       // Given no work at all, asked from inside opening hours.
       // When it is advanced through.
       // Then the answer is where it started.
-      const reached = advanceBy(when("2026-03-09T10:00"), hours(0), {
+      const reached = addCoveredTime(when("2026-03-09T10:00"), hours(0), {
         during: open(),
       });
 
@@ -308,7 +309,7 @@ describe("asking a rule questions", () => {
       // Given no work at all, asked on a Saturday.
       // When it is advanced through.
       // Then zero keeps its identity and the answer is where it started.
-      const reached = advanceBy(when("2026-03-14T10:00"), hours(0), {
+      const reached = addCoveredTime(when("2026-03-14T10:00"), hours(0), {
         during: open(),
       });
 
@@ -322,7 +323,7 @@ describe("asking a rule questions", () => {
       // Given a hundred hours of work and three days to fit it into.
       // When it is advanced through.
       // Then there is no answer to give.
-      const reached = advanceBy(when("2026-03-09T09:00"), hours(100), {
+      const reached = addCoveredTime(when("2026-03-09T09:00"), hours(100), {
         during: open(),
         within: Temporal.Duration.from({ days: 3 }),
       });
@@ -344,7 +345,7 @@ describe("asking a rule questions", () => {
       for (const amount of ambiguous) {
         // When each is advanced through.
         const error = assertThrowsError(() =>
-          advanceBy(when("2026-03-29T00:00"), amount, {
+          addCoveredTime(when("2026-03-29T00:00"), amount, {
             during: { type: "always" },
           }),
         );
@@ -361,7 +362,7 @@ describe("asking a rule questions", () => {
       // When it is advanced through.
       // Then it lands at one in the morning. The day held 23 hours, so the last
       // hour of work runs into the next.
-      const reached = advanceBy(when("2026-03-29T00:00"), hours(24), {
+      const reached = addCoveredTime(when("2026-03-29T00:00"), hours(24), {
         during: { type: "always" },
       });
 
@@ -376,7 +377,7 @@ describe("asking a rule questions", () => {
       // When it is advanced through.
       // Then it is refused.
       const error = assertThrowsError(() =>
-        advanceBy(when("2026-03-09T10:00"), hours(-1), { during: open() }),
+        addCoveredTime(when("2026-03-09T10:00"), hours(-1), { during: open() }),
       );
 
       assertInstanceOf(error, RangeError);

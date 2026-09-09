@@ -13,15 +13,12 @@
  * the Monday after it. The rule answers that itself, which settles the cycle,
  * the weekdays and the days of the month together.
  *
- * `UNTIL` has to be the same kind of value as DTSTART, so a whole-day
- * recurrence gets a bare date and a timed one gets the instant the last day
- * ends. That instant is written in UTC, which is what RFC 5545 asks for and
- * what [rrule-until.ts](./rrule-until.ts) reads back.
+ * Only date-only upper bounds can be read back without losing precision.
  */
 
 import { type Unwritable, unwritable } from "./export-result.js";
 import { nextCoveredInterval } from "./query.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import type { RRuleSlots } from "./rrule-export-slots.js";
 import { DEFAULT_SEARCH_LIMIT } from "./search.js";
 import { asDate } from "./validation.js";
@@ -34,12 +31,17 @@ export interface Bounds {
 }
 
 export function boundsOf(
-  rule: Rule,
+  rule: RuleData,
   slots: RRuleSlots,
   time: string | undefined,
   zone: string | undefined,
   given: string | undefined,
 ): Bounds | Unwritable {
+  if (time !== undefined && slots.to !== undefined) {
+    return unwritable(
+      "bounded timed recurrences require timestamp UNTIL support, which Quando does not yet provide",
+    );
+  }
   const from =
     slots.from ?? (given === undefined ? undefined : asDate(given, "start"));
 
@@ -59,10 +61,7 @@ export function boundsOf(
   return {
     ok: true,
     start: time === undefined ? date : `${date}T${time}`,
-    until:
-      slots.to === undefined
-        ? undefined
-        : untilOf(slots.to, time !== undefined, zone),
+    until: slots.to === undefined ? undefined : slots.to.replaceAll("-", ""),
   };
 }
 
@@ -75,7 +74,7 @@ export function boundsOf(
  * nothing in that span has no DTSTART to give.
  */
 function firstCovered(
-  rule: Rule,
+  rule: RuleData,
   from: string,
   zone: string,
 ): string | undefined {
@@ -88,30 +87,4 @@ function firstCovered(
   })?.start;
 
   return covered?.toPlainDate().toString();
-}
-
-/**
- * The last day, as the kind of value DTSTART is.
- *
- * A timed recurrence is bounded at the end of that day rather than at its
- * start, because `onOrBefore` covers the day whole. The end of a day is a
- * different instant in every zone, so it is converted from the one the rule
- * runs on — UTC when the rule names none, which is the reading going the other
- * way as well.
- */
-function untilOf(to: string, timed: boolean, zone: string | undefined): string {
-  const date = to.replaceAll("-", "");
-  if (!timed) {
-    return date;
-  }
-
-  const last = Temporal.ZonedDateTime.from(
-    `${to}T23:59:59[${zone ?? "UTC"}]`,
-  ).withTimeZone("UTC");
-
-  return `${last
-    .toPlainDateTime()
-    .toString({ smallestUnit: "second" })
-    .replaceAll("-", "")
-    .replaceAll(":", "")}Z`;
 }

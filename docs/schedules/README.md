@@ -11,7 +11,7 @@ import { schedule, weekdays } from "@kensio/quando";
 const openingHours = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00", { label: "Regular office hours" })
   .closed("2026-03-10", { label: "Staff training day" })
-  .hoursOn("2026-03-11", "09:00-15:00", {
+  .setHours("2026-03-11", "09:00-15:00", {
     comment: "The office closes early for a team meeting.",
   });
 ```
@@ -19,12 +19,12 @@ const openingHours = schedule({ zone: "Europe/London" })
 The first method sets the usual weekday hours. The second closes Tuesday. The
 third replaces Wednesday's usual hours with a shorter day.
 
-| Method                           | Effect                                             |
-| -------------------------------- | -------------------------------------------------- |
-| `.open(scope, options?)`         | Opens for the whole scope                          |
-| `.open(scope, hours, options?)`  | Opens during the hours inside the scope            |
-| `.closed(scope, options?)`       | Closes the whole scope                             |
-| `.hoursOn(day, hours, options?)` | Replaces all earlier hours inside the day or scope |
+| Method                            | Effect                                             |
+| --------------------------------- | -------------------------------------------------- |
+| `.open(scope, options?)`          | Opens for the whole scope                          |
+| `.open(scope, hours, options?)`   | Opens during the hours inside the scope            |
+| `.closed(scope, options?)`        | Closes the whole scope                             |
+| `.setHours(day, hours, options?)` | Replaces all earlier hours inside the day or scope |
 
 A scope can be a rule or a line of terms such as `"2026-03-10"` or
 `"mon-fri 09:00-17:00"`. Hours can be a rule or a range such as
@@ -39,10 +39,10 @@ then add exceptions from broadest to most specific.
 const seasonalHours = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00")
   .closed("2026-12-25")
-  .hoursOn("2026-12-24", "09:00-15:00");
+  .setHours("2026-12-24", "09:00-15:00");
 ```
 
-`closed` overrides the normal weekday hours on Christmas Day. `hoursOn`
+`closed` overrides the normal weekday hours on Christmas Day. `setHours`
 claims all of Christmas Eve before applying its shorter hours. Earlier hours do
 not resume after 15:00.
 
@@ -55,13 +55,27 @@ Omit the zone when the same definition should follow the query instant's local
 time. See [time zones](../time-zones/) for clock changes and explicit rule
 zones.
 
+### Overnight hours
+
+`open("fri", "22:00-06:00")` opens Friday evening through Saturday morning.
+It does not open early Friday morning. The starting date owns the whole shift.
+`setHours("2026-03-13", "09:00-17:00")` replaces that Friday's hours, including
+the following morning of an earlier overnight opening. A later `closed` call
+closes the calendar time its scope names, including any overlapping overnight hours.
+
+### Evaluation options
+
+All queries accept an optional final object with `rules`, `occurrences`, and
+`disambiguation`. `withCustomRules(registry)` attaches custom callbacks to a
+derived schedule. Explicit query settings override the attached settings.
+
 ## Query a schedule
 
 ```ts
 const friday = Temporal.ZonedDateTime.from("2026-03-13T16:55[Europe/London]");
 
 openingHours.isOpen(friday);
-openingHours.opensNext(friday.add({ hours: 2 }));
+openingHours.nextOpenInterval(friday.add({ hours: 2 }));
 openingHours.firstOpenSlot(friday, Temporal.Duration.from({ minutes: 30 }));
 openingHours.addOpenTime(friday, Temporal.Duration.from({ hours: 3 }));
 openingHours.openDuration(
@@ -73,12 +87,12 @@ openingHours.openDayCount(
   Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 );
-openingHours.renderTimeline(
+openingHours.timeline(
   Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
   Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
 );
 
-const revisedHours = openingHours.hoursOn("2026-03-11", "10:00-18:00");
+const revisedHours = openingHours.setHours("2026-03-11", "10:00-18:00");
 openingHours.changesTo(
   revisedHours,
   Temporal.ZonedDateTime.from("2026-03-11T00:00[Europe/London]"),
@@ -86,27 +100,27 @@ openingHours.changesTo(
 );
 ```
 
-| Method                                   | Returns                                     |
-| ---------------------------------------- | ------------------------------------------- |
-| `.isOpen(at)`                            | Whether the schedule is open at `at`        |
-| `.explain(at)`                           | The value and reasons at `at`               |
-| `.opensNext(at, search?)`                | The current or next complete opening        |
-| `.firstOpenSlot(from, lasting, search?)` | The first opening long enough for a slot    |
-| `.openSlots(from, to, options)`          | Candidate slots inside a finite window      |
-| `.addOpenTime(from, amount, search?)`    | The instant reached after open time elapses |
-| `.openDuration(from, to)`                | The open duration inside a finite window    |
-| `.addOpenDays(from, count, options?)`    | The instant reached after whole open days   |
-| `.openDayCount(from, to)`                | The open days inside a finite window        |
-| `.changesTo(next, from, to)`             | Newly opened and closed intervals           |
-| `.validate(from, to)`                    | Inactive and shadowed schedule layers       |
-| `.renderTimeline(from, to, options?)`    | JSON data or a text chart of opening times  |
+| Method                                   | Returns                                            |
+| ---------------------------------------- | -------------------------------------------------- |
+| `.isOpen(at)`                            | Whether the schedule is open at `at`               |
+| `.explain(at)`                           | The value and reasons at `at`                      |
+| `.nextOpenInterval(at, search?)`         | The current or next opening, clipped to the search |
+| `.firstOpenSlot(from, lasting, search?)` | The first opening long enough for a slot           |
+| `.openSlots(from, to, options)`          | Candidate slots inside a finite window             |
+| `.addOpenTime(from, amount, search?)`    | The instant reached after open time elapses        |
+| `.openDuration(from, to)`                | The open duration inside a finite window           |
+| `.addOpenDays(from, count, options?)`    | The instant reached after whole open days          |
+| `.openDayCount(from, to)`                | The open days inside a finite window               |
+| `.changesTo(next, from, to)`             | Newly opened and closed intervals                  |
+| `.validate(from, to)`                    | Inactive and shadowed schedule layers              |
+| `.timeline(from, to, options?)`          | Evaluated timeline data                            |
 
-`opensNext`, `firstOpenSlot`, `addOpenTime`, and `addOpenDays` search up to 100
+`nextOpenInterval`, `firstOpenSlot`, `addOpenTime`, and `addOpenDays` search up to 100
 years by default. Pass a `within` duration when finding no result is an expected
 outcome:
 
 ```ts
-const boundedOpening = openingHours.opensNext(friday.add({ hours: 2 }), {
+const boundedOpening = openingHours.nextOpenInterval(friday.add({ hours: 2 }), {
   within: Temporal.Duration.from({ days: 7 }),
 });
 ```
@@ -145,7 +159,7 @@ console.log(delivery?.toString());
 
 A day counts when the schedule is open for any part of it, so a half-day is a
 whole open day. Both day methods read dates on the schedule's own calendar, the
-zone given to `schedule({ zone })`, matching `renderTimeline`. `addOpenDays`
+zone given to `schedule({ zone })`, matching `timeline`. `addOpenDays`
 hands its answer back in the caller's zone, the one `from` was written in, so
 the two zones only differ in how the instant reads. The
 [queries guide](../queries/#which-day-the-count-starts-on) covers the
@@ -174,11 +188,13 @@ describes each rule match and the effect of layer priority automatically.
 Optional labels and comments add business context. The
 [explanations guide](../explanations/) covers the complete result.
 
-`renderTimeline` returns JSON-compatible data with one entry per local day.
-Pass `{ format: "text" }` for a fixed-width chart built from that data. See the
+`timeline` returns JSON-compatible data with one entry per local day.
+Pass the result to `renderTimeline(data)` for a text chart. See the
 [timelines guide](../timelines/) for examples and the standalone function.
 
 ## Build a rota
+
+`rota({ zone })` fixes assignment scopes to a local clock, as it does for schedules.
 
 A rota assigns one JSON-compatible value at any moment. The value can be a
 name, identifier, status, or application object.
@@ -189,7 +205,7 @@ import { rota, weekdays, weekends } from "@kensio/quando";
 const onCall = rota()
   .assign(weekdays(), "alice")
   .assign(weekends(), "bob")
-  .swap("2026-03-11", "carol");
+  .assign("2026-03-11", "carol");
 
 const monday = Temporal.ZonedDateTime.from("2026-03-09T10:00[Europe/London]");
 
@@ -203,14 +219,12 @@ alice
 | Method                            | Returns or effect                      |
 | --------------------------------- | -------------------------------------- |
 | `.assign(scope, value, options?)` | Adds an assignment                     |
-| `.swap(day, value, options?)`     | Adds a higher-priority assignment      |
 | `.whoIsOn(at)`                    | The assigned value, or `undefined`     |
 | `.explain(at)`                    | The assignment and reasons at `at`     |
 | `.shifts(from, to?)`              | A lazy stream of assigned intervals    |
 | `.validate(from, to)`             | Diagnostics, including unassigned time |
 
-`assign` and `swap` both append a value layer. Their names express the usual
-intent. Method order determines the result.
+`assign` appends an assignment. Later assignments win where scopes overlap.
 
 Literal values accumulate in the inferred type. In the example,
 `whoIsOn` returns `"alice" | "bob" | "carol" | undefined`. Use an explicit
@@ -238,10 +252,10 @@ Schedules and rotas include a tagged JSON form. Their methods are
 non-enumerable.
 
 ```ts
-import { asString, parseRota, parseSchedule } from "@kensio/quando";
+import { parseString, parseRota, parseSchedule } from "@kensio/quando";
 
 const restoredHours = parseSchedule(JSON.parse(JSON.stringify(openingHours)));
-const restoredRota = parseRota(JSON.parse(JSON.stringify(onCall)), asString);
+const restoredRota = parseRota(JSON.parse(JSON.stringify(onCall)), parseString);
 ```
 
 `parseRota` needs a value parser because the application owns the value type.
@@ -257,6 +271,6 @@ for the lower-level model.
 const openingHours = schedule({ zone: "Europe/London" })
   .open(weekdays(), "09:00-17:00")
   .closed(bankHolidays)
-  .hoursOn("2026-03-11", "09:00-15:00");
+  .setHours("2026-03-11", "09:00-15:00");
 ```
 -->

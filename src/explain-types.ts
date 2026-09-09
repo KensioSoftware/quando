@@ -1,11 +1,11 @@
 import type { MergeStrategy } from "./merge.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import type { RuleExplanation } from "./rule-explanation.js";
 
 /** Information shared by every matching layer in an explanation. */
 export interface ExplanationStepBase {
   readonly path: string;
-  readonly scope: Rule;
+  readonly scope: RuleData;
   readonly match: RuleExplanation;
   readonly description: string;
   readonly label?: string;
@@ -38,6 +38,7 @@ export interface Explanation<V> {
   readonly value: V | undefined;
   readonly merge: MergeStrategy;
   readonly summary: string;
+  readonly details: string;
   readonly steps: readonly ExplanationStep<V>[];
   readonly skipped: readonly SkippedLayer[];
 }

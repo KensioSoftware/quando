@@ -9,7 +9,7 @@
 import { canonicalRule } from "./canonical-rule.js";
 import { type Cascade, isCascade, type Layer } from "./cascade.js";
 import { layerOptionsOf } from "./layer-options.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 function canonicalLayer<V>(layer: Layer<V>): Layer<V> {
   const options = layerOptionsOf(layer);
@@ -50,9 +50,11 @@ function canonicalCascade<V>(cascade: Cascade<V>): Cascade<V> {
  *
  * A cascade keeps its layer order, because that order is its meaning.
  */
-export function canonical(rule: Rule): Rule;
+export function canonical(rule: RuleData): RuleData;
 export function canonical<V>(cascade: Cascade<V>): Cascade<V>;
-export function canonical<V>(value: Rule | Cascade<V>): Rule | Cascade<V> {
+export function canonical<V>(
+  value: RuleData | Cascade<V>,
+): RuleData | Cascade<V> {
   return isCascade(value) ? canonicalCascade(value) : canonicalRule(value);
 }
 
@@ -63,8 +65,8 @@ export function canonical<V>(value: Rule | Cascade<V>): Rule | Cascade<V> {
  * What a cache key is. A cascade's values go through `JSON.stringify` with
  * everything else, so this is worth as much as those values are storable.
  */
-export function fingerprint<V>(value: Rule | Cascade<V>): string {
-  return JSON.stringify(canonical(value as Rule));
+export function fingerprint<V>(value: RuleData | Cascade<V>): string {
+  return JSON.stringify(canonical(value as RuleData));
 }
 
 /**
@@ -75,9 +77,9 @@ export function fingerprint<V>(value: Rule | Cascade<V>): string {
  * evaluating them over all of time. `always` and all seven days of the week
  * are the pair to remember.
  */
-export function equals<V>(
-  left: Rule | Cascade<V>,
-  right: Rule | Cascade<V>,
+export function sameDefinition<V>(
+  left: RuleData | Cascade<V>,
+  right: RuleData | Cascade<V>,
 ): boolean {
   return fingerprint(left) === fingerprint(right);
 }

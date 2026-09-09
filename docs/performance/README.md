@@ -21,7 +21,7 @@ const office = schedule({ zone: "Europe/London" }).open(
 );
 
 // Walks as far as Monday morning and stops.
-office.opensNext(
+office.nextOpenInterval(
   Temporal.ZonedDateTime.from("2026-06-19T18:30[Europe/London]"),
 );
 ```
@@ -46,7 +46,7 @@ laptop. Read them as orders of magnitude.
 | `isOpen`, on a schedule closed on 160 holidays | 23 µs  |
 | `explain` at one instant                       | 55 µs  |
 | `firstOpenSlot`, four hours                    | 48 µs  |
-| `opensNext` from a Friday evening              | 70 µs  |
+| `nextOpenInterval` from a Friday evening       | 70 µs  |
 | `addOpenTime`, 200 working hours               | 330 µs |
 | `openSlots`, half-hourly over a month          | 600 µs |
 | A year of intervals, read to the end           | 2.5 ms |
@@ -91,6 +91,6 @@ cannot break it.
 <!-- card
 ```ts
 // Walks as far as Monday morning and stops.
-office.opensNext(when("2026-06-19T18:30"));
+office.nextOpenInterval(when("2026-06-19T18:30"));
 ```
 -->

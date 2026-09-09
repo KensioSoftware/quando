@@ -1,7 +1,7 @@
 /**
  * A readable way to write a rule, which is also the rule.
  *
- * `weekdays().and(timeOfDay("09:00", "17:00"))` is the nested rule document
+ * `weekdays().and(timeOfDayRange("09:00", "17:00"))` is the nested rule document
  * with non-enumerable methods attached. JSON and structured cloning see its
  * data fields only. A built rule already satisfies `Rule` and needs no
  * `.build()` step.
@@ -15,16 +15,16 @@ import type {
   CustomRule,
   NeverRule,
   NotRule,
-  Rule,
+  RuleData,
 } from "./rule.js";
-import { build, type Built } from "./built-rule.js";
+import { build, type Rule } from "./built-rule.js";
 import { asZone } from "./validation.js";
 
-export { build, type Built } from "./built-rule.js";
+export { build, type Rule } from "./built-rule.js";
 export {
   dates,
   daysOfWeek,
-  timeOfDay,
+  timeOfDayRange,
   weekdays,
   weekends,
 } from "./calendar-rules.js";
@@ -35,31 +35,31 @@ export {
   nthDayOfWeekInMonth,
 } from "./month-builders.js";
 export type { EveryOptions } from "./every-builders.js";
-export { every } from "./every-builders.js";
-export { between, onOrAfter, onOrBefore } from "./range-builders.js";
+export { everyNthPeriod } from "./every-builders.js";
+export { datesBetween, onOrAfter, onOrBefore } from "./range-builders.js";
 
 /** All of time. */
-export function always(): Built<AlwaysRule> {
+export function always(): Rule<AlwaysRule> {
   return build({ type: "always" });
 }
 
 /** No time at all. */
-export function never(): Built<NeverRule> {
+export function never(): Rule<NeverRule> {
   return build({ type: "never" });
 }
 
 /** Every one of these must hold. With none, all of time. */
-export function all(...rules: readonly Rule[]): Built<AllRule> {
+export function all(...rules: readonly RuleData[]): Rule<AllRule> {
   return build({ type: "all", rules });
 }
 
 /** Any one of these. With none, no time at all. */
-export function any(...rules: readonly Rule[]): Built<AnyRule> {
+export function any(...rules: readonly RuleData[]): Rule<AnyRule> {
   return build({ type: "any", rules });
 }
 
 /** The times a rule does not cover. */
-export function not(rule: Rule): Built<NotRule> {
+export function not(rule: RuleData): Rule<NotRule> {
   return build({ type: "not", rule });
 }
 
@@ -68,17 +68,17 @@ export function not(rule: Rule): Built<NotRule> {
  * registry a query carries on `context.rules`.
  *
  * ```ts
- * schedule().open(weekdays()).closed(custom("bank-holidays", { region: "gb" }));
+ * schedule().open(weekdays()).closed(customRule("bank-holidays", { region: "gb" }));
  * ```
  *
  * The options are stored in the document, so they must survive a JSON round
  * trip. See [custom-rules.ts](./custom-rules.ts) for what a rule type is.
  */
-export function custom(
+export function customRule(
   name: string,
   options?: JsonValue,
   zone?: string,
-): Built<CustomRule> {
+): Rule<CustomRule> {
   if (name.length === 0) {
     throw new RangeError("A custom rule needs a name to look its type up by.");
   }
@@ -95,8 +95,8 @@ export function custom(
 
 export { inCalendar, inZone } from "./scope-builders.js";
 export {
-  atMost,
+  atMostOccurrences,
   type AtMostOptions,
-  atMostTime,
-  spacedBy,
+  atMostOccupiedTime,
+  minimumGap,
 } from "./occurrence-builders.js";

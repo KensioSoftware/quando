@@ -27,7 +27,7 @@ export type {
   HasCascade,
   Layer,
   ReplacingLayer,
-  Valued,
+  ValueInterval,
 } from "./cascade.js";
 export {
   asCascade,
@@ -45,8 +45,8 @@ export { overlay } from "./valued-stream.js";
 export { resolve } from "./resolve.js";
 export { explain, explainRule } from "./explain.js";
 
-export type { Assigned, Covers } from "./assigned.js";
-export { assigned, nextValue, valueAt } from "./assigned.js";
+export type { Assigned, CoverageSource } from "./assigned.js";
+export { assigned, nextValueInterval, valueAt } from "./assigned.js";
 export type {
   AllRule,
   AlwaysRule,

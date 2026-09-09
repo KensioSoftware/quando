@@ -9,8 +9,8 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { dates, timeOfDay, weekdays, weekends } from "./build.js";
-import { equals } from "./canonical.js";
+import { dates, timeOfDayRange, weekdays, weekends } from "./build.js";
+import { sameDefinition } from "./canonical.js";
 import { cascade, layer, merged, replace } from "./cascade.js";
 import { parseTally, tally } from "./tally.js";
 
@@ -41,18 +41,15 @@ describe("counting how many are on", () => {
     assertIdentical(restored.countAt(wednesday), 5);
   });
 
-  it("keeps at as a compatibility alias", () => {
+  it("exposes one explicit point-query name", () => {
     // Given a tally created through the current API.
     const staff = tally().plus(weekdays(), 3);
-    const previousApi: {
-      readonly at: (at: Temporal.ZonedDateTime) => number;
-    } = staff;
+    // When the count is queried through the public method.
+    const count = staff.countAt(monday);
 
-    // When its former point-query name is used.
-    const count = previousApi.at(monday);
-
-    // Then it returns the same count as `countAt`.
-    assertIdentical(count, staff.countAt(monday));
+    // Then the explicit method returns the count and the old alias is absent.
+    assertIdentical(count, 3);
+    assertIdentical("at" in staff, false);
   });
 
   describe("stored forms it refuses", () => {
@@ -149,9 +146,9 @@ describe("counting how many are on", () => {
         ),
         [3, 5],
       );
-      assertStringIncludes(explanation.summary, "Wednesday is a weekday.");
-      assertStringIncludes(explanation.summary, "This layer adds 2.");
-      assertStringIncludes(explanation.summary, "The running total is 5.");
+      assertStringIncludes(explanation.details, "Wednesday is a weekday.");
+      assertStringIncludes(explanation.details, "This layer adds 2.");
+      assertStringIncludes(explanation.details, "The running total is 5.");
     });
 
     it("uses tally labels and comments in an explanation", () => {
@@ -166,9 +163,9 @@ describe("counting how many are on", () => {
 
       // Then the business reason accompanies the automatic contribution details.
       assertIdentical(explanation.steps[1]?.label, "Delivery cover");
-      assertStringIncludes(explanation.summary, "Delivery cover.");
-      assertStringIncludes(explanation.summary, "Wednesday delivery.");
-      assertStringIncludes(explanation.summary, "This layer adds 2.");
+      assertStringIncludes(explanation.details, "Delivery cover.");
+      assertStringIncludes(explanation.details, "Wednesday delivery.");
+      assertStringIncludes(explanation.details, "This layer adds 2.");
     });
 
     it("explains uncovered time as the tally default", () => {
@@ -199,7 +196,7 @@ describe("counting how many are on", () => {
       // Then both the tally and its nested explanation use the zero default.
       assertIdentical(explanation.value, 0);
       assertIdentical(replacement?.type, "replacement");
-      assertStringIncludes(replacement.explanation.summary, "The total is 0");
+      assertStringIncludes(replacement.explanation.details, "The total is 0");
     });
   });
 
@@ -207,7 +204,7 @@ describe("counting how many are on", () => {
     it("replaces the figure rather than adding to it", () => {
       // Given a standing crew, and a skeleton crew on one day. Said as a
       // `plus` this would be four, and what the manager means is one.
-      const staff = tally().plus(weekdays(), 3).exactly("2026-03-11", 1);
+      const staff = tally().plus(weekdays(), 3).setCount("2026-03-11", 1);
 
       // When the two days are asked.
       // Then the exception replaced the figure under it.
@@ -221,7 +218,7 @@ describe("counting how many are on", () => {
       // outranks everything above it, and a later `plus` still adds.
       const staff = tally()
         .plus(weekdays(), 3)
-        .exactly("2026-03-11", 1)
+        .setCount("2026-03-11", 1)
         .plus("2026-03-11", 2);
 
       // When the day is asked.
@@ -232,7 +229,7 @@ describe("counting how many are on", () => {
 
   it("reports a tally line hidden by an exact replacement", () => {
     // Given one weekday line fully replaced by a later exact value.
-    const staff = tally().plus(weekdays(), 3).exactly(weekdays(), 1);
+    const staff = tally().plus(weekdays(), 3).setCount(weekdays(), 1);
 
     // When the tally is validated over a week.
     const diagnostics = staff.validate(weekStart, weekEnd);
@@ -252,7 +249,7 @@ describe("counting how many are on", () => {
       // When the whole week is asked.
       // Then the weekend figure is the one that limits it, which is the
       // question a capacity check is really asking.
-      assertIdentical(staff.least(weekStart, weekEnd), 1);
+      assertIdentical(staff.minimumCount(weekStart, weekEnd), 1);
     });
 
     it("is zero where any of the window is uncovered", () => {
@@ -262,7 +259,7 @@ describe("counting how many are on", () => {
       // When the whole week is asked.
       // Then the answer is nobody, however well covered the weekdays are. A
       // stretch no line claims is a stretch with nobody on.
-      assertIdentical(staff.least(weekStart, weekEnd), 0);
+      assertIdentical(staff.minimumCount(weekStart, weekEnd), 0);
     });
 
     it("is zero for a window nothing covers at all", () => {
@@ -272,7 +269,7 @@ describe("counting how many are on", () => {
       // When only the weekend is asked.
       // Then nobody, rather than the absence of an answer.
       assertIdentical(
-        staff.least(
+        staff.minimumCount(
           Temporal.ZonedDateTime.from("2026-03-14T00:00[Europe/London]"),
           Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
         ),
@@ -285,7 +282,7 @@ describe("counting how many are on", () => {
     it("returns staff-hours without exposing the interval stream", () => {
       // Given three people on each eight-hour weekday shift and two extra
       // people throughout Wednesday's shift.
-      const workingHours = weekdays().and(timeOfDay("09:00", "17:00"));
+      const workingHours = weekdays().and(timeOfDayRange("09:00", "17:00"));
       const wednesdayHours = workingHours.and(dates("2026-03-11"));
       const staff = tally().plus(workingHours, 3).plus(wednesdayHours, 2);
 
@@ -303,10 +300,12 @@ describe("counting how many are on", () => {
       const staff = tally().plus(weekdays(), 3).plus("2026-03-11", 2);
 
       // When the week is read as stretches.
-      const shown = [...staff.counts(weekStart, weekEnd)].map((span) => {
-        const day = span.start?.toPlainDate().toString() ?? "";
-        return `${day} ${span.value}`;
-      });
+      const shown = [...staff.countIntervals(weekStart, weekEnd)].map(
+        (span) => {
+          const day = span.start?.toPlainDate().toString() ?? "";
+          return `${day} ${span.value}`;
+        },
+      );
 
       // Then the extra day is its own stretch, and the days either side of it
       // are the standing figure.
@@ -314,6 +313,7 @@ describe("counting how many are on", () => {
         "2026-03-09 3",
         "2026-03-11 5",
         "2026-03-12 3",
+        "2026-03-14 0",
       ]);
     });
   });
@@ -327,7 +327,7 @@ describe("counting how many are on", () => {
       // When the two are compared.
       // Then they are the same document. The words are a way of saying the
       // cascade, rather than a second thing to keep in step with it.
-      assertTrue(equals(plainly.cascade, built));
+      assertTrue(sameDefinition(plainly.cascade, built));
     });
 
     it("resolves as any other cascade does", () => {

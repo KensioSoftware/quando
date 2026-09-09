@@ -24,6 +24,40 @@ import { ascending } from "./custom-rule-stream.js";
 import { type IntervalStream, union } from "./interval-stream.js";
 import type { JsonValue } from "./json.js";
 import type { CustomRule } from "./rule.js";
+import type { ValueParser } from "./parse-cascade.js";
+
+/** Typed callbacks for one custom rule's parsed options. */
+export interface CustomRuleDefinition<O> {
+  readonly parseOptions: ValueParser<O>;
+  readonly intervals: (context: Context, options: O) => IntervalStream;
+  readonly describe?: (options: O) => string;
+  readonly knownThrough?: (options: O) => string | undefined;
+}
+
+/** Connects option validation to every callback of a custom rule. */
+export function defineCustomRule<O>(
+  definition: CustomRuleDefinition<O>,
+): CustomRuleType {
+  const read = (options: JsonValue | undefined): O =>
+    definition.parseOptions(options, "options");
+  const describe = definition.describe;
+  const knownThrough = definition.knownThrough;
+  return {
+    intervals: (context, options) =>
+      definition.intervals(context, read(options)),
+    ...(describe === undefined
+      ? {}
+      : {
+          describe: (options: JsonValue | undefined) => describe(read(options)),
+        }),
+    ...(knownThrough === undefined
+      ? {}
+      : {
+          knownThrough: (options: JsonValue | undefined) =>
+            knownThrough(read(options)),
+        }),
+  };
+}
 
 /**
  * What an application supplies to give one `custom` rule a meaning.
@@ -63,7 +97,9 @@ export interface CustomRuleType {
    * Read from the registry rather than from the document, because a stored
    * schedule names a rule type without knowing how much of it was loaded.
    */
-  readonly known?: (options: JsonValue | undefined) => string | undefined;
+  readonly knownThrough?: (
+    options: JsonValue | undefined,
+  ) => string | undefined;
 }
 
 /**
@@ -74,7 +110,7 @@ export interface CustomRuleType {
  *
  * ```ts
  * const rules = { ...bankHolidays, easter };
- * activeAt(schedule, at, { rules });
+ * isActiveAt(schedule, at, { rules });
  * ```
  */
 export type RuleRegistry = Readonly<Record<string, CustomRuleType>>;
@@ -88,7 +124,7 @@ export class UnknownCustomRuleError extends Error {
     const help =
       known.length === 0
         ? "Pass the rule types this document needs as `rules` on the " +
-          "context, or with `withRules()` on a schedule, rota or tally."
+          "context, or with `withCustomRules()` on a schedule, rota or tally."
         : `The context holds ${known.join(", ")}.`;
     super(`No custom rule named "${ruleName}" is registered. ${help}`);
     this.name = "UnknownCustomRuleError";

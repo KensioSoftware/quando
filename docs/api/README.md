@@ -1,770 +1,236 @@
 # API reference
 
-This page lists the main public API. Start with the
-[getting-started guide](../getting-started/) if you are new to Quando.
-
-## Entry points
-
-| Import path              | Purpose                                              |
-| ------------------------ | ---------------------------------------------------- |
-| `@kensio/quando`         | Schedules, rotas, tallies, rules, and common queries |
-| `@kensio/quando/core`    | Cascades, interval streams, and low-level evaluation |
-| `@kensio/quando/parsing` | Parsers for stored Quando documents                  |
-
-The core entry point also exports everything from the root entry point.
-
-## Root entry point
-
-### Schedules
-
-```ts
-function schedule(options?: { zone?: string }): Schedule;
-function parseSchedule(value: unknown, path?: string): Schedule;
-
-interface ScheduleChanges {
-  readonly opened: Iterable<Interval>;
-  readonly closed: Iterable<Interval>;
-}
-
-interface LayerOptions {
-  readonly label?: string;
-  readonly comment?: string;
-}
-```
-
-| Method                                  | Result                                      |
-| --------------------------------------- | ------------------------------------------- |
-| `open(scope, hours?, options?)`         | Add opening hours                           |
-| `closed(scope, options?)`               | Close the entire scope                      |
-| `hoursOn(day, hours, options?)`         | Replace the hours within a day              |
-| `withRules(rules)`                      | Read `custom` rules from this registry      |
-| `isOpen(at)`                            | Check one instant                           |
-| `explain(at)`                           | Explain the value at one instant            |
-| `opensNext(at, search?)`                | Return the current or next opening interval |
-| `firstOpenSlot(from, lasting, search?)` | Return the first fitting opening interval   |
-| `openSlots(from, to, options)`          | Return candidate opening intervals          |
-| `addOpenTime(from, amount, search?)`    | Advance through open time                   |
-| `openDuration(from, to)`                | Measure open time in a window               |
-| `addOpenDays(from, count, options?)`    | Advance whole open days                     |
-| `openDayCount(from, to)`                | Count the open days in a window             |
-| `changesTo(next, from, to)`             | Return newly opened and closed intervals    |
-| `validate(from, to)`                    | Return semantic schedule diagnostics        |
-| `renderTimeline(from, to, options?)`    | Return opening times as JSON data or text   |
-| `toJSON()`                              | Return the stored schedule data             |
-
-`scope`, `day`, and `hours` accept a `Rule`. They also accept a date string such
-as `"2026-03-11"` or a time range such as `"09:00-17:00"` in the appropriate
-position.
-
-The optional `LayerOptions` has `label` and `comment` fields. Both fields are
-stored and included in explanations. `open(scope, options)` labels an all-day
-opening without an `hours` argument.
-
-### Rotas
-
-```ts
-function rota<V = never>(): Rota<V>;
-function parseRota<V>(
-  value: unknown,
-  parseValue: ValueParser<V>,
-  path?: string,
-): Rota<V>;
-```
-
-| Method                           | Result                                   |
-| -------------------------------- | ---------------------------------------- |
-| `assign(scope, value, options?)` | Add an assignment                        |
-| `swap(day, value, options?)`     | Add a replacement assignment for a day   |
-| `withRules(rules)`               | Read `custom` rules from this registry   |
-| `whoIsOn(at)`                    | Return the assigned value or `undefined` |
-| `explain(at)`                    | Explain the value at one instant         |
-| `shifts(from, to?)`              | Return valued intervals                  |
-| `validate(from, to)`             | Return diagnostics, including rota gaps  |
-| `toJSON()`                       | Return the stored rota data              |
-
-### Tallies
-
-```ts
-function tally(): Tally;
-function parseTally(value: unknown, path?: string): Tally;
-```
-
-| Method                             | Result                                 |
-| ---------------------------------- | -------------------------------------- |
-| `plus(scope, amount, options?)`    | Add an amount                          |
-| `exactly(scope, amount, options?)` | Replace lower amounts within the scope |
-| `withRules(rules)`                 | Read `custom` rules from this registry |
-| `countAt(at)`                      | Return the amount at one instant       |
-| `explain(at)`                      | Explain the value at one instant       |
-| `least(from, to)`                  | Return the lowest amount in a window   |
-| `totalBetween(from, to, unit)`     | Total amounts over elapsed time        |
-| `counts(from, to?)`                | Return valued intervals                |
-| `validate(from, to)`               | Return semantic tally diagnostics      |
-| `toJSON()`                         | Return the stored tally data           |
-
-`at(at)` remains available as a deprecated alias during the 1.x release line.
-
-### Rule builders
-
-| Function                            | Covered time                           |
-| ----------------------------------- | -------------------------------------- |
-| `always()`                          | All time                               |
-| `never()`                           | No time                                |
-| `daysOfWeek(...days)`               | Whole days with the named weekdays     |
-| `weekdays()`                        | Monday through Friday                  |
-| `weekends()`                        | Saturday and Sunday                    |
-| `daysOfMonth(...days)`              | Whole days at positions in each month  |
-| `nthDayOfWeekInMonth(nth, ...days)` | The nth named weekday in each month    |
-| `monthsOfYear(...months)`           | Whole named months                     |
-| `monthCodes(...codes)`              | Whole months, by `Temporal` code       |
-| `every(n, period, options)`         | Every nth day, week, month or year     |
-| `timeOfDay(from, to, zone?)`        | A daily wall-clock window              |
-| `dates(...dates)`                   | Whole named dates                      |
-| `onOrAfter(date, zone?)`            | Every day from a date onwards          |
-| `onOrBefore(date, zone?)`           | Every day up to a date                 |
-| `between(from, to, zone?)`          | Every day from one date to another     |
-| `all(...rules)`                     | Times covered by every rule            |
-| `any(...rules)`                     | Times covered by at least one rule     |
-| `not(rule)`                         | Times outside a rule                   |
-| `inZone(zone, rule)`                | A rule subtree evaluated in one zone   |
-| `inCalendar(calendar, rule)`        | A rule subtree counted on one calendar |
-| `custom(name, options?, zone?)`     | A rule type the application supplies   |
-
-Each builder validates its arguments and returns a `Built<R>`. A built rule
-is a `Rule` with non-enumerable `.and`, `.or`, and `.except` methods.
-
-```ts
-interface EveryOptions {
-  readonly anchor: string;
-  readonly zone?: string;
-}
-
-function every(
-  interval: number,
-  period: Period,
-  options: EveryOptions,
-): Built<EveryRule>;
-
-function parseRule(value: unknown, path?: string): Built<Rule>;
-```
-
-`Period` is `"days"`, `"weeks"`, `"months"` or `"years"`, listed in `PERIODS`.
-The anchor fixes the phase of the cycle, and `onOrAfter` bounds it.
-
-```ts
-function monthCodes(...codes: readonly MonthCode[]): Built<MonthCodesRule>;
-```
-
-`MonthCode` is the union of `"M01"` to `"M13"` and the same again with a
-trailing `"L"` for a leap month, listed in `MONTH_CODES`. A string outside that
-set will not compile. A code the calendar in force never reaches covers no
-time, so `monthCodes("M05L")` covers nothing on the ISO calendar and covers
-Adar I under `inCalendar("hebrew", ...)`.
-
-### Calendars
-
-```ts
-function inCalendar(calendar: string, rule: Rule): Built<InCalendarRule>;
-
-interface InCalendarRule {
-  readonly type: "inCalendar";
-  readonly calendar: string;
-  readonly rule: Rule;
-}
-```
-
-Any calendar the runtime's `Temporal` implements, which on a polyfilled runtime
-means the `full` build. The instants do not move. What changes is the year,
-month and day a rule reads off a date, so `daysOfMonth`,
-`nthDayOfWeekInMonth` and a cycle of days or weeks answer on the calendar
-named. Answers come back on the calendar the query was asked in.
-
-`monthCodes` names a month on any calendar. `monthsOfYear`, `every(n,
-"months")` and `every(n, "years")` throw a `RangeError` under a non-ISO
-calendar, because Quando's month names are the twelve Gregorian ones and
-another calendar may hold thirteen. `dates` and `between` name ISO dates
-whatever calendar surrounds them. `toCron` and `toRRule` refuse a rule read on
-another calendar, and refuse `monthCodes` anywhere.
-
-### Custom rule types
-
-```ts
-function custom(
-  name: string,
-  options?: JsonValue,
-  zone?: string,
-): Built<CustomRule>;
-
-interface CustomRule {
-  readonly type: "custom";
-  readonly name: string;
-  readonly options?: JsonValue;
-  readonly zone?: string;
-}
-
-interface CustomRuleType {
-  readonly intervals: (
-    context: Context,
-    options: JsonValue | undefined,
-  ) => Iterable<Interval>;
-  readonly describe?: (options: JsonValue | undefined) => string;
-}
-
-type RuleRegistry = Readonly<Record<string, CustomRuleType>>;
-
-class UnknownCustomRuleError extends Error {
-  readonly ruleName: string;
-}
-
-class CustomRuleStreamError extends RangeError {
-  readonly ruleName: string;
-}
-```
-
-A `custom` rule document names a rule type. `context.rules` holds the code that
-runs it. A document stores, travels and canonicalises without that code.
-Evaluating
-a rule the registry does not hold throws `UnknownCustomRuleError`.
-
-A schedule, a rota and a tally take the registry through `withRules(rules)`.
-It returns a new one whose every method reads the registry. A registry holds
-functions. It stays out of the stored document, and `toJSON` returns what it
-always returned.
-
-`intervals` must yield in ascending order of start without overlaps, the same
-contract every interval stream keeps. Touching intervals are merged. Anything
-else throws `CustomRuleStreamError`. Quando clips the result to the query
-window, and a rule type is free to yield without end. A `zone` reads the rule
-the way `inZone` does.
-
-`toCron` and `toRRule` refuse a rule holding a custom type, and give the
-reason. `canonical` orders the keys of `options` so that two documents with the
-same options share a `fingerprint`.
-
-### Constraints
-
-```ts
-interface Occurrence {
-  readonly at: Temporal.ZonedDateTime;
-  readonly lasting?: Temporal.Duration;
-}
-
-interface AtMostOptions {
-  readonly zone?: string;
-}
-
-function atMost(
-  count: number,
-  per: string,
-  options?: AtMostOptions,
-): Built<Rule>;
-function spacedBy(gap: string): Built<Rule>;
-```
-
-Rules that read `context.occurrences` rather than the calendar. `per` takes a
-calendar period such as `"days"` for buckets that reset, or an ISO duration
-such as `"PT24H"` for a rolling window. `spacedBy` takes the least time between
-occurrences, read both ways round. Evaluating either with no `occurrences` on
-the context throws `MissingOccurrencesError`. See [constraints](../constraints/).
-
-### Terms
-
-```ts
-function parseTerms(line: string): Built<Rule>;
-```
-
-Reads a whitespace-separated line such as `"mon-fri 09:00-17:00"` as a rule.
-Each term narrows what the rule covers and a comma inside one offers
-alternatives. A line is one conjunction. It throws on a term it cannot read,
-naming the term and the nearest word that would have worked. Every string a
-schedule, rota or tally accepts in place of a rule is read this way. See
-[terms](../terms/).
-
-### Cron expressions
-
-```ts
-interface CronOptions {
-  readonly zone?: string;
-}
-
-function parseCron(expression: string, options?: CronOptions): Built<Rule>;
-```
-
-Reads a five-field POSIX cron expression as a rule covering the minute each run
-starts in. See [cron expressions](../cron/).
-
-```ts
-interface Unwritable {
-  readonly ok: false;
-  readonly reason: string;
-}
-
-interface WrittenCron {
-  readonly ok: true;
-  readonly cron: string;
-  readonly zone?: string;
-}
-
-type CronExport = WrittenCron | Unwritable;
-
-function toCron(rule: Rule): CronExport;
-```
-
-Writes a rule back out as an expression, when cron has a form for it. `reason`
-says what stopped it when cron has none.
-
-### Recurrence rules
-
-```ts
-interface RRuleOptions {
-  readonly start: string;
-  readonly zone?: string;
-}
-
-function parseRRule(text: string, options: RRuleOptions): Built<Rule>;
-```
-
-Reads an RFC 5545 recurrence rule. `start` is DTSTART, and supplies the time of
-day, the day the pattern repeats on when nothing names one, and the point the
-recurrence begins. See [recurrence rules](../recurrence/).
-
-```ts
-interface ToRRuleOptions {
-  readonly start?: string;
-}
-
-interface WrittenRRule {
-  readonly ok: true;
-  readonly rrule: string;
-  readonly start: string;
-  readonly duration: string;
-  readonly zone?: string;
-}
-
-type RRuleExport = WrittenRRule | Unwritable;
-
-function toRRule(rule: Rule, options?: ToRRuleOptions): RRuleExport;
-```
-
-Writes a rule back out as a recurrence, when one has that form. `start` is
-DTSTART and `duration` is how long an occurrence runs, which the `DTEND` or
-`DURATION` property beside the recurrence carries. The `start` option applies
-only to a rule with no lower bound of its own. DTSTART is the first day from
-that bound onwards that the rule covers, which is what RFC 5545 requires of it.
-
-### Queries
-
-```ts
-function activeAt<V>(
-  covers: Covers<V>,
-  at: Temporal.ZonedDateTime,
-  context?: Omit<Context, "from" | "to">,
-): boolean;
-
-function nextCoveredInterval<V>(
-  covers: Covers<V>,
-  context: Context,
-  search?: Search,
-): Interval | undefined;
-
-function coveredDuration<V>(
-  covers: Covers<V>,
-  context: Context,
-): Temporal.Duration;
-
-function advanceBy<V>(
-  from: Temporal.ZonedDateTime,
-  amount: Temporal.Duration,
-  options: { during: Covers<V> } & Search & Omit<Context, "from" | "to">,
-): Temporal.ZonedDateTime | undefined;
-function advanceBy<V>(
-  from: Temporal.ZonedDateTime,
-  amount: Spread<Temporal.Duration>,
-  options: { during: Covers<V> } & Search & Omit<Context, "from" | "to">,
-): Spread<Temporal.ZonedDateTime>;
-function advanceBy<V>(
-  from: Temporal.ZonedDateTime,
-  amount: Distribution<Temporal.Duration>,
-  options: { during: Covers<V> } & Search & Omit<Context, "from" | "to">,
-): Distribution<Temporal.ZonedDateTime>;
-
-function coveredDayCount<V>(covers: Covers<V>, context: Context): number;
-
-function advanceByCoveredDays<V>(
-  from: Temporal.ZonedDateTime,
-  count: number,
-  options: CoveredDayOptions<V>,
-): Temporal.ZonedDateTime | undefined;
-function advanceByCoveredDays<V>(
-  from: Temporal.ZonedDateTime,
-  count: Spread<number>,
-  options: CoveredDayOptions<V>,
-): Spread<Temporal.ZonedDateTime>;
-function advanceByCoveredDays<V>(
-  from: Temporal.ZonedDateTime,
-  count: Distribution<number>,
-  options: CoveredDayOptions<V>,
-): Distribution<Temporal.ZonedDateTime>;
-
-function firstGap<V>(
-  covers: Covers<V>,
-  lasting: Temporal.Duration,
-  context: Context,
-  search?: Pick<Search, "within">,
-): Interval | undefined;
-
-function slots<V>(
-  covers: Covers<V>,
-  context: Context,
-  options: SlotOptions,
-): IntervalStream;
-
-function coverageChanges<B, A>(
-  before: Covers<B>,
-  after: Covers<A>,
-  context: Context,
-): CoverageChanges;
-
-function accumulate(
-  source: CascadeLike<number>,
-  context: Context,
-  unit: ElapsedUnit,
-): number;
-
-function renderTimeline<V, F extends TimelineFormat = "json">(
-  source: Covers<V>,
-  context: Context,
-  options?: TimelineOptions & { readonly format?: F },
-): TimelineOutput<F>;
-```
-
-`Covers<V>` accepts a rule, a boolean cascade, or the result of
-`assigned(cascade, value)`.
-
-```ts
-interface Search {
-  readonly within?: Temporal.Duration;
-  readonly complete?: boolean;
-}
-
-interface SlotOptions {
-  readonly every: Temporal.Duration;
-  readonly lasting: Temporal.Duration;
-}
-
-type StartingDay = "excluded" | "included";
-
-interface CoveredDayOptions<V>
-  extends Pick<Search, "within">, Omit<Context, "from" | "to"> {
-  readonly during: Covers<V>;
-  readonly startingDay?: StartingDay;
-}
-
-type OpenDayOptions = Omit<CoveredDayOptions<boolean>, "during">;
-
-interface CoverageChanges {
-  readonly added: IntervalStream;
-  readonly removed: IntervalStream;
-}
-
-type ElapsedUnit =
-  "hour" | "minute" | "second" | "millisecond" | "microsecond" | "nanosecond";
-
-const ELAPSED_UNITS: readonly ElapsedUnit[];
-
-type TimelineFormat = "json" | "text";
-
-interface TimelineOptions {
-  readonly format?: TimelineFormat;
-}
-
-const TIMELINE_FORMATS: readonly TimelineFormat[];
-
-interface Timeline {
-  readonly type: "timeline";
-  readonly zone: string;
-  readonly from: string;
-  readonly to: string;
-  readonly days: readonly TimelineDay[];
-}
-
-interface TimelineDay {
-  readonly date: string;
-  readonly start: string;
-  readonly end: string;
-  readonly visibleStart: string;
-  readonly visibleEnd: string;
-  readonly covered: readonly TimelineSpan[];
-}
-
-interface TimelineSpan {
-  readonly start: string;
-  readonly end: string;
-}
-
-type TimelineOutput<F extends TimelineFormat> = F extends "text"
-  ? string
-  : Timeline;
-```
-
-`nextCoveredInterval`, `firstGap`, `advanceBy`, and `advanceByCoveredDays`
-apply `DEFAULT_SEARCH_LIMIT` when no finite end is supplied. They throw
-`SearchLimitExceededError` if they exhaust that automatic limit. `slots`
-returns a lazy stream and adds no limit.
-
-`coveredDayCount` and `advanceByCoveredDays` count local calendar dates
-carrying any covered time. A date open for one hour counts as one day, the
-same as a date open for eight hours. `coveredDayCount` reads its window half
-open and needs a finite end. `advanceByCoveredDays` takes a whole
-non-negative count, skips the starting date unless `startingDay` is
-`"included"`, and returns the first instant at or after `from` that the input
-covers on the date the count lands. `Schedule.openDayCount` and
-`Schedule.addOpenDays` read dates in the schedule's declared zone and
-`addOpenDays` answers in the caller's. The standalone functions read dates in
-the zone of `context.from`.
-
-`accumulate` multiplies each resolved numeric value by how long it applies in
-the requested unit. Its context must have a finite end.
-
-`renderTimeline` returns a JSON-compatible `Timeline` by default. Each local
-calendar day contains its visible window and exact covered spans. Pass
-`{ format: "text" }` for a fixed-width chart built from the same data. The
-context must have a finite end.
-
-### Uncertainty
-
-```ts
-interface Outcome<V> {
-  readonly value: V;
-  readonly probability: number;
-}
-
-interface Spread<V> {
-  readonly kind: "spread";
-  readonly values: readonly V[];
-}
-
-interface Distribution<V> {
-  readonly kind: "distribution";
-  readonly outcomes: readonly Outcome<V>[];
-  readonly assumed?: boolean;
-}
-
-type Estimate<V> = Distribution<V> | Spread<V>;
-
-type Order<V> = (left: V, right: V) => number;
-
-function spread<V>(values: Iterable<V>): Spread<V>;
-function chances<V>(outcomes: Iterable<Outcome<V>>): Distribution<V>;
-function certainly<V>(value: V): Distribution<V>;
-function assumeUniform<V>(over: Spread<V>): Distribution<V>;
-function isDistribution<V>(estimate: Estimate<V>): estimate is Distribution<V>;
-
-function mapOutcomes<V, W>(
-  estimate: Estimate<V>,
-  map: (value: V) => W,
-  order?: Order<W>,
-): Estimate<W>;
-
-function combineOutcomes<A, B, C>(
-  left: Estimate<A>,
-  right: Estimate<B>,
-  join: (first: A, second: B) => C,
-  order?: Order<C>,
-): Estimate<C>;
-
-function support<V>(estimate: Estimate<V>, order?: Order<V>): readonly V[];
-function mode<V>(over: Distribution<V>, order?: Order<V>): V;
-function median<V>(over: Distribution<V>, order?: Order<V>): V;
-function quantile<V>(over: Distribution<V>, at: number, order?: Order<V>): V;
-function chanceBefore<V>(
-  over: Distribution<V>,
-  value: V,
-  order?: Order<V>,
-): number;
-
-function naturally<V>(left: V, right: V): number;
-```
-
-`spread` carries outcomes with no weights and `chances` carries a probability
-against each. `chances` requires probabilities above zero totalling one.
-
-`advanceBy` and `advanceByCoveredDays` return whichever shape they were given.
-An outcome the search never reaches is refused rather than dropped.
-`mapOutcomes` runs any function over every outcome and adds together the ones
-that land in the same place. `combineOutcomes` assumes the two estimates are
-independent, and returns a `Spread` where either side carries no weights.
-
-`mode`, `median`, `quantile` and `chanceBefore` refuse a `Spread` and name
-`assumeUniform` as the way to opt in. A distribution built by `assumeUniform`
-carries `assumed`. `mapOutcomes` carries it forward, and so does
-`combineOutcomes` where both sides are distributions and either carries it. A
-combination involving a `Spread` returns a `Spread`, which has no weights and
-no `assumed`.
-
-`naturally` orders numbers, bigints, strings and `Temporal` values. It refuses
-`NaN`, which compares false both ways round and would otherwise read as equal
-to every other outcome. Every view takes an `order` for anything else.
-
-### Comparison and JSON types
-
-`canonical`, `equals`, and `fingerprint` compare the stored structure of
-rules and cascades.
-
-`JsonValue` describes values that JSON can preserve. `JsonCompatible<T>`
-checks an application type without requiring an index signature.
-
-### Semantic validation
-
-```ts
-function validate(
-  source: Rule | CascadeLike<unknown>,
-  window: ValidationWindow,
-  options?: ValidationOptions,
-): readonly ValidationDiagnostic[];
-
-interface ValidationWindow extends Context {
-  readonly to: Temporal.ZonedDateTime;
-}
-
-interface ValidationOptions {
-  readonly requireFullCoverage?: boolean;
-}
-```
-
-Diagnostic codes are `inactive-rule`, `inactive-layer`, `shadowed-layer`, and
-`uncovered-time`. Layer diagnostics include a cascade-relative `path`.
-Uncovered-time diagnostics include the uncovered `interval`.
-
-The window must be finite. `requireFullCoverage` reports every interval where a
-cascade assigns no value. `Rota.validate` enables it, while `Schedule.validate`
-allows ordinary closed time.
-
-## Core entry point
-
-### Cascades
-
-```ts
-function cascade<V>(...layers: readonly Layer<V>[]): Cascade<V>;
-
-function layer<V>(
-  scope: Rule,
-  value: V & JsonCompatible<V>,
-  options?: LayerOptions,
-): ConstantLayer<V>;
-
-function replace<V>(
-  scope: Rule,
-  replacement: Cascade<V & JsonCompatible<V>>,
-  options?: LayerOptions,
-): ReplacingLayer<V>;
-
-function replace(
-  scope: Rule,
-  replacement: Rule,
-  options?: LayerOptions,
-): ReplacingLayer<boolean>;
-
-function resolve<V>(cascade: CascadeLike<V>, context: Context): ValuedStream<V>;
-
-function explain<V>(
-  cascade: CascadeLike<V>,
-  at: Temporal.ZonedDateTime,
-  context?: Omit<Context, "from" | "to">,
-): Explanation<V>;
-
-function explainRule(
-  rule: Rule,
-  at: Temporal.ZonedDateTime,
-  context?: Omit<Context, "from" | "to">,
-): RuleExplanation;
-```
-
-`Explanation.value` is the value at the instant, or `undefined` when the
-cascade assigns nothing. `summary` is a readable account of the result. Each
-step has an automatic rule-match description, optional caller context, and the
-structured data used to produce the text. See
-[explanations](../explanations/) for the complete shape.
-
-`cascade` uses later-layer priority. `merged` has strategy-specific
-overloads:
-
-| Strategy            | Accepted values        |
-| ------------------- | ---------------------- |
-| `override`          | JSON-compatible values |
-| `sum`, `max`, `min` | Numbers                |
-| `concat`            | Arrays                 |
-
-`whenever(rule, options?)` creates a boolean cascade. `asCascade` returns the
-cascade document behind a supported domain object. `isCascade` checks the
-cascade type tag.
-
-`assigned(cascade, value)` selects the time assigned to one value.
-`valueAt(cascade, at)` reads one instant. `nextValue(cascade, context)`
-returns the next valued interval.
-
-### Rule evaluation
-
-```ts
-function intervals(rule: Rule, context: Context): IntervalStream;
-```
-
-An `Interval` has optional `start` and `end` values. An omitted endpoint is
-unbounded in that direction. Interval streams are ordered, non-overlapping,
-half-open, and coalesced.
-
-The core exports these interval operations:
-
-- `clip`, `complement`, `difference`, `intersect`, and `union`
-- `contains`, `duration`, and `isEmpty`
-- `compareStarts`, `compareEnds`, `startsBeforeEnd`, and
-  `startsAtOrBeforeEnd`
-- `overlay` for valued streams
-- `take` for reading a fixed number of stream items
-
-## Parsing entry point
-
-```ts
-type ValueParser<V> = (value: unknown, path: string) => V;
-
-parseRule;
-parseSchedule;
-parseRota;
-parseTally;
-parseCascade;
-asString;
-asBoolean;
-fail;
-```
-
-Every parser accepts `unknown`, rejects unknown fields, and reports the path
-to invalid data. `parseRota` and `parseCascade` require a `ValueParser` for
-application values.
-
-## Shared types
-
-```ts
-interface Context {
-  readonly from: Temporal.ZonedDateTime;
-  readonly to?: Temporal.ZonedDateTime;
-  readonly disambiguation?: "compatible" | "earlier" | "later" | "reject";
-  readonly rules?: RuleRegistry;
-}
-
-interface Interval {
-  readonly start: Temporal.ZonedDateTime | undefined;
-  readonly end: Temporal.ZonedDateTime | undefined;
-}
-```
-
-The zone carried by `Context.from` is the default evaluation zone. `to` must
-represent the same instant or a later instant. `rules` supplies the custom rule
-types a document may name. `disambiguation` controls
-ambiguous and nonexistent local times.
+Import ordinary application APIs from `@kensio/quando`. Advanced cascade and
+interval operations live in `@kensio/quando/core`, which also exports the root
+API. `@kensio/quando/parsing` provides document and value parsers.
+
+## Shared types and options
+
+| Type                | Meaning                                                      |
+| ------------------- | ------------------------------------------------------------ |
+| `Rule`              | A fluent rule with `.and`, `.or`, and `.except`              |
+| `RuleData`          | The JSON-compatible rule-node union                          |
+| `RuleInput`         | A rule or a supported expression string                      |
+| `DurationInput`     | A Temporal duration, ISO duration string, or duration object |
+| `EvaluationOptions` | `rules`, `occurrences`, and `disambiguation`                 |
+| `Context`           | Evaluation options plus `from` and optional `to`             |
+| `QueryWindow`       | Evaluation options plus required `from` and `to`             |
+| `CoverageSource<V>` | A rule, boolean cascade, schedule, or value selection        |
+| `Interval`          | `start` and `end`, either of which can be unbounded          |
+| `Slot`              | A fitted interval with required `start` and `end`            |
+| `ValueInterval<V>`  | An interval carrying a `value`                               |
+
+All instants are `Temporal.ZonedDateTime`. Windows include their start and
+exclude their end. Public type names are exported beside the functions that
+use them. Concrete rule-node types and calendar-name unions are also exported.
+
+`Search` has `within?: DurationInput`, `intervalEnd?: "clipped" | "complete"`,
+and `endWithin?: DurationInput`. The latter two control interval queries.
+An explicit start-search limit returns `undefined` when no answer fits. An
+unspecified limit uses `DEFAULT_SEARCH_LIMIT` (100 years) and throws
+`SearchLimitExceededError` if exhausted. A complete-end search always throws
+if it cannot establish the end within its limit.
+
+## Schedules
+
+`schedule({ zone? })` starts empty. Methods return new schedules, leaving the
+previous definition available. `ScheduleData` is the stored form.
+`ScheduleOptions`, `ScheduleSearch`, `OpenDayOptions`, and `ScheduleChanges`
+name the construction, search, day-counting, and comparison contracts.
+
+| Method                                   | Result or effect                           |
+| ---------------------------------------- | ------------------------------------------ |
+| `open(scope, hours?, layerOptions?)`     | Add open periods                           |
+| `closed(scope, layerOptions?)`           | Close periods                              |
+| `setHours(scope, hours, layerOptions?)`  | Replace the selected dates' hours          |
+| `isOpen(at, options?)`                   | Boolean                                    |
+| `nextOpenInterval(from, options?)`       | Current or next interval, or `undefined`   |
+| `firstOpenSlot(from, lasting, options?)` | `Slot` or `undefined`                      |
+| `openSlots(from, to, options)`           | Lazy candidate slots                       |
+| `addOpenTime(from, amount, options?)`    | Arrival instant or estimate                |
+| `addOpenDays(from, count, options?)`     | Arrival instant or estimate                |
+| `openDuration(from, to, options?)`       | Elapsed duration                           |
+| `openDayCount(from, to, options?)`       | Count of local dates with any opening      |
+| `changesTo(next, from, to, options?)`    | `opened` and `closed` interval streams     |
+| `timeline(from, to, options?)`           | `Timeline` data                            |
+| `explain(at, options?)`                  | Value, summary, and trace                  |
+| `validate(from, to, options?)`           | Contextual diagnostics                     |
+| `withCustomRules(registry)`              | Derived schedule with executable callbacks |
+| `toJSON()`                               | `ScheduleData`                             |
+
+Query options accept `EvaluationOptions`. Slot options add `every` and
+`lasting`. Search queries add `within`. Day arithmetic adds `startingDay`.
+`LayerOptions` contains optional `label` and `comment`. See [schedules](../schedules/).
+
+## Rotas and tallies
+
+`rota({ zone? })` infers its assignment values as you chain calls. `rota<V>()`
+constrains later assignments to `V`. `tally({ zone? })` combines numeric values.
+All three domain objects accept the same zone option and evaluation settings.
+
+| Rota method                           | Result or effect                               |
+| ------------------------------------- | ---------------------------------------------- |
+| `assign(scope, value, layerOptions?)` | Add a higher-priority assignment               |
+| `whoIsOn(at, options?)`               | Assigned value or `undefined`                  |
+| `shifts(from, to?, options?)`         | Lazy assigned intervals                        |
+| `explain(at, options?)`               | Assignment and trace                           |
+| `validate(from, to, options?)`        | Diagnostics. Full coverage required by default |
+| `withCustomRules(registry)`           | Attach callbacks                               |
+| `toJSON()`                            | `RotaData<V>`                                  |
+
+| Tally method                             | Result or effect                  |
+| ---------------------------------------- | --------------------------------- |
+| `plus(scope, amount, layerOptions?)`     | Add a numeric contribution        |
+| `setCount(scope, amount, layerOptions?)` | Replace the total in the scope    |
+| `countAt(at, options?)`                  | Number, defaulting to zero        |
+| `minimumCount(from, to, options?)`       | Lowest count, including zero gaps |
+| `countIntervals(from, to, options?)`     | Lazy counts including zero gaps   |
+| `totalBetween(from, to, unit, options?)` | Sum of count × elapsed units      |
+| `explain(at, options?)`                  | Total and contribution trace      |
+| `validate(from, to, options?)`           | Diagnostics                       |
+| `withCustomRules(registry)`              | Attach callbacks                  |
+| `toJSON()`                               | `TallyData`                       |
+
+See [rotas](../schedules/#build-a-rota) and [tallies](../accumulation/).
+
+## Rule builders
+
+| Builder                                             | Coverage                                          |
+| --------------------------------------------------- | ------------------------------------------------- |
+| `always()`, `never()`                               | All time or no time                               |
+| `weekdays()`, `weekends()`                          | Monday–Friday or Saturday–Sunday                  |
+| `daysOfWeek(...days)`                               | Named weekdays                                    |
+| `daysOfMonth(...days)`                              | Month days. Negatives count backward from the end |
+| `nthDayOfWeekInMonth(n, day)`                       | A counted weekday, such as the last Friday        |
+| `monthsOfYear(...months)`                           | Named Gregorian months                            |
+| `monthCodes(...codes)`                              | Calendar month codes                              |
+| `everyNthPeriod(n, period, options)`                | Repeating calendar periods with an anchor         |
+| `timeOfDayRange(from, to, zone?)`                   | Local clock range, possibly overnight             |
+| `dates(...dates)`                                   | Named dates                                       |
+| `datesBetween(from, to, zone?)`                     | Inclusive date range                              |
+| `onOrAfter(date, zone?)`, `onOrBefore(date, zone?)` | Inclusive date bounds                             |
+| `all(...rules)`, `any(...rules)`, `not(rule)`       | Intersection, union, and exclusion                |
+| `inZone(zone, rule)`, `inCalendar(calendar, rule)`  | Evaluate a subtree on a clock or calendar         |
+| `knownThrough(date, rule)`                          | Declare an inclusive knowledge horizon            |
+| `customRule(name, options?, zone?)`                 | Refer to an executable custom definition          |
+
+Builder results are fluent `Rule` values and also valid `RuleData`.
+`.and`, `.or`, and `.except` compose them. Combining a weekday and an overnight
+clock rule with `.and` means both predicates hold at the queried instant.
+`open(day, hours)` supplies starting-day ownership for shifts. See [rules](../rules/).
+
+## Standalone queries
+
+| Function                                               | Result                                                   |
+| ------------------------------------------------------ | -------------------------------------------------------- |
+| `isActiveAt(source, at, options?)`                     | Boolean                                                  |
+| `nextCoveredInterval(source, context, search?)`        | Interval or `undefined`                                  |
+| `firstAvailableSlot(source, lasting, options)`         | Slot or `undefined`. Options include `from` and `within` |
+| `availableSlots(source, window, { every, lasting })`   | Lazy finite slot stream                                  |
+| `coveredDuration(source, window)`                      | Elapsed duration                                         |
+| `coveredDayCount(source, window)`                      | Covered local dates                                      |
+| `addCoveredTime(from, amount, { during, ...options })` | Arrival or estimate                                      |
+| `addCoveredDays(from, count, { during, ...options })`  | Arrival or estimate                                      |
+| `coverageChanges(before, after, window)`               | `added` and `removed` streams                            |
+| `accumulate(cascade, window, unit)`                    | Numeric value × elapsed time                             |
+| `assigned(cascade, value)`                             | Coverage selection using `Object.is`                     |
+| `whereValueMatches(cascade, predicate)`                | Coverage selection by predicate                          |
+| `unknownIntervals(rule, context)`                      | Intervals with missing coverage knowledge                |
+| `unknownValueIntervals(cascade, context)`              | Intervals with unresolved values                         |
+
+`window` means a finite `QueryWindow`. Streams are consumed once. Scalar
+arithmetic can return `undefined`. Estimate arithmetic must resolve every
+outcome or throw `UnresolvedOutcomeError` with the outcome and search limit. See [queries](../queries/).
+
+## Constraints
+
+`atMostOccurrences(count, { per, zone? })` limits calendar-bucket counts.
+Use `{ within, zone? }` for a rolling window. `per` uses singular names: `"day"`,
+`"week"`, `"month"`, or `"year"`. `atMostOccupiedTime(amount, options)` limits
+occupied elapsed time. `minimumGap(duration)` measures end-to-start spacing.
+
+`allowsPlan(rule, plan, { occurrences, ...options })` checks complete candidate
+occurrences. `firstBreach` returns a `Breach` with `index`, `occurrence`, `at`,
+and `explanation`, or `undefined`. Missing history throws
+`MissingOccurrencesError`. An empty history is `[]`. See [constraints](../constraints/).
+
+## Explanations, validation, and timelines
+
+`explainRule(rule, at, options?)` returns a `RuleExplanation` with `status`,
+`description`, and child `conditions`. Status is `"matched"`, `"unmatched"`,
+or `"unknown"`. Domain explanations expose `value`, short `summary`, full
+`details`, `steps`, and `skipped`. Unknown domain values throw.
+
+`validate(source, window, { requireFullCoverage? })` returns diagnostics with
+`code`, `message`, `severity`, and the evaluated `window`. Layer findings also
+include `path`. Uncovered-time findings include `interval`. See [validation](../validation/).
+
+`timeline(source, window)` and `schedule.timeline(from, to)` return `Timeline`
+data. `renderTimeline(data)` returns text. The renderer never evaluates a
+source. See [timelines](../timelines/) and [CLI](../cli/).
+
+## Parsing and custom rules
+
+`parseRule`, `parseSchedule`, `parseRota`, `parseTally`, and `parseCascade` accept
+decoded `unknown` data. `parseRota` and `parseCascade` also take a `ValueParser<V>`.
+`parseString` and `parseBoolean` validate primitive values. `ParseError` carries
+`path` and `code`. See [serialisation](../serialisation/).
+
+`parseRuleExpression(text)` reads Quando's small expression grammar.
+`parseCron(text, options?)` covers firing minutes. `parseRRule(text, options)`
+requires `start` and accepts `zone` and `duration`. `parseRRule(written)` accepts
+a complete successful export. `toCron` and `toRRule` return `ok: true` with the
+notation fields, or `ok: false` with a `reason`. Consult the
+[cron](../cron/) and [RRULE limits](../recurrence/#limits) before conversion.
+
+`defineCustomRule({ parseOptions, intervals, describe?, knownThrough? })`
+returns a `CustomRuleType` with typed callback options. Place definitions in a
+`RuleRegistry`. Interval callbacks must yield sorted, non-overlapping spans.
+Touching spans merge and results are clipped. Evaluation stops reading once
+it can establish the requested window's result. A finite callback is valid too.
+
+## Estimates
+
+| Function                                           | Meaning                                           |
+| -------------------------------------------------- | ------------------------------------------------- |
+| `possibilities(values)`                            | Discrete possible outcomes with no probabilities  |
+| `chances(outcomes)`                                | Outcomes with probabilities totaling one          |
+| `certainly(value)`                                 | One outcome with probability one                  |
+| `assumeUniform(estimate)`                          | Explicitly assign equal probabilities             |
+| `mapOutcomes(estimate, mapper)`                    | Map values while preserving probability mass      |
+| `combineIndependentOutcomes(left, right, combine)` | Combine under an independence assumption          |
+| `possibleValues(estimate, order?)`                 | Sorted distinct values                            |
+| `chanceBefore(distribution, value, order?)`        | Probability of an earlier outcome                 |
+| `median`, `mode`, `quantile`                       | Distribution summaries                            |
+| `isDistribution`                                   | Narrow an estimate to a distribution              |
+| `naturalOrder`                                     | Comparator for supported naturally ordered values |
+
+`Estimate<V>` is `Possibilities<V> | Distribution<V>`. A possibilities value
+such as `[1, 3]` does not contain 2. See [uncertainty](../uncertainty/).
+
+## Comparison and core operations
+
+`canonical` normalizes a rule or cascade. `sameDefinition` compares canonical
+forms. It does not prove equal coverage. `fingerprint` returns the complete
+canonical JSON string. Use `coverageChanges` for evaluated differences within
+a window. See [comparison](../comparing/).
+
+Core exports `cascade`, `layer`, `replace`, `merged`, `whenever`, `resolve`,
+`intervals`, `valueAt`, `nextValueInterval`, `asCascade`, `isCascade`, and
+`bounds`. `nextValueInterval` accepts a bounded search. `resolve` yields known
+assigned intervals and omits unknown regions. Inspect `unknownValueIntervals`
+when consuming it directly. Public `intervals` refuses unknown coverage.
+
+Interval operations include `union`, `intersect`, `difference`, `complement`,
+`clip`, `overlay`, `take`, `contains`, `duration`, `isEmpty`, `compareStarts`,
+`compareEnds`, `startsBeforeEnd`, and `startsAtOrBeforeEnd`. Unbounded core
+streams require careful consumption. An empty recurring intersection may not
+terminate without `to`. See [cascades](../cascades/) and [merging](../merging/).
 
 <!-- card
 ```ts
-const openingHours = schedule({ zone: "Europe/London" })
-  .open(weekdays(), "09:00-17:00");
+const slot = office.firstOpenSlot(from, { minutes: 30 }, {
+  within: { days: 14 },
+});
 ```
 -->

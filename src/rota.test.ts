@@ -13,7 +13,7 @@ import { describe, it } from "vitest";
 
 import { dates, weekdays, weekends } from "./build.js";
 import { cascade, layer } from "./cascade.js";
-import { asString } from "./parse-shape.js";
+import { parseString } from "./parse-shape.js";
 import { parseRota, rota } from "./rota.js";
 import { take } from "./stream.js";
 
@@ -36,7 +36,7 @@ describe("a rota", () => {
       onCall: rota()
         .assign(weekdays(), weekday)
         .assign(weekends(), weekend)
-        .swap("2026-03-11", covering),
+        .assign("2026-03-11", covering),
     };
   };
 
@@ -80,10 +80,10 @@ describe("a rota", () => {
       ),
       [weekday, covering],
     );
-    assertStringIncludes(explanation.summary, "Wednesday is a weekday.");
-    assertStringIncludes(explanation.summary, "The date is 2026-03-11.");
+    assertStringIncludes(explanation.details, "Wednesday is a weekday.");
+    assertStringIncludes(explanation.details, "The date is 2026-03-11.");
     assertStringIncludes(
-      explanation.summary,
+      explanation.details,
       `assigns ${JSON.stringify(covering)}`,
     );
   });
@@ -104,8 +104,8 @@ describe("a rota", () => {
       explanation.steps[0].comment,
       "Alice handles weekday incidents.",
     );
-    assertStringIncludes(explanation.summary, "Primary support.");
-    assertStringIncludes(explanation.summary, "Wednesday is a weekday.");
+    assertStringIncludes(explanation.details, "Primary support.");
+    assertStringIncludes(explanation.details, "Wednesday is a weekday.");
   });
 
   it("restores its methods after storage", () => {
@@ -113,7 +113,7 @@ describe("a rota", () => {
     const stored = JSON.stringify(rota().assign(weekdays(), "alice"));
 
     // When the stored rota is parsed and a weekend assignment is added.
-    const restored = parseRota(JSON.parse(stored), asString).assign(
+    const restored = parseRota(JSON.parse(stored), parseString).assign(
       weekends(),
       "bob",
     );
@@ -140,7 +140,7 @@ describe("a rota", () => {
     // Then nobody is on. An unassigned moment has no value to give.
     assertUndefined(weekdaysOnly.whoIsOn(when("2026-03-14T10:00")));
     assertStringIncludes(
-      weekdaysOnly.explain(when("2026-03-14T10:00")).summary,
+      weekdaysOnly.explain(when("2026-03-14T10:00")).details,
       "Nobody is assigned",
     );
   });
@@ -244,7 +244,7 @@ describe("a rota", () => {
 
       // When the swap is added.
       const error = assertThrowsError(() =>
-        rota().swap(said, faker.person.firstName()),
+        rota().assign(said, faker.person.firstName()),
       );
 
       // Then it is refused where it was written.
@@ -264,7 +264,7 @@ describe("a rota", () => {
       // When each is parsed.
       // Then each is rejected by the rota parser.
       for (const value of values) {
-        const error = assertThrowsError(() => parseRota(value, asString));
+        const error = assertThrowsError(() => parseRota(value, parseString));
         assertInstanceOf(error, TypeError);
       }
     });
@@ -277,7 +277,7 @@ describe("a rota", () => {
       };
 
       // When it is parsed.
-      const error = assertThrowsError(() => parseRota(stored, asString));
+      const error = assertThrowsError(() => parseRota(stored, parseString));
 
       // Then the message names the rota's merge rule.
       assertStringIncludes(error.message, "a rota uses override");

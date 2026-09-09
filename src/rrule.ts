@@ -11,9 +11,9 @@
  */
 
 import { all, inZone } from "./build.js";
-import { build, type Built } from "./built-rule.js";
+import { build, type Rule } from "./built-rule.js";
 import { fail } from "./parse-shape.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { cycleRule } from "./rrule-cycle.js";
 import { calendarRules } from "./rrule-calendar.js";
 import { periodOf } from "./rrule-frequency.js";
@@ -22,11 +22,16 @@ import { timeRule } from "./rrule-time.js";
 import { parseUntil } from "./rrule-until.js";
 import { onOrAfter, onOrBefore } from "./range-builders.js";
 import { asZone } from "./validation.js";
+import type { DurationInput } from "./duration-input.js";
+import type { WrittenRRule } from "./rrule-export.js";
+import { openingHours } from "./opening-hours.js";
 
 export interface RRuleOptions {
   /** DTSTART, as a date or a date and time. Required, the way RFC 5545 is. */
   readonly start: string;
   readonly zone?: string;
+  /** Wall-clock length of each occurrence. Defaults to one minute for timed starts. */
+  readonly duration?: DurationInput;
 }
 
 /**
@@ -35,19 +40,34 @@ export interface RRuleOptions {
  * Throws a `TypeError` naming the part at fault, including for the parts that
  * exist and have no rule to map onto.
  */
-export function parseRRule(text: string, options: RRuleOptions): Built<Rule> {
+export function parseRRule(written: WrittenRRule): Rule;
+export function parseRRule(text: string, options: RRuleOptions): Rule;
+export function parseRRule(
+  input: string | WrittenRRule,
+  settings?: RRuleOptions,
+): Rule {
+  const text = typeof input === "string" ? input : input.rrule;
+  const options = typeof input === "string" ? settings : input;
+  if (options === undefined) {
+    return fail("start", "DTSTART is required");
+  }
   const zone =
     options.zone === undefined ? undefined : asZone(options.zone, "zone");
-  const rule = ruleFor(text, options.start, zone);
+  const rule = ruleFor(text, options.start, zone, options.duration);
   return zone === undefined ? build(rule) : inZone(zone, rule);
 }
 
-function ruleFor(text: string, start: string, zone: string | undefined): Rule {
+function ruleFor(
+  text: string,
+  start: string,
+  zone: string | undefined,
+  duration: DurationInput | undefined,
+): RuleData {
   const parts = rruleParts(text);
   const period = periodOf(parts.get("FREQ") ?? "");
   const from = startOf(start);
 
-  const rules: Rule[] = [
+  const rules: RuleData[] = [
     cycleRule(parts, period, from.date, zone),
     // DTSTART is the first occurrence, so nothing before it is covered. This
     // is the bound `every` deliberately leaves to a rule of its own.
@@ -55,19 +75,16 @@ function ruleFor(text: string, start: string, zone: string | undefined): Rule {
     ...calendarRules(parts, period, from.date),
   ];
 
-  const clock = timeRule(parts, from.time);
-  if (clock !== undefined) {
-    rules.push(clock);
-  }
+  const clock = timeRule(parts, from.time, duration);
 
   const until = parts.get("UNTIL");
   if (until !== undefined) {
-    // A bare date needs no zone. A UTC timestamp does, and with none given
-    // the honest reading of one is the day it falls on in UTC.
-    rules.push(onOrBefore(parseUntil(until, zone ?? "UTC")));
+    // Timestamp bounds are refused until occurrence timestamps can be preserved.
+    rules.push(onOrBefore(parseUntil(until)));
   }
 
-  return all(...rules);
+  const days = all(...rules);
+  return clock === undefined ? days : openingHours(days, clock);
 }
 
 /** DTSTART, as a date and the clock time it carries when it has one. */

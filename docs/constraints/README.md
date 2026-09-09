@@ -1,274 +1,101 @@
 # Constraints
 
-Every other rule answers "is this instant permitted?" from the instant alone.
-A constraint answers it from a history.
+Constraints describe allowed time using existing occurrences. Use them to limit
+booking counts, occupied time, or the gap between bookings.
+
+## Choose what to limit
 
 ```ts
 import {
-  activeAt,
-  all,
-  atMost,
-  explainRule,
-  nextCoveredInterval,
-  spacedBy,
+  atMostOccurrences,
+  atMostOccupiedTime,
+  minimumGap,
 } from "@kensio/quando";
 
-// At most four in any twenty-four hours, and four hours apart.
-const dosing = all(atMost(4, "PT24H"), spacedBy("PT4H"));
+const fourPerDay = atMostOccurrences(4, { per: "day" });
+const fourIn24Hours = atMostOccurrences(4, { within: { hours: 24 } });
+const sixHoursPerDay = atMostOccupiedTime({ hours: 6 }, { per: "day" });
+const oneHourApart = minimumGap({ hours: 1 });
 ```
 
-"At most 4 doses a day, 4 hours apart", "90 days in any rolling 180", "100
-requests a minute" and "11 hours between shifts" are all constraints on a
-pattern of occurrences. Once the history is known, each of them is an ordinary
-set of times. That is why they compose with everything else, and why every
-query works on them unchanged.
+`per` starts a new calendar bucket each day, week, month, or year. Use the
+singular values `"day"`, `"week"`, `"month"`, and `"year"`. Weeks begin on Monday.
+`within` is a rolling duration. Exactly one of `per` and `within` is required.
+Add `zone` to the same options object to fix calendar boundaries to a clock.
 
-## Capping the total time
+`minimumGap` measures from one occurrence's end to the next one's start. It
+checks existing occurrences both before and after the proposed time. Exactly
+the requested gap is enough.
 
-`atMost` counts how many things happened. `atMostTime` measures how long they
-went on. That is what "90 days in any rolling 180" and "56 hours of driving a
-week" ask for.
+## Supply existing occurrences
 
-```ts
-import { atMostTime } from "@kensio/quando";
+An occurrence has an `at` instant and optional `lasting` duration. Occurrences
+without `lasting` count toward occurrence limits but occupy no time.
 
-const schengen = atMostTime("P90D", "P180D");
-const tachograph = atMostTime("PT56H", "weeks");
-```
-
-The second argument says which window, the same way it does for `atMost`. A
-calendar period resets and an ISO duration rolls.
+<!-- example: booking-plan -->
 
 ```ts
-const stays = [{ at: utc("2026-01-01T00:00"), lasting: days(90) }];
+import { allowsPlan, atMostOccupiedTime, firstBreach } from "@kensio/quando";
 
-activeAt(schengen, utc("2026-05-01T00:00"), { occurrences: stays });
+const at = Temporal.ZonedDateTime.from("2026-03-09T09:00[Europe/London]");
+const limit = atMostOccupiedTime({ hours: 1 }, { per: "day" });
+const plan = [{ at, lasting: Temporal.Duration.from({ hours: 2 }) }];
+
+console.log(allowsPlan(limit, plan, { occurrences: [] }));
 // false
-
-nextCoveredInterval(schengen, {
-  from: utc("2026-04-15T00:00"),
-  to: utc("2026-12-01T00:00"),
-  occurrences: stays,
-})?.start;
-// 2026-06-30T00:00, which is the day the stay leaves the rolling window
+console.log(firstBreach(limit, plan, { occurrences: [] })?.index);
+// 0
 ```
 
-An occurrence with no `lasting` takes no time and fills nothing. A history of
-moments never moves a time cap. That is the difference between the two rules
-put plainly.
+Use `occurrences: []` when the existing history is empty. Omitting it throws
+`MissingOccurrencesError`. The array can include future bookings when they
+should constrain a proposed booking. Two occurrences at the same instant are
+two occurrences. Keep the history as an array.
 
-Overlapping occurrences are merged. Nobody is in the Schengen area twice at
-once, and two driving records covering the same hour count for one.
+Domain methods accept the same `occurrences` option as standalone queries.
+For example, `office.isOpen(at, { occurrences: existing })` evaluates any
+constraints used in that schedule.
 
-### It measures elapsed time
+## Check the whole booking
 
-Both durations on the rule are exact. Years, months and weeks are refused,
-because the sweep that answers this needs a window that is one length wherever
-it sits.
+`allowsPlan` returns a boolean. `firstBreach` returns the first violation with
+the original plan `index`, the violating `at` instant, the `occurrence`, and
+an explanation. It returns `undefined` when the whole plan is allowed.
 
-```ts
-atMostTime("P1M", "days");
-// RangeError: total measures elapsed time, so "P1M" is ambiguous: months vary
-// in length. Give days, hours or minutes. A day is read as 24 hours here.
-```
+The plan is processed in time order. Each accepted occurrence joins the history
+for the next one. Occupied-time limits include the entire candidate booking,
+so a two-hour booking cannot pass a one-hour limit merely because the history
+was empty at its start. Overlapping occupied intervals count once.
 
-A day on the rule is 24 hours. An occurrence's `lasting` is calendar time. A
-stay of `P90D` from a London midnight running over the spring clock change
-occupies 89 days and 23 hours, an hour short of a `P90D` cap. Write both in
-hours where that hour matters.
+The first violation can be inside a booking. For rolling occupied-time caps it
+is the first instant strictly over the allowance. Calendar buckets count the
+whole occupancy in that bucket. An overfull bucket can reject the booking at
+its start. An exact fit is allowed.
 
-## The history goes on the context
+## Ask about one instant
 
-```ts
-const at = (iso: string): Temporal.ZonedDateTime =>
-  Temporal.ZonedDateTime.from(`${iso}[Europe/London]`);
+`isActiveAt(rule, at, { occurrences })` asks whether the existing history leaves
+room at that instant. It does not add a proposed duration to the history. Use
+`allowsPlan` or `firstBreach` to validate a complete proposed booking.
 
-const taken = ["08:00", "12:00", "16:00", "20:00"].map((hour) => ({
-  at: at(`2026-03-10T${hour}`),
-}));
+Use `explainRule` for a point explanation. Its `status` is `"matched"`,
+`"unmatched"`, or `"unknown"`. Its `conditions` explain each combined constraint.
 
-activeAt(dosing, at("2026-03-10T21:00"), { occurrences: taken }); // false
+## Duration meanings
 
-nextCoveredInterval(dosing, {
-  from: at("2026-03-10T20:30"),
-  occurrences: taken,
-});
-// 2026-03-11T08:00:00+00:00[Europe/London]
-```
+Occupied-time caps use elapsed time. In those caps, a day is exactly 24 hours.
+years, months, and weeks are rejected as ambiguous lengths. Occurrence
+`lasting` uses calendar addition, so a London day spanning a clock change can
+occupy 23 or 25 elapsed hours. Use hours when both lengths must be exact.
 
-An `Occurrence` is `{ at }` for a moment and `{ at, lasting }` for something
-that went on. Spacing measures from the end of one to the start of the next,
-so a shift counts from when it finished.
-
-**A history is a plain array, kept well away from the interval algebra.** Two
-doses at the same minute are two doses, and a stream would coalesce them into
-one. The count is the whole question.
-
-## Leaving the history out is an error
-
-```ts
-activeAt(dosing, at("2026-03-10T21:00"));
-// MissingOccurrencesError: The "atMost" rule counts what has already
-//   happened, and the context carries no `occurrences`. Pass the history as
-//   `occurrences` on the context, or `occurrences: []` if nothing has
-//   happened yet.
-```
-
-Absent and empty mean different things. `occurrences: []` reports an empty
-history, so everything is permitted. Leaving the field out says the caller
-forgot, and answering that permissively would report a fifth dose as fine
-because nobody mentioned the four already taken.
-
-## `atMost` counts, two ways
-
-The argument's shape says which, and the document keeps the two in separate
-fields so that every reader of it sees the same thing.
-
-```ts
-atMost(4, "days"); // {"type":"atMost","count":4,"per":"days"}
-atMost(4, "PT24H"); // {"type":"atMost","count":4,"within":"PT24H"}
-```
-
-**`per` counts in calendar buckets** (`"days"`, `"weeks"`, `"months"`,
-`"years"`) and starts again at each boundary. Weeks run from Monday. Add
-`{ zone }` to say which clock the boundaries fall on.
-
-**`within` counts in a rolling window**, written as an ISO duration. Nothing
-resets. The oldest occurrence falls out the far end as time passes, so four
-doses ending at eight in the evening allow a fifth at eight the next morning.
-Midnight has no part in it.
-
-A full calendar bucket is closed for the whole of itself, including the part
-before the occurrences that filled it. A day that is already full stays full
-whichever end of it is asked about.
-
-## `spacedBy` separates
-
-```ts
-spacedBy("PT4H"); // {"type":"spacedBy","gap":"PT4H"}
-```
-
-Read both ways round. An instant four hours before an occurrence is as close
-as one four hours after, and exactly four hours is far enough either way.
-
-## It explains itself
-
-```ts
-explainRule(dosing, at("2026-03-10T21:00"), {
-  occurrences: taken,
-}).conditions.map((one) => one.description);
-// [
-//   "There are already 4 occurrences in the 24 hours up to this instant,
-//    which is the most allowed.",
-//   "The nearest occurrence is 1 hour away, which is closer than the 4 hours
-//    allowed.",
-// ]
-```
-
-This is why a constraint is a rule the library knows rather than a
-[custom rule](../rules/), which could only give its own name back. "Why not
-now?" is the question people actually have.
-
-## Composing
-
-A constraint is a rule. It goes anywhere one goes:
-
-```ts
-const shifts = all(weekdays(), atMost(5, "weeks"), spacedBy("PT11H"));
-```
-
-`opensNext` says when the next shift may start, `firstOpenSlot` finds a window
-long enough, and `validate` reports on the whole thing. None of them needed
-anything adding.
-
-## Checking a whole plan
-
-A constraint answers the marginal question. "May I, next, given what has
-happened?" A plan is a different question, because the things in it feed each
-other. Asking the rule once about each of five doses against an empty history
-admits all five, because none of them counts the others.
-
-`firstBreach` walks the plan in time order, admitting each occurrence into the
-history before asking about the one after it.
-
-```ts
-import { admits, firstBreach } from "@kensio/quando";
-
-const plan = ["08:00", "12:00", "16:00", "20:00", "23:59"].map((hour) => ({
-  at: at(`2026-03-10T${hour}`),
-}));
-
-admits(dosing, plan.slice(0, 4), { occurrences: [] });
-// true
-
-const breach = firstBreach(dosing, plan, { occurrences: [] });
-breach?.index; // 4
-breach?.at; // 23:59
-breach?.explanation.description;
-// "A required condition does not match. There are already 4 occurrences in
-//  this day, which is the most allowed. The nearest occurrence is 3 hours 59
-//  minutes away, which is closer than the 4 hours allowed."
-```
-
-The plan may arrive in any order. `index` names where the refused occurrence
-sat in the list as given, which is where to point at it.
-
-An occurrence that lasts has to be allowed throughout. A booking opening on a
-Friday against a weekdays-only rule is refused at the Saturday it runs into,
-and `at` is that Saturday.
-
-### Counting a trip day by day
-
-A cap on total time reads a long stay as one lump, and a stay is admitted or
-refused whole. Model a trip as the days it covers where the answer should be
-"you may go until Thursday".
-
-```ts
-const days = (from: string, count: number) =>
-  Array.from({ length: count }, (_, index) => ({
-    at: utc(from).add({ days: index }),
-    lasting: Temporal.Duration.from({ days: 1 }),
-  }));
-
-const breach = firstBreach(
-  atMostTime("P90D", "P180D"),
-  days("2026-04-01T00:00", 10),
-  { occurrences: days("2026-01-01T00:00", 85) },
-);
-
-breach?.index; // 5
-breach?.at; // 2026-04-06
-breach?.explanation.description;
-// "90 days of the 180 days up to this instant is already taken up, which is
-//  the most allowed."
-```
-
-Eighty-five days are already spent. The sixth day of the trip is the
-ninety-first, and the first one refused. Days of presence is also how the rule
-being modelled counts them.
-
-A history the context carries is where the walk starts, and the same rules
-apply to it. Leaving `occurrences` out throws where the rule counts what has
-happened, because a plan checked against a history nobody supplied would report
-a fifth dose as fine.
-
-## Limits
-
-**One history per query.** A context carries one `occurrences` array. A
-document constraining two different series wants two queries, one per series.
-
-**A plan is admitted one occurrence at a time.** `firstBreach` asks whether
-each is allowed given everything before it. An occurrence that would overflow a
-time cap partway through itself is admitted whole. Splitting it into the days
-it covers is the answer, and the section above shows it.
-
-[`toCron`](../cron/) and [`toRRule`](../recurrence/) both refuse a constraint,
-and say why. Each notation describes a pattern on the calendar, and a history
-has nowhere to go in one.
+One query carries one occurrence history. Check independently constrained
+resources separately. Cron and RRULE cannot store occurrence history, so their
+exporters return `ok: false` for these constraints.
 
 <!-- card
 ```ts
-const dosing = all(atMost(4, "PT24H"), spacedBy("PT4H"));
-activeAt(dosing, now, { occurrences: taken });
+const limit = atMostOccurrences(4, { per: "day" })
+  .and(minimumGap({ hours: 1 }));
+allowsPlan(limit, bookings, { occurrences: existing });
 ```
 -->

@@ -11,7 +11,7 @@
  */
 
 import { all, always, any, inZone } from "./build.js";
-import { build, type Built } from "./built-rule.js";
+import { build, type Rule } from "./built-rule.js";
 import {
   type CronSelection,
   DAY_OF_MONTH_FIELD,
@@ -28,7 +28,7 @@ import { daysOfWeek } from "./calendar-rules.js";
 import {
   type Month,
   MONTHS,
-  type Rule,
+  type RuleData,
   WEEKDAYS,
   type Weekday,
 } from "./rule.js";
@@ -45,17 +45,14 @@ export interface CronOptions {
  * Throws a `TypeError` naming the field at fault when the expression will not
  * parse.
  */
-export function parseCron(
-  expression: string,
-  options: CronOptions = {},
-): Built<Rule> {
+export function parseCron(expression: string, options: CronOptions = {}): Rule {
   const rule = ruleFor(expandedFields(expression));
   return options.zone === undefined
     ? build(rule)
     : inZone(asZone(options.zone, "zone"), rule);
 }
 
-function ruleFor(fields: CronFields): Rule {
+function ruleFor(fields: CronFields): RuleData {
   const minute = parseCronField(fields[0], MINUTE_FIELD);
   const hour = parseCronField(fields[1], HOUR_FIELD);
   const dayOfMonth = parseCronField(fields[2], DAY_OF_MONTH_FIELD);
@@ -69,7 +66,7 @@ function ruleFor(fields: CronFields): Rule {
   );
 }
 
-function monthRule(month: CronSelection): Rule {
+function monthRule(month: CronSelection): RuleData {
   if (!month.restricted) {
     return always();
   }
@@ -84,7 +81,10 @@ function monthRule(month: CronSelection): Rule {
  * Friday, not only Friday the 13th. POSIX specifies it and every cron in wide
  * use follows it.
  */
-function dayRule(dayOfMonth: CronSelection, dayOfWeek: CronSelection): Rule {
+function dayRule(
+  dayOfMonth: CronSelection,
+  dayOfWeek: CronSelection,
+): RuleData {
   const byMonth = daysOfMonth(...dayOfMonth.values);
   const byWeek = daysOfWeek(...weekdaysOf(dayOfWeek));
 

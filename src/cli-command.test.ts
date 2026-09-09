@@ -223,7 +223,7 @@ describe("the Quando command-line interface", () => {
     assertStringIncludes(result.output, "The total is 3");
   });
 
-  it("returns validation diagnostics as JSON and a failing status", async () => {
+  it("returns inactive diagnostics as information", async () => {
     // Given a rule that cannot match during the requested week.
     const file = await stored(
       weekdays().and({
@@ -239,7 +239,7 @@ describe("the Quando command-line interface", () => {
     const diagnostics = JSON.parse(result.output) as readonly {
       readonly code: string;
     }[];
-    assertIdentical(result.exitCode, 1);
+    assertIdentical(result.exitCode, 0);
     assertArrayLength(diagnostics, 1);
     assertIdentical(diagnostics[0].code, "inactive-rule");
   });

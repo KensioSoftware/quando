@@ -27,7 +27,7 @@ export function everyIntervals(
   const calendar = calendarOf(context);
   if (!isIsoCalendar(calendar) && (period === "months" || period === "years")) {
     throw new RangeError(
-      `every() counts ${period} on the Gregorian calendar, so it cannot be ` +
+      `everyNthPeriod() counts ${period} on the Gregorian calendar, so it cannot be ` +
         `read on the ${calendar} calendar. A year there may hold thirteen ` +
         "months. Count days or weeks, which every calendar agrees about.",
     );

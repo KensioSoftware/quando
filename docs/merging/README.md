@@ -31,18 +31,18 @@ console.log(staff.countAt(wednesday));
 
 The tally supplies several common operations:
 
-| Method                             | Meaning                               |
-| ---------------------------------- | ------------------------------------- |
-| `plus(scope, amount, options?)`    | Add an amount                         |
-| `exactly(scope, amount, options?)` | Replace lower values within the scope |
-| `countAt(instant)`                 | Read the amount at one instant        |
-| `explain(instant)`                 | Explain how the matching lines add up |
-| `least(from, to)`                  | Find the lowest amount in a window    |
-| `totalBetween(from, to, unit)`     | Total the amount over elapsed time    |
-| `counts(from, to?)`                | Resolve the valued intervals          |
-| `validate(from, to)`               | Find inactive and shadowed lines      |
+| Method                              | Meaning                               |
+| ----------------------------------- | ------------------------------------- |
+| `plus(scope, amount, options?)`     | Add an amount                         |
+| `setCount(scope, amount, options?)` | Replace lower values within the scope |
+| `countAt(instant)`                  | Read the amount at one instant        |
+| `explain(instant)`                  | Explain how the matching lines add up |
+| `minimumCount(from, to)`            | Find the lowest amount in a window    |
+| `totalBetween(from, to, unit)`      | Total the amount over elapsed time    |
+| `countIntervals(from, to?)`         | Resolve the valued intervals          |
+| `validate(from, to)`                | Find inactive and shadowed lines      |
 
-`countAt` and `least` treat unassigned time as zero. `counts` returns assigned
+`countAt` and `minimumCount` treat unassigned time as zero. `countIntervals` returns assigned
 intervals only. See [explanations](../explanations/) for the trace returned by
 `explain`. See [accumulation](../accumulation/) for totals such as staff-hours.
 
@@ -119,7 +119,7 @@ Runtime validation applies the same rules to raw layers and parsed documents.
 Invalid values fail when the cascade is constructed or parsed:
 
 ```ts
-import { asString, parseCascade } from "@kensio/quando/parsing";
+import { parseString, parseCascade } from "@kensio/quando/parsing";
 
 parseCascade(
   {
@@ -127,7 +127,7 @@ parseCascade(
     merge: "sum",
     layers: [{ scope: { type: "always" }, value: "alice" }],
   },
-  asString,
+  parseString,
 );
 ```
 

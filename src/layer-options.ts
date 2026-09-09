@@ -66,3 +66,8 @@ function optionalText(
   }
   return { [field]: value };
 }
+
+/** Distinguishes layer annotations from a rule input. */
+export function isLayerOptions(value: unknown): value is LayerOptions {
+  return typeof value === "object" && value !== null && !("type" in value);
+}

@@ -3,12 +3,12 @@ import { describeCompoundMatch } from "./compound-explanation-text.js";
 import { describeCustomMatch } from "./custom-match-text.js";
 import { describeConstraintMatch } from "./constraint-match-text.js";
 import type { Context } from "./context.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import type { RuleExplanation, RuleScope } from "./rule-explanation.js";
 
 /** Writes the automatic account of one rule evaluation. */
 export function describeRuleMatch(
-  rule: Rule,
+  rule: RuleData,
   at: Temporal.ZonedDateTime,
   matched: boolean,
   conditions: readonly RuleExplanation[],
@@ -16,6 +16,9 @@ export function describeRuleMatch(
   read: Omit<Context, "from" | "to"> | undefined,
 ): string {
   switch (rule.type) {
+    case "shiftDays": {
+      return `The rule ${matched ? "matches" : "does not match"} after shifting ${rule.days} calendar days.`;
+    }
     case "always": {
       return "This rule always matches.";
     }

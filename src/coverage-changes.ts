@@ -1,7 +1,8 @@
 /** Added and removed coverage between two definitions. */
 
-import { type Covers, covered } from "./assigned.js";
-import type { Context } from "./context.js";
+import { type CoverageSource, covered } from "./assigned.js";
+import type { QueryWindow } from "./context.js";
+import { refuse, unknownIn } from "./horizon-guard.js";
 import { difference } from "./interval-difference.js";
 import type { IntervalStream } from "./interval-stream.js";
 
@@ -13,10 +14,14 @@ export interface CoverageChanges {
 
 /** Compares the covered time before and after a change. */
 export function coverageChanges<B, A>(
-  before: Covers<B>,
-  after: Covers<A>,
-  context: Context,
+  before: CoverageSource<B>,
+  after: CoverageSource<A>,
+  context: QueryWindow,
 ): CoverageChanges {
+  const fog = unknownIn(before, context) ?? unknownIn(after, context);
+  if (fog !== undefined) {
+    refuse("coverageChanges()", fog, context);
+  }
   return {
     added: difference(covered(after, context), covered(before, context)),
     removed: difference(covered(before, context), covered(after, context)),

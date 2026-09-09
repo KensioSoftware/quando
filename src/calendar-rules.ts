@@ -1,4 +1,4 @@
-import { build, type Built } from "./built-rule.js";
+import { build, type Rule } from "./built-rule.js";
 import type {
   DatesRule,
   DaysOfWeekRule,
@@ -8,7 +8,7 @@ import type {
 import { asDate, asTime, asWeekday, asZone } from "./validation.js";
 
 /** Whole days, by day of the week. */
-export function daysOfWeek(...days: readonly Weekday[]): Built<DaysOfWeekRule> {
+export function daysOfWeek(...days: readonly Weekday[]): Rule<DaysOfWeekRule> {
   return build({
     type: "daysOfWeek",
     days: days.map((day, index) => asWeekday(day, `days[${index}]`)),
@@ -16,21 +16,21 @@ export function daysOfWeek(...days: readonly Weekday[]): Built<DaysOfWeekRule> {
 }
 
 /** Monday to Friday. */
-export function weekdays(): Built<DaysOfWeekRule> {
+export function weekdays(): Rule<DaysOfWeekRule> {
   return daysOfWeek("monday", "tuesday", "wednesday", "thursday", "friday");
 }
 
 /** Saturday and Sunday. */
-export function weekends(): Built<DaysOfWeekRule> {
+export function weekends(): Rule<DaysOfWeekRule> {
   return daysOfWeek("saturday", "sunday");
 }
 
 /** A wall-clock window within each day. Earlier end times wrap past midnight. */
-export function timeOfDay(
+export function timeOfDayRange(
   from: string,
   to: string,
   zone?: string,
-): Built<TimeOfDayRule> {
+): Rule<TimeOfDayRule> {
   const validFrom = asTime(from, "from");
   const validTo = asTime(to, "to");
   if (Temporal.PlainTime.compare(validFrom, validTo) === 0) {
@@ -49,7 +49,7 @@ export function timeOfDay(
 }
 
 /** Whole days, by date. */
-export function dates(...days: readonly string[]): Built<DatesRule> {
+export function dates(...days: readonly string[]): Rule<DatesRule> {
   return build({
     type: "dates",
     dates: days.map((day, index) => asDate(day, `dates[${index}]`)),

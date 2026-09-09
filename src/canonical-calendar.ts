@@ -16,14 +16,14 @@ import {
   canonicalMonths,
   canonicalTime,
 } from "./canonical-leaves.js";
-import type { CalendarRule, Rule } from "./rule.js";
+import type { CalendarRule, RuleData } from "./rule.js";
 
 /** Present or absent, never present-and-undefined. */
 function zonePart(zone: string | undefined): { zone?: string } {
   return zone === undefined ? {} : { zone };
 }
 
-export function canonicalCalendarRule(rule: CalendarRule): Rule {
+export function canonicalCalendarRule(rule: CalendarRule): RuleData {
   switch (rule.type) {
     case "daysOfWeek": {
       return {

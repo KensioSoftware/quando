@@ -7,9 +7,10 @@
  * the other three, and re-exports this one so callers see one surface.
  */
 
-import { type Covers, covered } from "./assigned.js";
+import { type CoverageSource, covered } from "./assigned.js";
 import type { Context } from "./context.js";
-import type { Distribution, Estimate, Spread } from "./estimate.js";
+import { asDuration, type DurationInput } from "./duration-input.js";
+import type { Distribution, Estimate, Possibilities } from "./estimate.js";
 import { resolvedOutcomes } from "./estimate-query.js";
 import { refuse, unknownIn, upTo } from "./horizon-guard.js";
 import { duration } from "./interval.js";
@@ -20,11 +21,10 @@ import {
   type Search,
 } from "./search.js";
 
-/** Zero, as the amount that is already arrived at. */
-const NOTHING = Temporal.Duration.from({ seconds: 0 });
-
-/** What {@link advanceBy} reads, and how far it looks for an answer. */
-type AdvanceOptions<V> = { readonly during: Covers<V> } & Search &
+/** What {@link addCoveredTime} reads, and how far it looks for an answer. */
+export type AdvanceOptions<V = unknown> = {
+  readonly during: CoverageSource<V>;
+} & Search &
   Omit<Context, "from" | "to">;
 
 /**
@@ -38,49 +38,60 @@ type AdvanceOptions<V> = { readonly during: Covers<V> } & Search &
  * The answer rests on the time between the start and the instant reached, so
  * anything unknown in there throws {@link BeyondHorizonError}.
  */
-export function advanceBy<V>(
+export function addCoveredTime<V>(
   from: Temporal.ZonedDateTime,
-  amount: Temporal.Duration,
+  amount: DurationInput,
   options: AdvanceOptions<V>,
 ): Temporal.ZonedDateTime | undefined;
-export function advanceBy<V>(
+export function addCoveredTime<V>(
   from: Temporal.ZonedDateTime,
-  amount: Spread<Temporal.Duration>,
+  amount: Possibilities<DurationInput>,
   options: AdvanceOptions<V>,
-): Spread<Temporal.ZonedDateTime>;
-export function advanceBy<V>(
+): Possibilities<Temporal.ZonedDateTime>;
+export function addCoveredTime<V>(
   from: Temporal.ZonedDateTime,
-  amount: Distribution<Temporal.Duration>,
+  amount: Distribution<DurationInput>,
   options: AdvanceOptions<V>,
 ): Distribution<Temporal.ZonedDateTime>;
-export function advanceBy<V>(
+export function addCoveredTime<V>(
   from: Temporal.ZonedDateTime,
-  amount: Estimate<Temporal.Duration> | Temporal.Duration,
+  amount: Estimate<DurationInput>,
+  options: AdvanceOptions<V>,
+): Estimate<Temporal.ZonedDateTime>;
+export function addCoveredTime<V>(
+  from: Temporal.ZonedDateTime,
+  amount: Estimate<DurationInput> | DurationInput,
+  options: AdvanceOptions<V>,
+): Estimate<Temporal.ZonedDateTime> | Temporal.ZonedDateTime | undefined;
+export function addCoveredTime<V>(
+  from: Temporal.ZonedDateTime,
+  amount: Estimate<DurationInput> | DurationInput,
   options: AdvanceOptions<V>,
 ): Estimate<Temporal.ZonedDateTime> | Temporal.ZonedDateTime | undefined {
-  if (!(amount instanceof Temporal.Duration)) {
-    return resolvedOutcomes(amount, "advanceBy()", (one) =>
-      advanceBy(from, one, options),
+  if (typeof amount === "object" && "kind" in amount) {
+    return resolvedOutcomes(
+      amount,
+      "addCoveredTime()",
+      (one) => addCoveredTime(from, one, options),
+      options.within,
     );
   }
 
-  checkExactDuration(amount);
-  if (Temporal.Duration.compare(amount, NOTHING) < 0) {
+  const elapsed = asDuration(amount);
+  checkExactDuration(elapsed);
+  if (elapsed.sign < 0) {
     throw new RangeError(
-      `advanceBy() cannot go backwards. Asked for ${amount.toString()}.`,
+      `addCoveredTime() cannot go backwards. Asked for ${elapsed.toString()}.`,
     );
   }
-  if (Temporal.Duration.compare(amount, NOTHING) === 0) {
+  if (elapsed.sign === 0) {
     return from;
   }
 
-  const { during, within, complete: _complete, ...rest } = options;
-  const window = boundSearch(
-    { ...rest, from },
-    within === undefined ? undefined : { within },
-  );
+  const { during, ...rest } = options;
+  const window = boundSearch({ ...rest, from }, options);
 
-  let remaining = amount;
+  let remaining = elapsed;
   let arrived = false;
   let reached: Temporal.ZonedDateTime | undefined;
   for (const interval of covered(during, window.context)) {
@@ -101,14 +112,17 @@ export function advanceBy<V>(
 
   const fog = unknownIn(during, upTo(window.context, reached));
   if (fog !== undefined) {
-    refuse("advanceBy()", fog, window.context);
+    refuse("addCoveredTime()", fog, window.context);
   }
   if (arrived) {
     return reached;
   }
 
   if (window.automaticLimit !== undefined) {
-    throw new SearchLimitExceededError("advanceBy()", window.automaticLimit);
+    throw new SearchLimitExceededError(
+      "addCoveredTime()",
+      window.automaticLimit,
+    );
   }
   return undefined;
 }

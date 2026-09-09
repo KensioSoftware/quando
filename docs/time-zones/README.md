@@ -9,10 +9,10 @@ Every query starts from a `Temporal.ZonedDateTime`. Its zone becomes the
 default for rules that have no zone of their own.
 
 ```ts
-import { timeOfDay, weekdays } from "@kensio/quando";
+import { timeOfDayRange, weekdays } from "@kensio/quando";
 import { intervals } from "@kensio/quando/core";
 
-const officeHours = weekdays().and(timeOfDay("09:00", "17:00"));
+const officeHours = weekdays().and(timeOfDayRange("09:00", "17:00"));
 
 const londonDay = {
   from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
@@ -42,11 +42,11 @@ the default.
 `inZone(zone, rule)` evaluates a complete rule subtree in the named zone.
 
 ```ts
-import { inZone, timeOfDay, weekdays } from "@kensio/quando";
+import { inZone, timeOfDayRange, weekdays } from "@kensio/quando";
 
 const londonOffice = inZone(
   "Europe/London",
-  weekdays().and(timeOfDay("09:00", "17:00")),
+  weekdays().and(timeOfDayRange("09:00", "17:00")),
 );
 ```
 
@@ -86,15 +86,15 @@ the rule's local interval continues beyond it.
 
 ## Wall-clock time and elapsed time
 
-`timeOfDay` describes wall-clock endpoints. A shift from 22:00 to 06:00 keeps
+`timeOfDayRange` describes wall-clock endpoints. A shift from 22:00 to 06:00 keeps
 those local times when clocks change. Its elapsed duration can be seven, eight,
 or nine hours.
 
 ```ts
-import { timeOfDay } from "@kensio/quando";
+import { timeOfDayRange } from "@kensio/quando";
 import { duration, intervals } from "@kensio/quando/core";
 
-const nightShift = timeOfDay("22:00", "06:00");
+const nightShift = timeOfDayRange("22:00", "06:00");
 const springChange = {
   from: Temporal.ZonedDateTime.from("2026-03-28T12:00[Europe/London]"),
   to: Temporal.ZonedDateTime.from("2026-03-29T12:00[Europe/London]"),
@@ -115,8 +115,8 @@ PT7H
 PT9H
 ```
 
-Queries such as `coveredDuration` and `advanceBy` use exact elapsed time.
-`advanceBy` therefore rejects calendar durations containing years, months,
+Queries such as `coveredDuration` and `addCoveredTime` use exact elapsed time.
+`addCoveredTime` therefore rejects calendar durations containing years, months,
 weeks, or days.
 
 ## Skipped and repeated local times
@@ -152,7 +152,7 @@ unknown zone throws at the authoring or parsing boundary.
 ```ts
 const londonOffice = inZone(
   "Europe/London",
-  weekdays().and(timeOfDay("09:00", "17:00")),
+  weekdays().and(timeOfDayRange("09:00", "17:00")),
 );
 ```
 -->

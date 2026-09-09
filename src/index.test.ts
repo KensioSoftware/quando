@@ -13,7 +13,7 @@ import {
   duration,
   intersect,
   intervals,
-  type Rule,
+  type RuleData,
   union,
 } from "./core.js";
 import { schedule, weekdays } from "./index.js";
@@ -61,7 +61,7 @@ describe("the public entry point", () => {
   it("reads a rule through the entry point", () => {
     // Given Monday office hours, written as the document a consumer would
     // store, with no builder involved.
-    const officeHours: Rule = {
+    const officeHours: RuleData = {
       type: "all",
       rules: [
         { type: "daysOfWeek", days: ["monday"] },

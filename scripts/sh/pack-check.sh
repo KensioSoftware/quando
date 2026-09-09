@@ -85,12 +85,18 @@ node_modules/.bin/tsc \
   --skipLibCheck \
   "$consumer/consumer.ts"
 
+# Marked guide examples are compiled and their demonstrated output is checked.
+node scripts/check-doc-examples.ts "$consumer"
+
 (
   cd "$consumer"
   node --input-type=module --eval '
+    const temporal = globalThis.Temporal;
+    Reflect.deleteProperty(globalThis, "Temporal");
     const root = await import("@kensio/quando");
     const core = await import("@kensio/quando/core");
     const parsing = await import("@kensio/quando/parsing");
+    globalThis.Temporal = temporal;
     if (typeof root.schedule !== "function") throw new Error("root export failed");
     if (typeof core.resolve !== "function") throw new Error("core export failed");
     if (typeof parsing.parseSchedule !== "function") throw new Error("parsing export failed");

@@ -17,6 +17,7 @@ import type { Span } from "./occurrence-depth.js";
 import { busyOf, nanosecondsIn } from "./occurrence-time.js";
 import type { Occurrence } from "./occurrence.js";
 import type { AtMostTimeRule } from "./rule.js";
+import { plannedOccurrence } from "./plan-context.js";
 
 /**
  * How much of the cap's window is taken up at this instant.
@@ -41,7 +42,10 @@ export function occupiedFor(
       : { start: earlier(at, rule.within), end: at };
 
   let total = 0n;
-  for (const span of busyOf(history)) {
+  const candidate = plannedOccurrence(read ?? {});
+  for (const span of busyOf(
+    candidate === undefined ? history : [...history, candidate],
+  )) {
     total += overlap(span, window);
   }
   return Temporal.Duration.from({ nanoseconds: 0 }).add({

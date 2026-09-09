@@ -2,14 +2,14 @@ import { inWindow, render } from "#test/intervals.js";
 import { assertIdentical } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { always, daysOfWeek, timeOfDay, weekdays } from "./build.js";
+import { always, daysOfWeek, timeOfDayRange, weekdays } from "./build.js";
 import { coverageChanges } from "./coverage-changes.js";
 
 describe("coverage changes", () => {
   it("returns the time added and removed", () => {
     // Given office hours moved one hour later.
-    const before = weekdays().and(timeOfDay("09:00", "17:00"));
-    const after = weekdays().and(timeOfDay("10:00", "18:00"));
+    const before = weekdays().and(timeOfDayRange("09:00", "17:00"));
+    const after = weekdays().and(timeOfDayRange("10:00", "18:00"));
     const monday = inWindow("2026-03-09T00:00", "2026-03-10T00:00");
 
     // When their coverage is compared over Monday.
