@@ -15,6 +15,8 @@
 import type { Covers } from "./assigned.js";
 import type { Context } from "./context.js";
 import { coveredDays } from "./day-walk.js";
+import type { Distribution, Estimate, Spread } from "./estimate.js";
+import { resolvedOutcomes } from "./estimate-query.js";
 import {
   boundSearch,
   SearchLimitExceededError,
@@ -88,7 +90,28 @@ export function advanceByCoveredDays<V>(
   from: Temporal.ZonedDateTime,
   count: number,
   options: CoveredDayOptions<V>,
-): Temporal.ZonedDateTime | undefined {
+): Temporal.ZonedDateTime | undefined;
+export function advanceByCoveredDays<V>(
+  from: Temporal.ZonedDateTime,
+  count: Spread<number>,
+  options: CoveredDayOptions<V>,
+): Spread<Temporal.ZonedDateTime>;
+export function advanceByCoveredDays<V>(
+  from: Temporal.ZonedDateTime,
+  count: Distribution<number>,
+  options: CoveredDayOptions<V>,
+): Distribution<Temporal.ZonedDateTime>;
+export function advanceByCoveredDays<V>(
+  from: Temporal.ZonedDateTime,
+  count: Estimate<number> | number,
+  options: CoveredDayOptions<V>,
+): Estimate<Temporal.ZonedDateTime> | Temporal.ZonedDateTime | undefined {
+  if (typeof count !== "number") {
+    return resolvedOutcomes(count, "advanceByCoveredDays()", (days) =>
+      advanceByCoveredDays(from, days, options),
+    );
+  }
+
   checkDayCount(count);
   if (count === 0) {
     return from;

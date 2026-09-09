@@ -135,3 +135,22 @@ export type { Breach } from "./plan.js";
 export { admits, firstBreach } from "./plan.js";
 export type { CoveredDayOptions, StartingDay } from "./covered-days.js";
 export { advanceByCoveredDays, coveredDayCount } from "./covered-days.js";
+
+export type { Distribution, Estimate, Outcome, Spread } from "./estimate.js";
+export {
+  assumeUniform,
+  certainly,
+  chances,
+  isDistribution,
+  spread,
+} from "./estimate.js";
+export type { Order } from "./estimate-order.js";
+export { naturally } from "./estimate-order.js";
+export { combineOutcomes, mapOutcomes } from "./estimate-outcomes.js";
+export {
+  chanceBefore,
+  median,
+  mode,
+  quantile,
+  support,
+} from "./estimate-views.js";

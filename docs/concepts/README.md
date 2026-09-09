@@ -131,13 +131,19 @@ stay Gregorian there, so `monthsOfYear` and a cycle of months or years are
 refused on another calendar. `monthCodes` names a month on any of them. See
 [rules](../rules/#set-a-calendar).
 
-Every rule describes a set of times independently. Constraints that depend on
-previous occurrences need a different model. Examples include a minimum gap
-between doses, a maximum number of requests per minute, and a rolling total.
+Most rules describe a set of times on their own. The ones that read what has
+already happened are [constraints](../constraints/), and they take that history
+on the context. A minimum gap between doses, a cap on requests per minute and a
+rolling total are all constraints.
 
-Rules also have no built-in validity horizon. A weekday rule continues into the
-future even when an application's holiday data ends. The application must
-track the range covered by its external data.
+How far a rule can be trusted is declared with `knownThrough`, and a query
+whose answer would rest on anything past that day refuses. See
+[horizons](../horizon/).
+
+An answer with several possible outcomes is an [estimate](../uncertainty/), and
+a query takes one wherever it takes a count or a duration. The rules themselves
+stay certain. A layer that applies only in some weathers has no way to say so
+yet.
 
 <!-- card
 ```ts

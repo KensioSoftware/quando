@@ -9,6 +9,8 @@
 
 import { type Covers, covered } from "./assigned.js";
 import type { Context } from "./context.js";
+import type { Distribution, Estimate, Spread } from "./estimate.js";
+import { resolvedOutcomes } from "./estimate-query.js";
 import { refuse, unknownIn, upTo } from "./horizon-guard.js";
 import { duration } from "./interval.js";
 import { checkExactDuration } from "./query-validation.js";
@@ -20,6 +22,10 @@ import {
 
 /** Zero, as the amount that is already arrived at. */
 const NOTHING = Temporal.Duration.from({ seconds: 0 });
+
+/** What {@link advanceBy} reads, and how far it looks for an answer. */
+type AdvanceOptions<V> = { readonly during: Covers<V> } & Search &
+  Omit<Context, "from" | "to">;
 
 /**
  * Where you get to after an amount of time that only counts while something
@@ -35,9 +41,29 @@ const NOTHING = Temporal.Duration.from({ seconds: 0 });
 export function advanceBy<V>(
   from: Temporal.ZonedDateTime,
   amount: Temporal.Duration,
-  options: { readonly during: Covers<V> } & Search &
-    Omit<Context, "from" | "to">,
-): Temporal.ZonedDateTime | undefined {
+  options: AdvanceOptions<V>,
+): Temporal.ZonedDateTime | undefined;
+export function advanceBy<V>(
+  from: Temporal.ZonedDateTime,
+  amount: Spread<Temporal.Duration>,
+  options: AdvanceOptions<V>,
+): Spread<Temporal.ZonedDateTime>;
+export function advanceBy<V>(
+  from: Temporal.ZonedDateTime,
+  amount: Distribution<Temporal.Duration>,
+  options: AdvanceOptions<V>,
+): Distribution<Temporal.ZonedDateTime>;
+export function advanceBy<V>(
+  from: Temporal.ZonedDateTime,
+  amount: Estimate<Temporal.Duration> | Temporal.Duration,
+  options: AdvanceOptions<V>,
+): Estimate<Temporal.ZonedDateTime> | Temporal.ZonedDateTime | undefined {
+  if (!(amount instanceof Temporal.Duration)) {
+    return resolvedOutcomes(amount, "advanceBy()", (one) =>
+      advanceBy(from, one, options),
+    );
+  }
+
   checkExactDuration(amount);
   if (Temporal.Duration.compare(amount, NOTHING) < 0) {
     throw new RangeError(
