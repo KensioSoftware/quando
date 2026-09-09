@@ -6,10 +6,17 @@ and the courier's own hours. Quando is where those already live.
 
 ```ts
 import {
+  advanceBy,
   advanceByCoveredDays,
   all,
+  assumeUniform,
+  chanceBefore,
   chances,
+  combineOutcomes,
+  mapOutcomes,
   median,
+  mode,
+  nextCoveredInterval,
   quantile,
   spread,
   support,
@@ -176,9 +183,11 @@ assumed.outcomes.map((one) => one.probability);
 assumed.assumed; // true
 ```
 
-`assumed` survives every mapping and every combination it takes part in. A
-quantile read off an assumed distribution is a claim about the assumption, and
-this is how a reader tells the two apart.
+`assumed` survives every mapping, and every combination of two distributions
+where either side carries it. A combination involving a spread comes back as a
+spread, which carries no weights to have assumed anything about. A quantile read
+off an assumed distribution is a claim about the assumption, and `assumed` is
+how a reader tells the two apart.
 
 ## Combining two estimates
 
@@ -267,7 +276,7 @@ sampling rate of its own.
 
 <!-- card
 ```ts
-const arrival = advanceByCoveredDays(ordered, chances(days), {
+const arrival = advanceByCoveredDays(ordered, advanced, {
   during: courier,
 });
 quantile(arrival, 0.95);

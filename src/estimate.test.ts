@@ -468,6 +468,32 @@ describe("estimating an answer with several outcomes", () => {
       assertStringIncludes(said[2] ?? "", "object");
     });
 
+    it("refuses a NaN rather than reporting it equal to everything", () => {
+      // Given an outcome that is not a number, arriving as one. NaN compares
+      // false both ways round, which reads as "equal" to a comparison built on
+      // less-than and greater-than.
+      const broken = spread([Number.NaN, 1, 2]);
+
+      // When the support is read.
+      const refusal = assertThrowsError(() => support(broken));
+
+      // Then it is refused. Ordering it would have swallowed the one and the
+      // two into it and answered with a support of one outcome.
+      assertInstanceOf(refusal, RangeError);
+      assertStringIncludes(refusal.message, "NaN");
+    });
+
+    it("reads several absent answers as one absent answer", () => {
+      // Given a mapping that finds nothing for any outcome. `undefined` is a
+      // value here, and sorting moves every one of them to the end without
+      // consulting the order.
+      const nowhere = mapOutcomes(spread([1, 2, 3]), () => undefined);
+
+      // When the support is read.
+      // Then the three of them are the one answer, kept once.
+      assertArrayEquals([...nowhere.values], [undefined]);
+    });
+
     it("takes an order of its own", () => {
       // Given outcomes ordered by something other than their value.
       const words = spread(["ccc", "a", "bb"]);

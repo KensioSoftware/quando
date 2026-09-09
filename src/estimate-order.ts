@@ -23,11 +23,11 @@ export function naturally<V>(left: V, right: V): number {
 
   const first = sortKey(left);
   const second = sortKey(right);
-  if (first === undefined || second === undefined) {
-    throw new RangeError(
-      `No natural order for ${describe(left)}. Pass an \`order\` that ` +
-        "compares two of them.",
-    );
+  if (first === undefined) {
+    throw unordered(left);
+  }
+  if (second === undefined) {
+    throw unordered(right);
   }
   if (first < second) {
     return -1;
@@ -40,11 +40,12 @@ export function naturally<V>(left: V, right: V): number {
 
 /** Something orderable that stands for the value, where one exists. */
 function sortKey(value: unknown): bigint | number | string | undefined {
-  if (
-    typeof value === "bigint" ||
-    typeof value === "number" ||
-    typeof value === "string"
-  ) {
+  if (typeof value === "number") {
+    // NaN compares false both ways round, which would report it equal to every
+    // other outcome and coalesce them all into it.
+    return Number.isNaN(value) ? undefined : value;
+  }
+  if (typeof value === "bigint" || typeof value === "string") {
     return value;
   }
   if (value instanceof Temporal.ZonedDateTime) {
@@ -64,9 +65,17 @@ function sortKey(value: unknown): bigint | number | string | undefined {
   return undefined;
 }
 
+/** The refusal to order a value, naming the value it could not order. */
+function unordered(value: unknown): RangeError {
+  return new RangeError(
+    `No natural order for ${describe(value)}. Pass an \`order\` that ` +
+      "compares two of them.",
+  );
+}
+
 /** What to call a value in the message that refuses to order it. */
 function describe(value: unknown): string {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
     return String(value);
   }
   const named: unknown = value.constructor;

@@ -39,6 +39,10 @@ import { naturally, type Order } from "./estimate-order.js";
  * Outcomes that land on the same answer are added together, which is the whole
  * of what makes a bending mapping come out right. A spread stays a spread and
  * a distribution stays a distribution, `assumed` and all.
+ *
+ * The result is in order, wherever the input happened to be. Finding that
+ * order is what identifies the outcomes that met, so a `W` with no order of
+ * its own needs an `order` here or the call throws.
  */
 export function mapOutcomes<V, W>(
   estimate: Spread<V>,
@@ -86,7 +90,10 @@ export function mapOutcomes<V, W>(
  *
  * Weights survive only where both sides have them. A spread on either side
  * gives a spread back, because there is no honest weight to give the pairs
- * it contributes.
+ * it contributes. `assumed` comes back where either distribution carried it,
+ * and a spread result carries nothing.
+ *
+ * The result is in order, on the same terms as {@link mapOutcomes}.
  */
 export function combineOutcomes<A, B, C>(
   left: Distribution<A>,

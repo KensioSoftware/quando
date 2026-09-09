@@ -53,8 +53,17 @@ export function orderedValues<V>(
 
   const settled: V[] = [];
   for (const value of sorted) {
+    if (settled.length === 0) {
+      settled.push(value);
+      continue;
+    }
+
+    // `undefined` is a value a mapping can produce, and `toSorted` puts every
+    // one of them at the end without consulting the order. Reading the last
+    // entry back cannot tell that apart from an empty run, so the length above
+    // is what says the run has started. Two undefined outcomes are one answer.
     const last = settled.at(-1);
-    if (last === undefined || order(last, value) !== 0) {
+    if (last !== undefined && order(last, value) !== 0) {
       settled.push(value);
     }
   }

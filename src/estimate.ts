@@ -36,7 +36,11 @@ export interface Outcome<V> {
 export interface Spread<V> {
   readonly kind: "spread";
 
-  /** Every outcome that can happen, in the order they were given. */
+  /**
+   * Every outcome that can happen. A built spread keeps them as they were
+   * given. One that came out of a mapping or a combination is in order, with
+   * equal outcomes kept once.
+   */
   readonly values: readonly V[];
 }
 
@@ -44,7 +48,11 @@ export interface Spread<V> {
 export interface Distribution<V> {
   readonly kind: "distribution";
 
-  /** Every outcome that can happen, in the order they were given. */
+  /**
+   * Every outcome that can happen. A built distribution keeps them as they
+   * were given. One that came out of a mapping or a combination is in order,
+   * with equal outcomes added together.
+   */
   readonly outcomes: readonly Outcome<V>[];
 
   /**

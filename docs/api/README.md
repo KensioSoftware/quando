@@ -597,9 +597,14 @@ independent, and returns a `Spread` where either side carries no weights.
 
 `mode`, `median`, `quantile` and `chanceBefore` refuse a `Spread` and name
 `assumeUniform` as the way to opt in. A distribution built by `assumeUniform`
-carries `assumed`, and every estimate mapped or combined from it carries
-`assumed` too. `naturally` orders numbers, bigints, strings and `Temporal`
-values, and every view takes an `order` for anything else.
+carries `assumed`. `mapOutcomes` carries it forward, and so does
+`combineOutcomes` where both sides are distributions and either carries it. A
+combination involving a `Spread` returns a `Spread`, which has no weights and
+no `assumed`.
+
+`naturally` orders numbers, bigints, strings and `Temporal` values. It refuses
+`NaN`, which compares false both ways round and would otherwise read as equal
+to every other outcome. Every view takes an `order` for anything else.
 
 ### Comparison and JSON types
 
