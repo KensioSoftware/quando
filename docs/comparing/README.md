@@ -1,6 +1,6 @@
 # Comparing definitions
 
-Use `equals` when two rule or cascade documents may have different shapes but
+Use `sameDefinition` when two rule or cascade documents may have different shapes but
 the same canonical form. Use `fingerprint` when you need that form as a stable
 string.
 
@@ -13,9 +13,9 @@ over time.
 order, and shorthand:
 
 ```ts
-import { all, canonical, timeOfDay, weekdays } from "@kensio/quando";
+import { all, canonical, timeOfDayRange, weekdays } from "@kensio/quando";
 
-const openingHours = all(all(weekdays()), timeOfDay("09:00", "17:00"));
+const openingHours = all(all(weekdays()), timeOfDayRange("09:00", "17:00"));
 
 console.log(canonical(openingHours));
 ```
@@ -35,19 +35,19 @@ order stays unchanged because it controls priority and merge order. An explicit
 ## Equality
 
 ```ts
-import { all, equals, timeOfDay, weekdays } from "@kensio/quando";
+import { all, sameDefinition, timeOfDayRange, weekdays } from "@kensio/quando";
 
-const built = all(all(weekdays()), timeOfDay("09:00", "17:00"));
-const written = all(timeOfDay("09:00:00", "17:00:00"), weekdays());
+const built = all(all(weekdays()), timeOfDayRange("09:00", "17:00"));
+const written = all(timeOfDayRange("09:00:00", "17:00:00"), weekdays());
 
-console.log(equals(built, written));
+console.log(sameDefinition(built, written));
 ```
 
 ```text
 true
 ```
 
-`equals` canonicalises both values and compares their fingerprints.
+`sameDefinition` canonicalises both values and compares their fingerprints.
 
 ## Fingerprints
 
@@ -73,7 +73,7 @@ Canonicalisation does not prove semantic equality. Different rule types remain
 different even when they happen to cover the same time:
 
 ```ts
-import { always, daysOfWeek, equals } from "@kensio/quando";
+import { always, daysOfWeek, sameDefinition } from "@kensio/quando";
 
 const everyNamedDay = daysOfWeek(
   "monday",
@@ -85,14 +85,14 @@ const everyNamedDay = daysOfWeek(
   "sunday",
 );
 
-console.log(equals(always(), everyNamedDay));
+console.log(sameDefinition(always(), everyNamedDay));
 ```
 
 ```text
 false
 ```
 
-`canonical`, `equals`, and `fingerprint` expect valid Quando data. Parse
+`canonical`, `sameDefinition`, and `fingerprint` expect valid Quando data. Parse
 [stored data](../serialisation/) before comparing it.
 
 Use `coverageChanges` when you need semantic differences inside a time window.
@@ -101,9 +101,9 @@ from their coverage. See the [queries guide](../queries/#compare-covered-time).
 
 <!-- card
 ```ts
-const built = all(all(weekdays()), timeOfDay("09:00", "17:00"));
-const written = all(timeOfDay("09:00:00", "17:00:00"), weekdays());
+const built = all(all(weekdays()), timeOfDayRange("09:00", "17:00"));
+const written = all(timeOfDayRange("09:00:00", "17:00:00"), weekdays());
 
-equals(built, written); // true
+sameDefinition(built, written); // true
 ```
 -->

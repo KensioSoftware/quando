@@ -9,12 +9,12 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { uncertain } from "./bounds.js";
+import { unknownIntervals } from "./bounds.js";
 import {
   all,
   always,
   any,
-  custom,
+  customRule,
   dates,
   daysOfMonth,
   inCalendar,
@@ -31,20 +31,21 @@ import { knownThrough } from "./horizon.js";
 import { BeyondHorizonError } from "./horizon-guard.js";
 import { parseRule } from "./parse.js";
 import {
-  activeAt,
-  advanceBy,
+  isActiveAt,
+  addCoveredTime,
   coveredDuration,
   nextCoveredInterval,
 } from "./query.js";
 import { explainRule } from "./rule-explanation.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 describe("a rule that says how far it is known", () => {
   /** Christmas, from a table that was only loaded as far as 2026. */
-  const holidays = (): Rule => knownThrough("2026-12-31", dates("2026-12-25"));
+  const holidays = (): RuleData =>
+    knownThrough("2026-12-31", dates("2026-12-25"));
 
   /** Open on weekdays, closed on the holidays anybody has heard about. */
-  const open = (): Rule => all(weekdays(), not(holidays()));
+  const open = (): RuleData => all(weekdays(), not(holidays()));
 
   /** Monday 2029-04-02 to the Monday after it, well past the horizon. */
   const BEYOND = inWindow("2029-04-02T00:00", "2029-04-09T00:00");
@@ -57,7 +58,7 @@ describe("a rule that says how far it is known", () => {
       // Given a rule that declares no horizon, asked about a distant Tuesday.
       // When it is asked.
       // Then it answers, the way it did before horizons existed.
-      assertTrue(activeAt(weekdays(), when("2029-04-03T10:00")));
+      assertTrue(isActiveAt(weekdays(), when("2029-04-03T10:00")));
     });
 
     it("has nothing it cannot answer for", () => {
@@ -66,7 +67,7 @@ describe("a rule that says how far it is known", () => {
 
       // When it is asked where its answer runs out.
       // When rendered, an empty stream is an empty string.
-      const fog = uncertain(schedule, BEYOND);
+      const fog = unknownIntervals(schedule, BEYOND);
       assertIdentical(render(fog), "");
     });
   });
@@ -76,14 +77,14 @@ describe("a rule that says how far it is known", () => {
       // Given a Monday in March 2026, which the holiday table covers.
       // When the schedule is asked about mid-morning.
       // Then it answers plainly.
-      assertTrue(activeAt(open(), when("2026-03-09T10:00")));
+      assertTrue(isActiveAt(open(), when("2026-03-09T10:00")));
     });
 
     it("leaves nothing unknown", () => {
       // Given a week the holiday table was loaded for.
       // When the schedule is asked where its answer runs out.
       // Then nowhere in that week.
-      const fog = uncertain(open(), WITHIN);
+      const fog = unknownIntervals(open(), WITHIN);
       assertIdentical(render(fog), "");
     });
 
@@ -100,7 +101,8 @@ describe("a rule that says how far it is known", () => {
     it("refuses a day the missing data could have changed", () => {
       // Given a Tuesday in 2029, which no holiday table has been loaded for.
       // When the schedule is asked about it.
-      const asking = (): boolean => activeAt(open(), when("2029-04-03T10:00"));
+      const asking = (): boolean =>
+        isActiveAt(open(), when("2029-04-03T10:00"));
 
       // Then it refuses rather than reporting a Tuesday as open.
       const refusal = assertThrowsError(asking);
@@ -112,14 +114,14 @@ describe("a rule that says how far it is known", () => {
       // Given a Saturday in 2029, past the same horizon.
       // When the schedule is asked about it.
       // Then it is closed, because a missing holiday cannot open a weekend.
-      assertFalse(activeAt(open(), when("2029-04-07T10:00")));
+      assertFalse(isActiveAt(open(), when("2029-04-07T10:00")));
     });
 
     it("names exactly the stretches it cannot answer for", () => {
       // Given a week in 2029, past the horizon of the holiday table.
       // When the schedule is asked where its answer runs out.
       // Then only the weekdays, running to the start of the Saturday.
-      const fog = uncertain(open(), BEYOND);
+      const fog = unknownIntervals(open(), BEYOND);
       assertIdentical(render(fog), "[2029-04-02T00:00:00,2029-04-07T00:00:00)");
     });
   });
@@ -131,7 +133,7 @@ describe("a rule that says how far it is known", () => {
 
       // When it is asked about a Tuesday past the horizon.
       // Then it is false, because both conditions must hold and one cannot.
-      assertFalse(activeAt(rule, when("2029-04-03T10:00")));
+      assertFalse(isActiveAt(rule, when("2029-04-03T10:00")));
     });
 
     it("stays true where a certain yes settles it", () => {
@@ -140,7 +142,7 @@ describe("a rule that says how far it is known", () => {
 
       // When it is asked about a Tuesday past the horizon.
       // Then it is true, because one alternative holds whatever the other says.
-      assertTrue(activeAt(rule, when("2029-04-03T10:00")));
+      assertTrue(isActiveAt(rule, when("2029-04-03T10:00")));
     });
 
     it("carries the fog through an exclusion", () => {
@@ -148,7 +150,7 @@ describe("a rule that says how far it is known", () => {
       const rule = not(knownThrough("2026-12-31", always()));
 
       // When it is asked about a Tuesday past that horizon.
-      const asking = (): boolean => activeAt(rule, when("2029-04-03T10:00"));
+      const asking = (): boolean => isActiveAt(rule, when("2029-04-03T10:00"));
 
       // Then it refuses, rather than reporting the exclusion as not applying.
       assertInstanceOf(assertThrowsError(asking), BeyondHorizonError);
@@ -198,7 +200,7 @@ describe("a rule that says how far it is known", () => {
 
       // When asked where two hundred open hours land.
       const asking = (): unknown =>
-        advanceBy(from, Temporal.Duration.from({ hours: 200 }), {
+        addCoveredTime(from, Temporal.Duration.from({ hours: 200 }), {
           during: open(),
           within: Temporal.Duration.from({ days: 60 }),
         });
@@ -215,11 +217,11 @@ describe("a rule that says how far it is known", () => {
       const rule = knownThrough("2026-12-31", weekdays(), "Asia/Tokyo");
 
       // When the schedule is asked either side of that instant.
-      const asking = (): boolean => activeAt(rule, when("2026-12-31T16:00"));
+      const asking = (): boolean => isActiveAt(rule, when("2026-12-31T16:00"));
 
       // Then a London afternoon is already past a Tokyo horizon, and a London
       // lunchtime is not.
-      assertTrue(activeAt(rule, when("2026-12-31T14:00")));
+      assertTrue(isActiveAt(rule, when("2026-12-31T14:00")));
       assertInstanceOf(assertThrowsError(asking), BeyondHorizonError);
     });
 
@@ -228,7 +230,7 @@ describe("a rule that says how far it is known", () => {
       const rule = inZone("Asia/Tokyo", knownThrough("2026-12-31", weekdays()));
 
       // When it is asked about a Tuesday in 2029.
-      const asking = (): boolean => activeAt(rule, when("2029-04-03T10:00"));
+      const asking = (): boolean => isActiveAt(rule, when("2029-04-03T10:00"));
 
       // Then the horizon is still there, read on the clock the scope named.
       assertInstanceOf(assertThrowsError(asking), BeyondHorizonError);
@@ -242,7 +244,7 @@ describe("a rule that says how far it is known", () => {
       );
 
       // When it is asked about a day in 2029.
-      const asking = (): boolean => activeAt(rule, when("2029-04-03T10:00"));
+      const asking = (): boolean => isActiveAt(rule, when("2029-04-03T10:00"));
 
       // Then the horizon survives the change of calendar.
       assertInstanceOf(assertThrowsError(asking), BeyondHorizonError);
@@ -253,7 +255,7 @@ describe("a rule that says how far it is known", () => {
       const rule = any(knownThrough("2026-12-31", weekdays()), never());
 
       // When it is asked where its answer runs out in 2029.
-      const fog = uncertain(rule, BEYOND);
+      const fog = unknownIntervals(rule, BEYOND);
 
       // Then the whole week, because an alternative nobody can answer leaves
       // every moment of it open.
@@ -268,19 +270,20 @@ describe("a rule that says how far it is known", () => {
 
     /** A holiday table that says how far it was loaded. */
     const loaded: RuleRegistry = {
-      holidays: { intervals: christmas, known: () => "2026-12-31" },
+      holidays: { intervals: christmas, knownThrough: () => "2026-12-31" },
     };
 
     /** The same table, saying nothing about how far it goes. */
     const silent: RuleRegistry = { holidays: { intervals: christmas } };
 
-    const schedule = (): Rule => all(weekdays(), not(custom("holidays")));
+    const schedule = (): RuleData =>
+      all(weekdays(), not(customRule("holidays")));
 
     it("refuses past what the table was loaded for", () => {
       // Given a table that declares it holds 2026 and no further.
       // When the schedule is asked about a Tuesday in 2029.
       const asking = (): boolean =>
-        activeAt(schedule(), when("2029-04-03T10:00"), { rules: loaded });
+        isActiveAt(schedule(), when("2029-04-03T10:00"), { rules: loaded });
 
       // Then it refuses, on a horizon the stored document never mentioned.
       assertInstanceOf(assertThrowsError(asking), BeyondHorizonError);
@@ -291,7 +294,7 @@ describe("a rule that says how far it is known", () => {
       // When the schedule is asked about the same Tuesday.
       // Then it answers, because nothing has said the data runs out.
       assertTrue(
-        activeAt(schedule(), when("2029-04-03T10:00"), { rules: silent }),
+        isActiveAt(schedule(), when("2029-04-03T10:00"), { rules: silent }),
       );
     });
   });
@@ -306,7 +309,7 @@ describe("a rule that says how far it is known", () => {
 
       // Then it still refuses past its horizon.
       const asking = (): boolean =>
-        activeAt(not(read), when("2029-04-03T10:00"));
+        isActiveAt(not(read), when("2029-04-03T10:00"));
       assertInstanceOf(assertThrowsError(asking), BeyondHorizonError);
     });
 
@@ -345,8 +348,8 @@ describe("a rule that says how far it is known", () => {
 
       // When the account is read.
       // Then it reports that nothing is known, rather than reporting a miss.
-      assertFalse(account.known);
-      assertFalse(account.matched);
+      assertFalse(account.status !== "unknown");
+      assertFalse(account.status === "matched");
       assertStringIncludes(account.description, "not known");
     });
 
@@ -356,8 +359,8 @@ describe("a rule that says how far it is known", () => {
 
       // When the account is read.
       // Then it is an ordinary matching account.
-      assertTrue(account.known);
-      assertTrue(account.matched);
+      assertTrue(account.status !== "unknown");
+      assertTrue(account.status === "matched");
     });
   });
 });

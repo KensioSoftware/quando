@@ -6,8 +6,9 @@ import { coverageDiagnostics } from "./coverage-diagnostics.js";
 import type { Interval } from "./interval.js";
 import { intervals } from "./interpret.js";
 import { layerDiagnostics } from "./layer-diagnostics.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { checkWindow } from "./validation.js";
+import { evaluationOptions } from "./evaluation-options.js";
 
 /** A finite context used for semantic validation. */
 export interface ValidationWindow extends Context {
@@ -20,7 +21,15 @@ export interface ValidationOptions {
 }
 
 /** A problem found while evaluating a definition. */
-export type ValidationDiagnostic =
+export interface DiagnosticContext {
+  readonly severity: "info" | "warning" | "error";
+  readonly window: { readonly from: string; readonly to: string };
+}
+
+export type ValidationDiagnostic = DiagnosticContext & DiagnosticFinding;
+
+/** A finding before its window and severity are attached. */
+export type DiagnosticFinding =
   | {
       readonly code: "inactive-rule";
       readonly message: string;
@@ -38,13 +47,31 @@ export type ValidationDiagnostic =
 
 /** Finds semantic problems inside a finite validation window. */
 export function validate(
-  source: Rule | CascadeLike<unknown>,
+  source: RuleData | CascadeLike<unknown>,
   window: ValidationWindow,
   options: ValidationOptions = {},
 ): readonly ValidationDiagnostic[] {
-  assertWindow(window);
+  const read = evaluationOptions(source, window);
+  assertWindow(read);
+  return findings(source, read, options).map((finding) => ({
+    ...finding,
+    severity:
+      finding.code === "uncovered-time"
+        ? "error"
+        : finding.code === "shadowed-layer"
+          ? "warning"
+          : "info",
+    window: { from: read.from.toString(), to: read.to.toString() },
+  }));
+}
+
+function findings(
+  source: RuleData | CascadeLike<unknown>,
+  read: ValidationWindow,
+  options: ValidationOptions,
+): readonly DiagnosticFinding[] {
   if (isRule(source)) {
-    return hasAny(intervals(source, window))
+    return hasAny(intervals(source, read))
       ? []
       : [
           {
@@ -56,9 +83,10 @@ export function validate(
 
   const cascade = asCascade(source);
   return [
-    ...layerDiagnostics(cascade, window),
-    ...(options.requireFullCoverage === true
-      ? coverageDiagnostics(cascade, window)
+    ...layerDiagnostics(cascade, read),
+    ...((options.requireFullCoverage ??
+    ("cascade" in source && "type" in source && source.type === "rota"))
+      ? coverageDiagnostics(cascade, read)
       : []),
   ];
 }
@@ -70,7 +98,7 @@ function assertWindow(window: Context): asserts window is ValidationWindow {
   }
 }
 
-function isRule(source: Rule | CascadeLike<unknown>): source is Rule {
+function isRule(source: RuleData | CascadeLike<unknown>): source is RuleData {
   return !("cascade" in source) && source.type !== "cascade";
 }
 

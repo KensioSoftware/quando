@@ -1,3 +1,6 @@
+import { everyOf, anyOf } from "./interpret-compound.js";
+import { readIn } from "./interval-presentation.js";
+export { readIn } from "./interval-presentation.js";
 /**
  * Reading a rule as the times it covers.
  *
@@ -23,14 +26,10 @@ import {
 import { calendarIntervals } from "./calendar-intervals.js";
 import { customIntervals } from "./custom-rules.js";
 import { constraintForbids } from "./occurrence-rules.js";
-import {
-  clip,
-  complement,
-  intersect,
-  type IntervalStream,
-  union,
-} from "./interval-stream.js";
-import type { Rule } from "./rule.js";
+import { clip, complement, type IntervalStream } from "./interval-stream.js";
+import type { RuleData } from "./rule.js";
+import { beforeShift, shiftedDays } from "./shift-days.js";
+import { refuse, unknownIn } from "./horizon-guard.js";
 
 /** All of time, before the window narrows it. */
 const UNBOUNDED: IntervalStream = [{ start: undefined, end: undefined }];
@@ -56,7 +55,19 @@ const EMPTY: IntervalStream = [];
  * print as `[u-ca=hebrew]`, which is a detail of how the rule was written
  * rather than anything about the answer.
  */
-export function intervals(rule: Rule, context: Context): IntervalStream {
+export function intervals(rule: RuleData, context: Context): IntervalStream {
+  const fog = unknownIn(rule, context);
+  if (fog !== undefined) {
+    refuse("intervals()", fog, context);
+  }
+  return assumedIntervals(rule, context);
+}
+
+/** Evaluates rule structure while the bounds evaluator handles knowledge. */
+export function assumedIntervals(
+  rule: RuleData,
+  context: Context,
+): IntervalStream {
   checkWindow(context.from, context.to);
   return readIn(
     evaluate(rule, context),
@@ -65,26 +76,7 @@ export function intervals(rule: Rule, context: Context): IntervalStream {
   );
 }
 
-/**
- * A stream read back in one zone and calendar, as {@link intervals} promises.
- *
- * Exported for [bounds.ts](./bounds.ts), which owes its callers the same
- * promise and reaches the leaves by its own route.
- */
-export function* readIn(
-  stream: IntervalStream,
-  zone: string,
-  calendar: string,
-): IntervalStream {
-  for (const interval of stream) {
-    yield {
-      start: interval.start?.withTimeZone(zone).withCalendar(calendar),
-      end: interval.end?.withTimeZone(zone).withCalendar(calendar),
-    };
-  }
-}
-
-function evaluate(rule: Rule, context: Context): IntervalStream {
+function evaluate(rule: RuleData, context: Context): IntervalStream {
   const window = windowOf(context);
 
   switch (rule.type) {
@@ -139,12 +131,18 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
       return evaluate(rule.rule, context);
     }
 
+    case "shiftDays": {
+      const before = beforeShift(context, rule.days);
+      const original = evaluate(rule.rule, before);
+      return clip(shiftedDays(original, rule.days), window);
+    }
+
     case "all": {
-      return everyOf(rule.rules, context);
+      return everyOf(rule.rules, context, evaluate);
     }
 
     case "any": {
-      return anyOf(rule.rules, context);
+      return anyOf(rule.rules, context, evaluate);
     }
 
     case "not": {
@@ -160,22 +158,4 @@ function evaluate(rule: Rule, context: Context): IntervalStream {
       return unreachable;
     }
   }
-}
-
-/** Intersection, starting from all of time so that no rules means no limits. */
-function everyOf(rules: readonly Rule[], context: Context): IntervalStream {
-  let covered = clip(UNBOUNDED, windowOf(context));
-  for (const rule of rules) {
-    covered = intersect(covered, evaluate(rule, context));
-  }
-  return covered;
-}
-
-/** Union, starting from nothing so that no rules means no times. */
-function anyOf(rules: readonly Rule[], context: Context): IntervalStream {
-  let covered = EMPTY;
-  for (const rule of rules) {
-    covered = union(covered, evaluate(rule, context));
-  }
-  return covered;
 }

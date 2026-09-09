@@ -19,8 +19,10 @@ import { endOf, type Occurrence } from "./occurrence.js";
 import { difference } from "./interval-difference.js";
 import type { Interval } from "./interval.js";
 import { explainRule, type RuleExplanation } from "./rule-explanation.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { take } from "./stream.js";
+import { withCandidate } from "./plan-context.js";
+import { refuse, unknownIn } from "./horizon-guard.js";
 
 /** The first occurrence in a plan that a rule refuses, and why. */
 export interface Breach {
@@ -54,7 +56,7 @@ export interface Breach {
  * report a fifth dose as fine.
  */
 export function firstBreach(
-  rule: Rule,
+  rule: RuleData,
   plan: readonly Occurrence[],
   context?: Omit<Context, "from" | "to">,
 ): Breach | undefined {
@@ -65,10 +67,13 @@ export function firstBreach(
     context?.occurrences === undefined ? undefined : [...context.occurrences];
 
   for (const [index, occurrence] of inTimeOrder(plan)) {
-    const read: Omit<Context, "from" | "to"> = {
-      ...context,
-      ...(admitted === undefined ? {} : { occurrences: [...admitted] }),
-    };
+    const read = withCandidate(
+      {
+        ...context,
+        ...(admitted === undefined ? {} : { occurrences: [...admitted] }),
+      },
+      occurrence,
+    );
     const refused = refusedIn(rule, occurrence, read);
     if (refused !== undefined) {
       return {
@@ -84,8 +89,8 @@ export function firstBreach(
 }
 
 /** Whether a rule allows a whole plan. {@link firstBreach} says what failed. */
-export function admits(
-  rule: Rule,
+export function allowsPlan(
+  rule: RuleData,
   plan: readonly Occurrence[],
   context?: Omit<Context, "from" | "to">,
 ): boolean {
@@ -100,7 +105,7 @@ export function admits(
  * day, and the instant that comes back is the one to tell somebody about.
  */
 function refusedIn(
-  rule: Rule,
+  rule: RuleData,
   occurrence: Occurrence,
   read: Omit<Context, "from" | "to">,
 ): Temporal.ZonedDateTime | undefined {
@@ -115,6 +120,10 @@ function refusedIn(
       : { ...read, from, to };
 
   const whole: Interval = { start: window.from, end: window.to };
+  const fog = unknownIn(rule, window);
+  if (fog !== undefined) {
+    refuse("allowsPlan()", fog, window);
+  }
   const [gap] = take(difference([whole], covered(rule, window)), 1);
   return gap?.start;
 }

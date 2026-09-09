@@ -15,7 +15,7 @@
 import { cronSlots } from "./cron-export-slots.js";
 import { cronText } from "./cron-export-fields.js";
 import type { Unwritable } from "./export-result.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { ruleTerms } from "./rule-terms.js";
 
 /** A rule that has a cron expression. */
@@ -32,13 +32,13 @@ export type CronExport = WrittenCron | Unwritable;
  * A rule as a five-field POSIX cron expression, when it has one.
  *
  * ```ts
- * const written = toCron(weekdays().and(timeOfDay("09:00", "09:01")));
+ * const written = toCron(weekdays().and(timeOfDayRange("09:00", "09:01")));
  * if (written.ok) {
  *   console.log(written.cron); // 0 9 * * 1-5
  * }
  * ```
  */
-export function toCron(rule: Rule): CronExport {
+export function toCron(rule: RuleData): CronExport {
   const read = ruleTerms(rule);
   if (!read.ok) {
     return read;

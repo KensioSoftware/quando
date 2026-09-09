@@ -10,7 +10,7 @@ import { describe, it } from "vitest";
 import {
   always,
   any,
-  between,
+  datesBetween,
   dates,
   daysOfMonth,
   daysOfWeek,
@@ -18,37 +18,37 @@ import {
   monthsOfYear,
   never,
   nthDayOfWeekInMonth,
-  timeOfDay,
+  timeOfDayRange,
   weekdays,
 } from "./build.js";
 import { parseCron } from "./cron.js";
 import { toCron } from "./cron-export.js";
-import { every } from "./every-builders.js";
+import { everyNthPeriod } from "./every-builders.js";
 import { intervals } from "./interpret.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 describe("writing a rule as a cron expression", () => {
   /** The expression a rule comes to. Fails the test when it has none. */
-  const written = (rule: Rule): string => {
+  const written = (rule: RuleData): string => {
     const result = toCron(rule);
     assertTrue(result.ok);
     return result.cron;
   };
 
   /** Why a rule has no cron expression. Fails the test when it has one. */
-  const refusal = (rule: Rule): string => {
+  const refusal = (rule: RuleData): string => {
     const result = toCron(rule);
     assertFalse(result.ok);
     return result.reason;
   };
 
   /** Midnight to a minute past, so a rule has a clock time to write. */
-  const MIDNIGHT = timeOfDay("00:00", "00:01");
+  const MIDNIGHT = timeOfDayRange("00:00", "00:01");
 
   describe("the expression a rule comes to", () => {
     it("writes the minute a rule covers as the fields that fire in it", () => {
       // Given a rule covering one minute of each weekday morning.
-      const batch = weekdays().and(timeOfDay("06:00", "06:01"));
+      const batch = weekdays().and(timeOfDayRange("06:00", "06:01"));
 
       // When it is written out.
       // Then it is the cron line that fires in that minute.
@@ -58,7 +58,7 @@ describe("writing a rule as a cron expression", () => {
     it("writes a window as every minute of the hours it covers", () => {
       // Given office hours, which cover eight whole hours rather than an
       // instant. Cron has no duration, so the expression fires throughout.
-      const office = timeOfDay("09:00", "17:00");
+      const office = timeOfDayRange("09:00", "17:00");
 
       // When it is written out.
       // Then every minute of the nine hours up to but not including 17:00.
@@ -153,7 +153,8 @@ describe("writing a rule as a cron expression", () => {
     it("covers the same minutes as the expression it came from", () => {
       // Given a weekday batch job, over the Monday it first runs on.
       const monday = inWindow("2026-03-09T00:00", "2026-03-10T00:00");
-      const covers = (rule: Rule): string => render(intervals(rule, monday));
+      const covers = (rule: RuleData): string =>
+        render(intervals(rule, monday));
 
       // When the rule it reads as is written out and read again.
       const again = parseCron(written(parseCron("0 6 * * 1-5")));
@@ -169,8 +170,8 @@ describe("writing a rule as a cron expression", () => {
     it("takes the clock from a leaf inside an alternative", () => {
       // Given two firing times, each pinned to the daemon's own zone.
       const tokyo = any(
-        timeOfDay("09:00", "09:01", "Asia/Tokyo"),
-        timeOfDay("17:00", "17:01", "Asia/Tokyo"),
+        timeOfDayRange("09:00", "09:01", "Asia/Tokyo"),
+        timeOfDayRange("17:00", "17:01", "Asia/Tokyo"),
       );
 
       // When it is written out.
@@ -218,7 +219,7 @@ describe("writing a rule as a cron expression", () => {
         "it names calendar dates, and cron has no year field",
       );
       assertStringIncludes(
-        refusal(between("2026-04-01", "2026-04-30").and(MIDNIGHT)),
+        refusal(datesBetween("2026-04-01", "2026-04-30").and(MIDNIGHT)),
         "it is bounded to a stretch of the calendar",
       );
     });
@@ -226,7 +227,7 @@ describe("writing a rule as a cron expression", () => {
     it("refuses a cycle counted from a date", () => {
       // Given a fortnightly rule. Cron's steps restart within each month, so
       // there is no field that counts from an anchor.
-      const fortnightly = every(2, "weeks", { anchor: "2026-03-02" });
+      const fortnightly = everyNthPeriod(2, "weeks", { anchor: "2026-03-02" });
 
       assertStringIncludes(
         refusal(fortnightly.and(MIDNIGHT)),
@@ -251,7 +252,7 @@ describe("writing a rule as a cron expression", () => {
     it("refuses a window that is not a set of hours times a set of minutes", () => {
       // Given a window offset by half an hour. Its minutes are 09:30 through
       // 17:29, and no pair of clock fields selects those.
-      const offset = timeOfDay("09:30", "17:30");
+      const offset = timeOfDayRange("09:30", "17:30");
 
       assertStringIncludes(
         refusal(offset),
@@ -263,7 +264,7 @@ describe("writing a rule as a cron expression", () => {
       // Given a rule whose zone disagrees with the one around it.
       const split = inZone(
         "Europe/London",
-        timeOfDay("09:00", "09:01", "Asia/Tokyo"),
+        timeOfDayRange("09:00", "09:01", "Asia/Tokyo"),
       );
 
       assertStringIncludes(refusal(split), "runs on one clock");
@@ -272,8 +273,8 @@ describe("writing a rule as a cron expression", () => {
     it("refuses a rule naming the same field twice", () => {
       // Given two clock windows that have to hold together. Cron has one pair
       // of clock fields, and no way to write an intersection of two.
-      const twice = timeOfDay("09:00", "12:00").and(
-        timeOfDay("11:00", "14:00"),
+      const twice = timeOfDayRange("09:00", "12:00").and(
+        timeOfDayRange("11:00", "14:00"),
       );
 
       assertStringIncludes(refusal(twice), "twice, and cron has one field");

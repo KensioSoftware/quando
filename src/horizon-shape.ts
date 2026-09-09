@@ -10,7 +10,20 @@
  */
 
 import type { RuleRegistry } from "./custom-rules.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
+import { asCascade, type CascadeLike } from "./cascade.js";
+
+/** Whether any layer or nested replacement declares a knowledge horizon. */
+export function cascadeHasHorizon(
+  source: CascadeLike<unknown>,
+  registry: RuleRegistry | undefined,
+): boolean {
+  return asCascade(source).layers.some(
+    (layer) =>
+      hasHorizon(layer.scope, registry) ||
+      ("replace" in layer && cascadeHasHorizon(layer.replace, registry)),
+  );
+}
 
 /** What a rule tree carries that could put a horizon on an answer. */
 interface Shape {
@@ -23,7 +36,7 @@ interface Shape {
 /** A leaf that vouches for itself over all of time, which is most of them. */
 const NOTHING_UNKNOWN: Shape = { declared: false, custom: [] };
 
-const shapes = new WeakMap<Rule, Shape>();
+const shapes = new WeakMap<RuleData, Shape>();
 
 /**
  * Whether anything in a rule could make part of its answer unknown.
@@ -33,18 +46,18 @@ const shapes = new WeakMap<Rule, Shape>();
  * every query over it behaves exactly as it did before horizons existed.
  */
 export function hasHorizon(
-  rule: Rule,
+  rule: RuleData,
   registry: RuleRegistry | undefined,
 ): boolean {
   const shape = shapeOf(rule);
   return (
     shape.declared ||
-    shape.custom.some((name) => registry?.[name]?.known !== undefined)
+    shape.custom.some((name) => registry?.[name]?.knownThrough !== undefined)
   );
 }
 
 /** The shape of a rule tree, walked once per document and remembered. */
-function shapeOf(rule: Rule): Shape {
+function shapeOf(rule: RuleData): Shape {
   const remembered = shapes.get(rule);
   if (remembered !== undefined) {
     return remembered;
@@ -54,7 +67,7 @@ function shapeOf(rule: Rule): Shape {
   return shape;
 }
 
-function walk(rule: Rule): Shape {
+function walk(rule: RuleData): Shape {
   switch (rule.type) {
     case "known": {
       return { declared: true, custom: shapeOf(rule.rule).custom };
@@ -63,6 +76,7 @@ function walk(rule: Rule): Shape {
       return { declared: false, custom: [rule.name] };
     }
     case "not":
+    case "shiftDays":
     case "inZone":
     case "inCalendar": {
       return shapeOf(rule.rule);
@@ -90,7 +104,7 @@ function walk(rule: Rule): Shape {
   }
 }
 
-function merged(rules: readonly Rule[]): Shape {
+function merged(rules: readonly RuleData[]): Shape {
   let declared = false;
   const custom = new Set<string>();
   for (const rule of rules) {

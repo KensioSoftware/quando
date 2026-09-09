@@ -1,5 +1,7 @@
+import { requireWindowEnd } from "./context.js";
 import type { CascadeLike } from "./cascade.js";
-import type { Context } from "./context.js";
+import type { QueryWindow } from "./context.js";
+import { refuse, unknownValueIn } from "./horizon-guard.js";
 import { duration } from "./interval.js";
 import { resolve } from "./resolve.js";
 
@@ -25,7 +27,7 @@ export type ElapsedUnit = (typeof ELAPSED_UNITS)[number];
  */
 export function accumulate(
   source: CascadeLike<number>,
-  context: Context,
+  context: QueryWindow,
   unit: ElapsedUnit,
 ): number {
   if (!(ELAPSED_UNITS as readonly string[]).includes(unit)) {
@@ -35,12 +37,15 @@ export function accumulate(
       )}, but found "${unit}".`,
     );
   }
-  if (context.to === undefined) {
-    throw new RangeError(
-      "accumulate() needs a window with an end: give the context a `to`.",
-    );
-  }
+  requireWindowEnd(
+    context,
+    "accumulate() needs a window with an end: give the context a `to`.",
+  );
 
+  const fog = unknownValueIn(source, context);
+  if (fog !== undefined) {
+    refuse("accumulate()", fog, context, "unknownValueIntervals()");
+  }
   let total = 0;
   for (const span of resolve(source, context)) {
     const length = duration(span);

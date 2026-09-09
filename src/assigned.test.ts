@@ -7,13 +7,13 @@ import {
 import { faker } from "@faker-js/faker";
 import { describe, it } from "vitest";
 
-import { assigned, nextValue, valueAt } from "./assigned.js";
-import { all, dates, timeOfDay, weekdays, weekends } from "./build.js";
+import { assigned, nextValueInterval, valueAt } from "./assigned.js";
+import { all, dates, timeOfDayRange, weekdays, weekends } from "./build.js";
 import { cascade, layer } from "./cascade.js";
-import type { Context } from "./context.js";
+import type { QueryWindow } from "./context.js";
 import {
-  activeAt,
-  advanceBy,
+  isActiveAt,
+  addCoveredTime,
   coveredDuration,
   nextCoveredInterval,
 } from "./query.js";
@@ -31,7 +31,7 @@ describe("asking the four questions of a cascade", () => {
     layer(dates("2026-03-11"), carol),
   );
 
-  const week: Context = {
+  const week: QueryWindow = {
     from: Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]"),
     to: Temporal.ZonedDateTime.from("2026-03-16T00:00[Europe/London]"),
   };
@@ -73,7 +73,7 @@ describe("asking the four questions of a cascade", () => {
       );
 
       // When the rota is asked what happens next.
-      const shift = nextValue(onCall, { from: tuesday });
+      const shift = nextValueInterval(onCall, { from: tuesday });
 
       // Then it is the stretch in progress, clipped to begin where the
       // question was asked, which is what `nextCoveredInterval` does for a rule.
@@ -91,8 +91,8 @@ describe("asking the four questions of a cascade", () => {
 
       // When the rota is narrowed to each name in turn.
       // Then only the one actually on call covers the moment.
-      assertTrue(activeAt(assigned(onCall, carol), wednesday));
-      assertFalse(activeAt(assigned(onCall, alice), wednesday));
+      assertTrue(isActiveAt(assigned(onCall, carol), wednesday));
+      assertFalse(isActiveAt(assigned(onCall, alice), wednesday));
     });
 
     it("counts how much time a value covers", () => {
@@ -136,9 +136,13 @@ describe("asking the four questions of a cascade", () => {
       );
 
       // When eight hours of it are worked through.
-      const done = advanceBy(tuesday, Temporal.Duration.from({ hours: 8 }), {
-        during: assigned(onCall, alice),
-      });
+      const done = addCoveredTime(
+        tuesday,
+        Temporal.Duration.from({ hours: 8 }),
+        {
+          during: assigned(onCall, alice),
+        },
+      );
 
       // Then the Wednesday is skipped entirely, which is the whole point of
       // asking a query of a cascade rather than of a clock.
@@ -158,7 +162,7 @@ describe("asking the four questions of a cascade", () => {
       );
 
       // When the generic active-at query reads the façade.
-      const open = activeAt(office, monday);
+      const open = isActiveAt(office, monday);
 
       // Then it reads the schedule's boolean cascade.
       assertTrue(open);
@@ -167,16 +171,20 @@ describe("asking the four questions of a cascade", () => {
     it("advances through opening hours held in a cascade", () => {
       // Given opening hours as a cascade of `true`, which is what a schedule
       // is underneath.
-      const officeHours = all(weekdays(), timeOfDay("09:00", "17:00"));
+      const officeHours = all(weekdays(), timeOfDayRange("09:00", "17:00"));
       const openingHours = cascade(layer(officeHours, true));
 
       // When three hours of packing are worked from five to five on a Friday.
       const placed = Temporal.ZonedDateTime.from(
         "2026-03-13T16:55[Europe/London]",
       );
-      const packed = advanceBy(placed, Temporal.Duration.from({ hours: 3 }), {
-        during: assigned(openingHours, true),
-      });
+      const packed = addCoveredTime(
+        placed,
+        Temporal.Duration.from({ hours: 3 }),
+        {
+          during: assigned(openingHours, true),
+        },
+      );
 
       // Then it lands where the same question asked of the rule lands. A
       // cascade narrowed to one value is a stretch of when, and nothing about

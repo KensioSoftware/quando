@@ -1,3 +1,4 @@
+import { assertStringIncludes } from "@kensio/smartass";
 import { inWindow, render } from "#test/intervals.js";
 import {
   assertArrayLength,
@@ -11,7 +12,7 @@ import { describe, it } from "vitest";
 import { dates } from "./build.js";
 import type { Interval } from "./interval.js";
 import { intervals } from "./interpret.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { parseRRule } from "./rrule.js";
 import { take } from "./stream.js";
 
@@ -36,7 +37,7 @@ describe("reading a recurrence rule as a rule", () => {
    * assertion is about which days ran.
    */
   const daysOf = (
-    of: Rule,
+    of: RuleData,
     context: Parameters<typeof intervals>[1],
   ): string => {
     const covered: string[] = [];
@@ -53,8 +54,10 @@ describe("reading a recurrence rule as a rule", () => {
   ): string => daysOf(parseRRule(text, { start }), context);
 
   /** A recurrence read as its intervals, for the assertions about clock time. */
-  const read = (of: Rule, context: Parameters<typeof intervals>[1]): string =>
-    render(intervals(of, context));
+  const read = (
+    of: RuleData,
+    context: Parameters<typeof intervals>[1],
+  ): string => render(intervals(of, context));
 
   /** The message from a recurrence that should not parse. */
   const complaintAbout = (text: string, start = "2026-03-09"): string => {
@@ -373,51 +376,15 @@ describe("reading a recurrence rule as a rule", () => {
       );
     });
 
-    it("reads a UTC timestamp on the clock the rule is read in", () => {
-      // Given an UNTIL late on the 14th in UTC, read in Tokyo, which is nine
-      // hours ahead. The instant lands on the 15th there.
-      const month = inWindow(
-        "2026-03-01T00:00",
-        "2026-04-01T00:00",
-        "Asia/Tokyo",
-      );
-      const rule = parseRRule("FREQ=DAILY;UNTIL=20260314T230000Z", {
-        start: "2026-03-11",
-        zone: "Asia/Tokyo",
-      });
-
-      // When March is read.
-      // Then the 15th is included, because that is the day the bound falls on
-      // where the recurrence runs.
-      const covered = daysOf(rule, month).split(" ");
-      assertIdentical(covered.at(-1), "2026-03-15");
-    });
-  });
-
-  describe("a floating UNTIL", () => {
-    it("keeps the day it was written with, rather than converting it", () => {
-      // Given an UNTIL late on the 14th with no Z, read in Tokyo. RFC 5545
-      // reads a timestamp without a Z as local time, so the day it names is
-      // the one written. Read as a UTC instant it would land on the 15th.
-      const month = inWindow(
-        "2026-03-01T00:00",
-        "2026-04-01T00:00",
-        "Asia/Tokyo",
-      );
-      const floating = parseRRule("FREQ=DAILY;UNTIL=20260314T230000", {
-        start: "2026-03-11",
-        zone: "Asia/Tokyo",
-      });
-      const instant = parseRRule("FREQ=DAILY;UNTIL=20260314T230000Z", {
-        start: "2026-03-11",
-        zone: "Asia/Tokyo",
-      });
-
-      // When each is read.
-      // Then the floating one stops on the 14th and the UTC one runs to the
-      // 15th, because that is the day the instant falls on in Tokyo.
-      assertIdentical(daysOf(floating, month).split(" ").at(-1), "2026-03-14");
-      assertIdentical(daysOf(instant, month).split(" ").at(-1), "2026-03-15");
+    it("refuses timestamp bounds without discarding their time", () => {
+      // Given UTC and floating bounds that distinguish occurrences on one day.
+      for (const until of ["20260314T230000Z", "20260314T230000"]) {
+        // When the recurrence is parsed, then the unsupported bound is named.
+        assertStringIncludes(
+          complaintAbout(`FREQ=DAILY;UNTIL=${until}`),
+          "timestamp bounds are not supported",
+        );
+      }
     });
   });
 
@@ -560,7 +527,7 @@ describe("reading a recurrence rule as a rule", () => {
       );
       assertIdentical(
         complaintAbout("FREQ=DAILY;UNTIL=20261345T120000Z"),
-        'UNTIL: "20261345T120000Z" is not a date and time',
+        "UNTIL: timestamp bounds are not supported. Use a date-only UNTIL or retain the recurrence in a calendar library that preserves occurrence timestamps",
       );
       // Checked wherever it appears, not only where it changes the answer.
       assertIdentical(

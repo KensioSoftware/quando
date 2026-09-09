@@ -18,6 +18,7 @@ import { overfullWindows, type Range } from "./occurrence-occupancy.js";
 import { atLeastDeep, type Span } from "./occurrence-depth.js";
 import { endOf, historyOf, type Occurrence } from "./occurrence.js";
 import type { AtMostTimeRule } from "./rule.js";
+import { plannedOccurrence } from "./plan-context.js";
 
 /** The times a cap on total time rules out. */
 export function atMostTimeForbids(
@@ -26,8 +27,11 @@ export function atMostTimeForbids(
 ): IntervalStream {
   const history = historyOf(context.occurrences, "atMostTime");
   const zone = zoneOf(context, rule.zone);
-  const busy = busyOf(history);
-  const cap = nanosecondsIn(rule.total);
+  const candidate = plannedOccurrence(context);
+  const busy = busyOf(
+    candidate === undefined ? history : [...history, candidate],
+  );
+  const cap = nanosecondsIn(rule.total) + (candidate === undefined ? 0n : 1n);
 
   const shadows =
     rule.within === undefined

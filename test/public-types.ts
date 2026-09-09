@@ -1,11 +1,11 @@
 import {
   accumulate,
-  activeAt,
-  advanceBy,
-  advanceByCoveredDays,
+  isActiveAt,
+  addCoveredTime,
+  addCoveredDays,
   type CoveredDayOptions,
   coveredDayCount,
-  custom,
+  customRule,
   type CustomRule,
   CustomRuleStreamError,
   type CustomRuleType,
@@ -14,7 +14,7 @@ import {
   type Explanation,
   type ElapsedUnit,
   ELAPSED_UNITS,
-  firstGap,
+  firstAvailableSlot,
   inCalendar,
   type InCalendarRule,
   type LayerOptions,
@@ -31,12 +31,11 @@ import {
   type RuleRegistry,
   type Schedule,
   type ScheduleChanges,
-  slots,
+  availableSlots,
   type StartingDay,
   type Tally,
   type Timeline,
   type TimelineFormat,
-  type TimelineOptions,
   TIMELINE_FORMATS,
   type ValidationDiagnostic,
   UnknownCustomRuleError,
@@ -45,6 +44,7 @@ import {
   validate,
   tally,
   weekdays,
+  timeline,
 } from "../src/index.js";
 import { explainRule, layer, merged } from "../src/core.js";
 
@@ -68,20 +68,20 @@ const validationWindow: ValidationWindow = { from: start, to: end };
 const validationOptions: ValidationOptions = { requireFullCoverage: true };
 const accumulationUnit: ElapsedUnit = ELAPSED_UNITS[0];
 const timelineFormat: TimelineFormat = TIMELINE_FORMATS[0];
-const timelineOptions: TimelineOptions = { format: timelineFormat };
+void timelineFormat;
 
-advanceBy(start, Temporal.Duration.from({ hours: 1 }), { during: office });
-firstGap(office, halfHour, { from: start });
-slots(
+addCoveredTime(start, Temporal.Duration.from({ hours: 1 }), { during: office });
+firstAvailableSlot(office, halfHour, { from: start });
+availableSlots(
   office,
-  { from: start },
+  { from: start, to: end },
   {
     every: Temporal.Duration.from({ minutes: 15 }),
     lasting: Temporal.Duration.from({ minutes: 30 }),
   },
 );
 office.firstOpenSlot(start, halfHour);
-office.firstOpenSlot(start, halfHour, Temporal.Duration.from({ days: 7 }));
+office.firstOpenSlot(start, halfHour, { within: { days: 7 } });
 office.openSlots(start, start.add({ hours: 1 }), {
   every: Temporal.Duration.from({ minutes: 15 }),
   lasting: halfHour,
@@ -115,27 +115,24 @@ const accumulated: number = accumulate(
   accumulationUnit,
 );
 const staffHours: number = staff.totalBetween(start, end, "hour");
-const ruleTimeline: Timeline = renderTimeline(weekdays(), {
+const ruleTimeline: Timeline = timeline(weekdays(), {
   from: start,
   to: end,
 });
-const optionalTimeline: Timeline | string = renderTimeline(
-  weekdays(),
-  { from: start, to: end },
-  timelineOptions,
-);
+const optionalTimeline: Timeline | string = timeline(weekdays(), {
+  from: start,
+  to: end,
+});
 const textTimeline: string = renderTimeline(
-  weekdays(),
-  { from: start, to: end },
-  { format: "text" },
+  timeline(weekdays(), { from: start, to: end }),
 );
-const scheduleTimeline: Timeline = office.renderTimeline(start, end);
+const scheduleTimeline: Timeline = office.timeline(start, end);
 const shutdown: CustomRuleType = {
   intervals: (context) => [{ start: context.from, end: context.to }],
   describe: (options) => `Closed for ${JSON.stringify(options)}.`,
 };
 const registry: RuleRegistry = { shutdown };
-const customRule: CustomRule = custom("shutdown", { region: "gb" });
+const shutdownRule: CustomRule = customRule("shutdown", { region: "gb" });
 const hebrewRule: InCalendarRule = inCalendar("hebrew", weekdays());
 const adarI: MonthCode = "M05L";
 const leapMonth = inCalendar("hebrew", monthCodes(adarI));
@@ -143,13 +140,17 @@ const everyMonthCode: readonly MonthCode[] = MONTH_CODES;
 void hebrewRule;
 void leapMonth;
 void everyMonthCode;
-const customInZone: CustomRule = custom("shutdown", undefined, "Europe/London");
-const closedForWorks: boolean = activeAt(customRule, start, {
+const customInZone: CustomRule = customRule(
+  "shutdown",
+  undefined,
+  "Europe/London",
+);
+const closedForWorks: boolean = isActiveAt(shutdownRule, start, {
   rules: registry,
 });
-const officeWithRules: Schedule = office.withRules(registry);
-const rotaWithRules: Rota<string> = rota<string>().withRules(registry);
-const tallyWithRules: Tally = tally().withRules(registry);
+const officeWithRules: Schedule = office.withCustomRules(registry);
+const rotaWithRules: Rota<string> = rota<string>().withCustomRules(registry);
+const tallyWithRules: Tally = tally().withCustomRules(registry);
 void officeWithRules;
 void rotaWithRules;
 void tallyWithRules;
@@ -167,7 +168,7 @@ const dayOptions: CoveredDayOptions<boolean> = {
   within: Temporal.Duration.from({ days: 30 }),
 };
 const openDays: number = coveredDayCount(office, { from: start, to: end });
-const workingDay: Temporal.ZonedDateTime | undefined = advanceByCoveredDays(
+const workingDay: Temporal.ZonedDateTime | undefined = addCoveredDays(
   start,
   3,
   dayOptions,
@@ -219,7 +220,7 @@ staff.totalBetween(start, end, "day");
 office.addOpenDays(start, 3, { startingDay: "clear" });
 
 // @ts-expect-error Custom rule options are stored, so they must be JSON.
-custom("shutdown", { at: () => start });
+customRule("shutdown", { at: () => start });
 
 // @ts-expect-error A calendar is named by string, like a zone.
 inCalendar(7, weekdays());

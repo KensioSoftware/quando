@@ -52,17 +52,17 @@ parseRRule("FREQ=DAILY", { start: "2026-03-11" });
 
 ## The parts
 
-| Part         | Read as                                           |
-| ------------ | ------------------------------------------------- |
-| `FREQ`       | `DAILY`, `WEEKLY`, `MONTHLY` or `YEARLY`          |
-| `INTERVAL`   | Every nth period                                  |
-| `UNTIL`      | A bound on the last day, that day included        |
-| `WKST`       | The day a week is counted from, Monday by default |
-| `BYDAY`      | Weekdays, with an optional count within the month |
-| `BYMONTHDAY` | Days of the month, negative counting from the end |
-| `BYMONTH`    | Months                                            |
-| `BYHOUR`     | Hours of the day                                  |
-| `BYMINUTE`   | Minutes of the hour                               |
+| Part         | Read as                                            |
+| ------------ | -------------------------------------------------- |
+| `FREQ`       | `DAILY`, `WEEKLY`, `MONTHLY` or `YEARLY`           |
+| `INTERVAL`   | Every nth period                                   |
+| `UNTIL`      | Date-only inclusive bound; timestamps are rejected |
+| `WKST`       | The day a week is counted from, Monday by default  |
+| `BYDAY`      | Weekdays, with an optional count within the month  |
+| `BYMONTHDAY` | Days of the month, negative counting from the end  |
+| `BYMONTH`    | Months                                             |
+| `BYHOUR`     | Hours of the day                                   |
+| `BYMINUTE`   | Minutes of the hour                                |
 
 `BYDAY` takes a count under `FREQ=MONTHLY`. `BYDAY=1MO` is the first Monday of
 the month and `BYDAY=-1FR` is the last Friday. Counted and bare entries mix, so
@@ -88,7 +88,17 @@ Quando's expansions are checked against the worked examples RFC 5545 prints in
 section 3.8.5.3, including the ones that cross a daylight saving change. The
 parts below are checked there too, as refusals.
 
+Pass the entire successful export to `parseRRule(written)` to preserve its
+`start`, `duration`, and `zone`. Passing just `written.rrule` loses the duration.
+Explicit durations use wall-clock time and must be positive and at most one day.
+A full-day duration must start at midnight. Starts must have whole-minute precision.
+
 ## Limits
+
+Timestamp `UNTIL` values throw `ParseError`; Quando cannot yet preserve their
+occurrence bounds. Date-only `UNTIL` remains supported. Exporting a timed rule
+with an upper date bound returns `ok: false`, so it cannot produce a record that
+would lose precision on import.
 
 Five parts exist and have no rule to map onto. Each is refused by name rather
 than ignored, because dropping one changes what a recurrence means.
@@ -110,9 +120,9 @@ recurrence steps through calendar periods. They are refused by name too.
 three values come back together.
 
 ```ts
-import { timeOfDay, toRRule, weekdays } from "@kensio/quando";
+import { timeOfDayRange, toRRule, weekdays } from "@kensio/quando";
 
-const written = toRRule(weekdays().and(timeOfDay("09:00", "17:00")), {
+const written = toRRule(weekdays().and(timeOfDayRange("09:00", "17:00")), {
   start: "2026-03-30",
 });
 if (written.ok) {
@@ -136,7 +146,7 @@ Every recurrence begins at DTSTART. A rule need not begin anywhere (a rule
 about Mondays is about every Monday there has ever been). The start comes from
 one of two places:
 
-- The rule's own lower bound, from `onOrAfter` or `between`.
+- The rule's own lower bound, from `onOrAfter` or `datesBetween`.
 - The `start` option, for a rule that has no bound of its own.
 
 A rule with neither comes back with `ok: false`. Choosing a date quietly would
@@ -161,11 +171,11 @@ comes back with `ok: false`.
 
 ### Whole periods written out
 
-`every` covers whole periods, and a recurrence names the occurrences within
+`everyNthPeriod` covers whole periods, and a recurrence names the occurrences within
 one. So a cycle with no day named has its days written out.
 
 ```ts
-const fortnight = every(2, "weeks", { anchor: "2026-03-02" });
+const fortnight = everyNthPeriod(2, "weeks", { anchor: "2026-03-02" });
 
 const whole = toRRule(fortnight, { start: "2026-03-02" });
 const mondays = toRRule(fortnight.and(daysOfWeek("monday")), {
@@ -229,7 +239,7 @@ parseRRule("FREQ=HOURLY", { start: "2026-03-09" });
 // calendar periods
 
 parseRRule("FREQ=WEEKLY;BYDAY=1MO", { start: "2026-03-09" });
-// TypeError: BYDAY: an ordinal counts a weekday within a month, so it needs
+// TypeError: BYDAY: an ordinal countIntervals a weekday within a month, so it needs
 // FREQ=MONTHLY
 ```
 

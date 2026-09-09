@@ -12,7 +12,7 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { all, dates, timeOfDay, weekdays } from "./build.js";
+import { all, dates, timeOfDayRange, weekdays } from "./build.js";
 import { cascade, layer, replace } from "./cascade.js";
 import { resolve } from "./resolve.js";
 import { parseSchedule, schedule } from "./schedule.js";
@@ -25,13 +25,16 @@ describe("a schedule", () => {
   const openingHours = () =>
     schedule()
       .open(weekdays(), "09:00-17:00")
-      .hoursOn("2026-03-11", "09:00-15:00");
+      .setHours("2026-03-11", "09:00-15:00");
 
   it("keeps its cascade as explicit data", () => {
     // Given the same opening hours said twice, once in the domain vocabulary
     // and once as the layers underneath it.
-    const usualHours = all(weekdays(), timeOfDay("09:00", "17:00"));
-    const early = replace(dates("2026-03-11"), timeOfDay("09:00", "15:00"));
+    const usualHours = all(weekdays(), timeOfDayRange("09:00", "17:00"));
+    const early = replace(
+      dates("2026-03-11"),
+      timeOfDayRange("09:00", "15:00"),
+    );
     const byHand = cascade(layer(usualHours, true), early);
 
     // When its underlying data is read.
@@ -95,8 +98,8 @@ describe("a schedule", () => {
       explanation.steps[1].comment,
       "The office is closed for the public holiday.",
     );
-    assertStringIncludes(explanation.summary, "Regular office hours.");
-    assertStringIncludes(explanation.summary, "Christmas Day.");
+    assertStringIncludes(explanation.details, "Regular office hours.");
+    assertStringIncludes(explanation.details, "Christmas Day.");
   });
 
   it("adds covered time through its own API", () => {
@@ -146,7 +149,7 @@ describe("a schedule", () => {
       schedule()
         .open(weekdays(), "09:00-17:00")
         .closed("2026-03-10")
-        .hoursOn("2026-03-11", "09:00-15:00");
+        .setHours("2026-03-11", "09:00-15:00");
 
     it("is open during the usual hours", () => {
       // Given the schedule as said out loud.
@@ -174,13 +177,13 @@ describe("a schedule", () => {
       assertIdentical(explanation.steps[0].path, "layers[0]");
       assertIdentical(explanation.steps[1].path, "layers[1]");
       assertStringIncludes(
-        explanation.summary,
+        explanation.details,
         "The schedule is closed on 2026-03-10 at 10:00 in Europe/London.",
       );
-      assertStringIncludes(explanation.summary, "Tuesday is a weekday.");
-      assertStringIncludes(explanation.summary, "The date is 2026-03-10.");
+      assertStringIncludes(explanation.details, "Tuesday is a weekday.");
+      assertStringIncludes(explanation.details, "The date is 2026-03-10.");
       assertStringIncludes(
-        explanation.summary,
+        explanation.details,
         "changes the schedule from open to closed",
       );
     });
@@ -194,8 +197,8 @@ describe("a schedule", () => {
       assertFalse(explanation.value);
       assertArrayEmpty(explanation.steps);
       assertArrayLength(explanation.skipped, 3);
-      assertStringIncludes(explanation.summary, "Sunday is not a weekday.");
-      assertStringIncludes(explanation.summary, "This layer does not apply.");
+      assertStringIncludes(explanation.details, "Sunday is not a weekday.");
+      assertStringIncludes(explanation.details, "This layer does not apply.");
     });
 
     it("keeps the replaced hours on the day they were replaced", () => {
@@ -204,7 +207,7 @@ describe("a schedule", () => {
       // Then it is open, inside the replacement hours.
       assertTrue(asSaid().isOpen(when("2026-03-11T14:00")));
       assertStringIncludes(
-        asSaid().explain(when("2026-03-11T14:00")).summary,
+        asSaid().explain(when("2026-03-11T14:00")).details,
         "replaces lower-priority schedule layers",
       );
     });
@@ -220,7 +223,7 @@ describe("a schedule", () => {
 
       // Then the second layer is described as preserving the open state.
       assertStringIncludes(
-        explanation.summary,
+        explanation.details,
         "This layer keeps the schedule open.",
       );
     });
@@ -250,7 +253,7 @@ describe("a schedule", () => {
     it("finds the next opening", () => {
       // Given a Friday evening, after closing.
       // When the next opening is asked for.
-      const next = openingHours().opensNext(when("2026-03-13T18:00"));
+      const next = openingHours().nextOpenInterval(when("2026-03-13T18:00"));
 
       // Then it is Monday morning, over the weekend.
       assertIdentical(
@@ -262,7 +265,7 @@ describe("a schedule", () => {
     it("gives back the stretch it is already in", () => {
       // Given a Monday mid-morning, inside opening hours.
       // When the next opening is asked for.
-      const next = openingHours().opensNext(when("2026-03-09T10:00"));
+      const next = openingHours().nextOpenInterval(when("2026-03-09T10:00"));
 
       // Then the answer starts where the asking did. "When does it next open"
       // should answer "it is open".
@@ -277,7 +280,10 @@ describe("a schedule", () => {
       const twoHours = Temporal.Duration.from({ hours: 2 });
 
       // When the next opening is asked for within that horizon.
-      const next = openingHours().opensNext(when("2026-03-09T08:00"), twoHours);
+      const next = openingHours().nextOpenInterval(when("2026-03-09T08:00"), {
+        within: twoHours,
+        intervalEnd: "complete",
+      });
 
       // Then it ends at five, when the day really closes. The horizon bounds
       // how far to look. Reporting it as a closing time would be wrong.
@@ -292,7 +298,9 @@ describe("a schedule", () => {
       const soon = Temporal.Duration.from({ hours: 2 });
 
       // When the next opening is asked for.
-      const next = openingHours().opensNext(when("2026-03-13T18:00"), soon);
+      const next = openingHours().nextOpenInterval(when("2026-03-13T18:00"), {
+        within: soon,
+      });
 
       // Then there is none to give. Monday is well past the horizon.
       assertUndefined(next);
@@ -320,7 +328,7 @@ describe("a schedule", () => {
       const within = Temporal.Duration.from({ hours: 2 });
 
       // When the first open slot is requested within that horizon.
-      const slot = openingHours().firstOpenSlot(friday, lasting, within);
+      const slot = openingHours().firstOpenSlot(friday, lasting, { within });
 
       // Then Monday's opening is outside the search.
       assertUndefined(slot);
@@ -349,7 +357,7 @@ describe("a schedule", () => {
     it("reports how its opening times change", () => {
       // Given usual hours and a revision that moves Wednesday one hour later.
       const before = schedule().open(weekdays(), "09:00-17:00");
-      const after = before.hoursOn("2026-03-11", "10:00-18:00");
+      const after = before.setHours("2026-03-11", "10:00-18:00");
       const from = when("2026-03-11T00:00");
       const to = when("2026-03-12T00:00");
 
@@ -395,7 +403,7 @@ describe("a schedule", () => {
 
       // When the next opening after Monday evening is asked for, and the week
       // is measured.
-      const next = withClosure.opensNext(when("2026-03-09T18:00"));
+      const next = withClosure.nextOpenInterval(when("2026-03-09T18:00"));
       const week = withClosure.openDuration(
         WEEK.from,
         when("2026-03-16T00:00"),
@@ -548,7 +556,7 @@ describe("a schedule", () => {
 
     it("takes a rule wherever it takes a string", () => {
       // Given a night shift, which no compact range would express as clearly.
-      const nightShift = timeOfDay("22:00", "06:00");
+      const nightShift = timeOfDayRange("22:00", "06:00");
       const nights = schedule().open(weekdays(), nightShift);
 
       // When two in the morning is asked about, inside the wrapped window.

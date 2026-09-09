@@ -9,7 +9,7 @@ import { checkCascadeValues } from "./cascade-validation.js";
 import { assertJsonValue, type JsonCompatible } from "./json.js";
 import { checkedLayerOptions, type LayerOptions } from "./layer-options.js";
 import type { MergeStrategy } from "./merge.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 export type {
   Cascade,
@@ -18,7 +18,7 @@ export type {
   HasCascade,
   Layer,
   ReplacingLayer,
-  Valued,
+  ValueInterval,
 } from "./cascade-types.js";
 export type { LayerOptions } from "./layer-options.js";
 export { asCascade, isCascade } from "./cascade-types.js";
@@ -54,7 +54,7 @@ export function merged(
 
 /** Assigns one JSON-compatible value throughout a rule's scope. */
 export function layer<const V>(
-  scope: Rule,
+  scope: RuleData,
   value: V & JsonCompatible<V>,
   options?: LayerOptions,
 ): ConstantLayer<V> {
@@ -63,24 +63,27 @@ export function layer<const V>(
 }
 
 /** Assigns true while a rule holds. */
-export function whenever(rule: Rule, options?: LayerOptions): Cascade<boolean> {
+export function whenever(
+  rule: RuleData,
+  options?: LayerOptions,
+): Cascade<boolean> {
   return cascade(layer(rule, true, options));
 }
 
 export function replace<V>(
-  scope: Rule,
+  scope: RuleData,
   replacement: Cascade<V & JsonCompatible<V>>,
   options?: LayerOptions,
 ): ReplacingLayer<V>;
 export function replace(
-  scope: Rule,
-  replacement: Rule,
+  scope: RuleData,
+  replacement: RuleData,
   options?: LayerOptions,
 ): ReplacingLayer<boolean>;
 /** Replaces lower layers throughout a scope. */
 export function replace(
-  scope: Rule,
-  replacement: Rule | Cascade<unknown>,
+  scope: RuleData,
+  replacement: RuleData | Cascade<unknown>,
   options?: LayerOptions,
 ): ReplacingLayer<unknown> {
   const nested = isCascade(replacement) ? replacement : whenever(replacement);

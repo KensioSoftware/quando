@@ -1,98 +1,55 @@
 # Timelines
 
-Timelines describe covered time as JSON-compatible local calendar days. A text
-format is available for logs, terminals, and test output.
+`timeline(source, window)` evaluates covered time as JSON-compatible data.
+`renderTimeline(data)` turns that data into text without evaluating the rules again.
 
-## Get timeline data
+## Evaluate and render
 
-`Schedule.renderTimeline` takes a finite window and returns a `Timeline` object.
-Every date-time in the result is a string, so the object can pass through
-`JSON.stringify` without conversion.
+<!-- example: timeline -->
 
 ```ts
-import { schedule, weekdays } from "@kensio/quando";
+import { renderTimeline, schedule } from "@kensio/quando";
 
 const office = schedule({ zone: "Europe/London" }).open(
-  weekdays(),
+  "mon-fri",
   "09:00-17:00",
 );
 const from = Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]");
-const to = Temporal.ZonedDateTime.from("2026-03-10T00:00[Europe/London]");
+const to = from.add({ days: 1 });
+const data = office.timeline(from, to);
 
-const timeline = office.renderTimeline(from, to);
-console.log(JSON.stringify(timeline, null, 2));
+console.log(data.days[0]?.date);
+// 2026-03-09
+renderTimeline(data);
 ```
 
-```json
-{
-  "type": "timeline",
-  "zone": "Europe/London",
-  "from": "2026-03-09T00:00:00+00:00[Europe/London]",
-  "to": "2026-03-10T00:00:00+00:00[Europe/London]",
-  "days": [
-    {
-      "date": "2026-03-09",
-      "start": "2026-03-09T00:00:00+00:00[Europe/London]",
-      "end": "2026-03-10T00:00:00+00:00[Europe/London]",
-      "visibleStart": "2026-03-09T00:00:00+00:00[Europe/London]",
-      "visibleEnd": "2026-03-10T00:00:00+00:00[Europe/London]",
-      "covered": [
-        {
-          "start": "2026-03-09T09:00:00+00:00[Europe/London]",
-          "end": "2026-03-09T17:00:00+00:00[Europe/London]"
-        }
-      ]
-    }
-  ]
-}
-```
+Both endpoints are required. The window includes `from` and excludes `to`.
+A schedule groups days in its configured zone. The standalone query uses the
+zone of `window.from`.
 
-`start` and `end` are the boundaries of the local day. `visibleStart` and
-`visibleEnd` clip that day to the requested window. `covered` contains the
-exact covered spans inside the visible part.
+Each `TimelineDay` contains its `date`, full-day `start` and `end`, the
+`visibleStart` and `visibleEnd` clipped to the requested window, and `covered`
+intervals. Timestamps are strings. A day with no covered intervals is closed.
+Days can span 23 or 25 elapsed hours when the local clock changes.
 
-A schedule with a `zone` uses that zone for every date and date-time. A
-schedule without one uses the zone from `from`.
-
-## Render the data as text
-
-Pass `{ format: "text" }` for the built-in text view:
+## Select an assignment
 
 ```ts
-console.log(office.renderTimeline(from, to, { format: "text" }));
+import { assigned, rota, timeline } from "@kensio/quando";
+
+const onCall = rota().assign("mon-fri", "alice");
+const data = timeline(assigned(onCall, "alice"), { from, to });
 ```
 
-```text
-Time zone: Europe/London
-                00:00       06:00       12:00       18:00       24:00
-Mon 2026-03-09 |..................################..............| 09:00-17:00
-# covered  + partly covered  . uncovered
-```
+Use `whereValueMatches` to select object values by a field. Attached custom-rule
+settings follow the selection. Unknown coverage throws `BeyondHorizonError`.
 
-Each chart cell represents thirty minutes. `+` marks a cell that is covered for
-part of that period. The times on the right remain exact. The text renderer
-uses the same `Timeline` object returned by the default format.
-
-## Render rules and selected values
-
-The standalone function accepts any `Covers` value. This includes rules,
-boolean cascades, schedules, and one value selected from a rota.
-
-```ts
-import { assigned, renderTimeline, rota, weekdays } from "@kensio/quando/core";
-
-const onCall = rota().assign(weekdays(), "alice").assign("2026-03-10", "bob");
-const from = Temporal.ZonedDateTime.from("2026-03-09T00:00[Europe/London]");
-const to = Temporal.ZonedDateTime.from("2026-03-11T00:00[Europe/London]");
-
-const aliceTimeline = renderTimeline(assigned(onCall, "alice"), { from, to });
-```
-
-Rendering requires `to`. An open-ended timeline would have no finite amount of
-data.
+The [CLI](../cli/) exposes the same operation as `quando timeline` with
+`--format json` or `--format text`.
 
 <!-- card
 ```ts
-const timeline = office.renderTimeline(from, to);
+const data = office.timeline(from, to);
+console.log(renderTimeline(data));
 ```
 -->

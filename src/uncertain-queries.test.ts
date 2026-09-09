@@ -8,23 +8,29 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { all, timeOfDay, weekdays } from "./build.js";
-import { advanceByCoveredDays } from "./covered-days.js";
+import { all, timeOfDayRange, weekdays } from "./build.js";
+import { addCoveredDays } from "./covered-days.js";
 import {
   certainly,
   chances,
   type Distribution,
-  type Spread,
-  spread,
+  type Possibilities,
+  possibilities,
 } from "./estimate.js";
 import { mapOutcomes } from "./estimate-outcomes.js";
-import { chanceBefore, median, quantile, support } from "./estimate-views.js";
-import { advanceBy, nextCoveredInterval } from "./query.js";
-import type { Rule } from "./rule.js";
+import {
+  chanceBefore,
+  median,
+  quantile,
+  possibleValues,
+} from "./estimate-views.js";
+import { addCoveredTime, nextCoveredInterval } from "./query.js";
+import type { RuleData } from "./rule.js";
 
 describe("answering with an estimate", () => {
   /** A courier that works weekday office hours. */
-  const courier = (): Rule => all(weekdays(), timeOfDay("09:00", "17:00"));
+  const courier = (): RuleData =>
+    all(weekdays(), timeOfDayRange("09:00", "17:00"));
 
   /** Friday afternoon, with the weekend between here and any working day. */
   const placed = (): Temporal.ZonedDateTime => when("2026-03-13T14:00");
@@ -45,9 +51,9 @@ describe("answering with an estimate", () => {
     it("gives the plain range back where no weights were supplied", () => {
       // Given an order placed on a Friday afternoon, and a courier who says
       // one to three working days and nothing more.
-      const arrival: Spread<Temporal.ZonedDateTime> = advanceByCoveredDays(
+      const arrival: Possibilities<Temporal.ZonedDateTime> = addCoveredDays(
         placed(),
-        spread([1, 2, 3]),
+        possibilities([1, 2, 3]),
         { during: courier() },
       );
 
@@ -63,7 +69,7 @@ describe("answering with an estimate", () => {
 
     it("carries the weights on to the dates they land on", () => {
       // Given the same order with the courier's own figures behind it.
-      const arrival = advanceByCoveredDays(placed(), workingDays(), {
+      const arrival = addCoveredDays(placed(), workingDays(), {
         during: courier(),
       });
 
@@ -84,12 +90,12 @@ describe("answering with an estimate", () => {
 
     it("answers the range, the headline date and the commitment from one call", () => {
       // Given the arrival estimate.
-      const arrival = advanceByCoveredDays(placed(), workingDays(), {
+      const arrival = addCoveredDays(placed(), workingDays(), {
         during: courier(),
       });
 
       // When each view is read.
-      const range = support(arrival);
+      const range = possibleValues(arrival);
 
       // Then the customer sees Monday to Wednesday, the headline is Tuesday,
       // and a 95% commitment has to say Wednesday.
@@ -101,7 +107,7 @@ describe("answering with an estimate", () => {
 
     it("says how likely it lands before a date somebody cares about", () => {
       // Given the arrival estimate, and a cut-off on the Wednesday morning.
-      const arrival = advanceByCoveredDays(placed(), workingDays(), {
+      const arrival = addCoveredDays(placed(), workingDays(), {
         during: courier(),
       });
 
@@ -112,8 +118,8 @@ describe("answering with an estimate", () => {
 
     it("refuses an outcome the search never reaches", () => {
       // Given a search window far too small for the second outcome.
-      const asking = (): Spread<Temporal.ZonedDateTime> =>
-        advanceByCoveredDays(placed(), spread([1, 20]), {
+      const asking = (): Possibilities<Temporal.ZonedDateTime> =>
+        addCoveredDays(placed(), possibilities([1, 20]), {
           during: courier(),
           within: Temporal.Duration.from("P3D"),
         });
@@ -133,13 +139,13 @@ describe("answering with an estimate", () => {
       // Given a job starting an hour before closing on a Friday, taking either
       // half an hour or two hours of the courier's working time.
       const started = when("2026-03-13T16:00");
-      const packing = spread([
+      const packing = possibilities([
         Temporal.Duration.from("PT30M"),
         Temporal.Duration.from("PT2H"),
       ]);
 
       // When it is advanced through the courier's hours.
-      const done = advanceBy(started, packing, { during: courier() });
+      const done = addCoveredTime(started, packing, { during: courier() });
 
       // Then the short one finishes on the Friday and the long one runs an
       // hour into Monday, because the hour after five o'clock does not count.
@@ -189,7 +195,7 @@ describe("answering with an estimate", () => {
   describe("a caller who never mentions probability", () => {
     it("gets the same answer from a count as it always did", () => {
       // Given the order, and two working days asked for as a plain count.
-      const arrival = advanceByCoveredDays(placed(), 2, {
+      const arrival = addCoveredDays(placed(), 2, {
         during: courier(),
       });
 
@@ -201,7 +207,7 @@ describe("answering with an estimate", () => {
 
     it("gets the same answer from a duration as it always did", () => {
       // Given a job of half an hour, asked for as a plain duration.
-      const done = advanceBy(
+      const done = addCoveredTime(
         when("2026-03-13T16:00"),
         Temporal.Duration.from("PT30M"),
         { during: courier() },
@@ -215,7 +221,7 @@ describe("answering with an estimate", () => {
 
     it("puts a certain outcome where the plain count puts it", () => {
       // Given two working days written as an estimate of one outcome.
-      const arrival = advanceByCoveredDays(placed(), certainly(2), {
+      const arrival = addCoveredDays(placed(), certainly(2), {
         during: courier(),
       });
 

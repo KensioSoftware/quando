@@ -6,31 +6,31 @@ and the courier's own hours. Quando is where those already live.
 
 ```ts
 import {
-  advanceBy,
-  advanceByCoveredDays,
+  addCoveredTime,
+  addCoveredDays,
   all,
   assumeUniform,
   chanceBefore,
   chances,
-  combineOutcomes,
+  combineIndependentOutcomes,
   mapOutcomes,
   median,
   mode,
   nextCoveredInterval,
   quantile,
-  spread,
-  support,
-  timeOfDay,
+  possibilities,
+  possibleValues,
+  timeOfDayRange,
   weekdays,
 } from "@kensio/quando";
 
 const at = (iso: string): Temporal.ZonedDateTime =>
   Temporal.ZonedDateTime.from(`${iso}[Europe/London]`);
 
-const courier = all(weekdays(), timeOfDay("09:00", "17:00"));
+const courier = all(weekdays(), timeOfDayRange("09:00", "17:00"));
 const ordered = at("2026-03-13T14:00"); // a Friday afternoon
 
-advanceByCoveredDays(ordered, spread([1, 2, 3]), { during: courier }).values;
+addCoveredDays(ordered, possibilities([1, 2, 3]), { during: courier }).values;
 // [
 //   2026-03-16T09:00:00+00:00[Europe/London],
 //   2026-03-17T09:00:00+00:00[Europe/London],
@@ -43,11 +43,11 @@ following Monday, and each answer is the hour the courier opens that morning.
 
 ## Two shapes, because they answer different questions
 
-`spread` carries the outcomes and says nothing about their weights. `chances`
+`possibilities` carries the outcomes and says nothing about their weights. `chances`
 carries a probability against each one.
 
 ```ts
-const basic = spread([1, 2, 3]);
+const basic = possibilities([1, 2, 3]);
 
 const advanced = chances([
   { value: 1, probability: 0.25 },
@@ -57,7 +57,7 @@ const advanced = chances([
 ```
 
 Both go into a query the same way. What comes back matches what went in, so a
-spread gives a spread and a distribution gives a distribution. A caller who
+possibilities give possibilities and a distribution gives a distribution. A caller who
 passes a plain count still gets a plain answer, and never meets any of this.
 
 The probabilities have to total one. A list that totals anything else is a
@@ -72,7 +72,7 @@ a variance would answer wrongly. Quando resolves each outcome through the rules
 and gathers the probability on whatever it lands on.
 
 ```ts
-const arrival = advanceByCoveredDays(ordered, advanced, { during: courier });
+const arrival = addCoveredDays(ordered, advanced, { during: courier });
 
 arrival.outcomes;
 // [
@@ -111,20 +111,20 @@ opening.outcomes;
 ```
 
 `mapOutcomes` takes any function at all, so every query in the library works on
-an estimate whether or not it was written for one. [`advanceBy`](../queries/)
-and `advanceByCoveredDays` take one directly, because those are the two that
+an estimate whether or not it was written for one. [`addCoveredTime`](../queries/)
+and `addCoveredDays` take one directly, because those are the two that
 most often have a range behind them.
 
-`advanceBy` measures elapsed time that only counts while the rules hold, and an
+`addCoveredTime` measures elapsed time that only counts while the rules hold, and an
 estimate over durations goes through it the same way:
 
 ```ts
-const packing = spread([
+const packing = possibilities([
   Temporal.Duration.from("PT30M"),
   Temporal.Duration.from("PT2H"),
 ]);
 
-advanceBy(at("2026-03-13T16:00"), packing, { during: courier }).values;
+addCoveredTime(at("2026-03-13T16:00"), packing, { during: courier }).values;
 // [
 //   2026-03-13T16:30:00+00:00[Europe/London],
 //   2026-03-16T10:00:00+00:00[Europe/London],
@@ -140,7 +140,7 @@ One computation, several descriptions. That is the reason for keeping the
 distribution rather than a range.
 
 ```ts
-support(arrival).map((one) => one.toPlainDate().toString());
+possibleValues(arrival).map((one) => one.toPlainDate().toString());
 // ["2026-03-16", "2026-03-17", "2026-03-18"]
 
 median(arrival); // 2026-03-17T09:00:00+00:00[Europe/London]
@@ -150,7 +150,7 @@ quantile(arrival, 0.95); // 2026-03-18T09:00:00+00:00[Europe/London]
 chanceBefore(arrival, at("2026-03-18T00:00")); // 0.75
 ```
 
-`support` is the plain range to show a customer. `quantile` at 0.95 is the date
+`possibleValues` returns the distinct possible outcomes. `quantile` at 0.95 is the date
 to put in a contract. `chanceBefore` answers "what is the chance it arrives
 before Christmas?" A lot of retail wants to answer that one in a sentence.
 
@@ -161,11 +161,11 @@ quantile all land on outcomes that can happen.
 
 ## The weights are yours to supply
 
-A spread has no weights, and every view that needs them refuses it:
+Possibilities have no weights, and every view that needs them refuses it:
 
 ```ts
-median(spread([1, 2, 3]));
-// RangeError: median() needs weights, and a spread carries none. Say which
+median(possibilities([1, 2, 3]));
+// RangeError: median() needs weights, and possibilities carry none. Say which
 // distribution it stands for with assumeUniform(), or supply the weights with
 // chances().
 ```
@@ -175,7 +175,7 @@ from an assumption the courier never made. Say it out loud and Quando will
 oblige:
 
 ```ts
-const assumed = assumeUniform(spread([1, 2, 3]));
+const assumed = assumeUniform(possibilities([1, 2, 3]));
 
 assumed.outcomes.map((one) => one.probability);
 // [0.3333333333333333, 0.3333333333333333, 0.3333333333333333]
@@ -184,8 +184,8 @@ assumed.assumed; // true
 ```
 
 `assumed` survives every mapping, and every combination of two distributions
-where either side carries it. A combination involving a spread comes back as a
-spread, which carries no weights to have assumed anything about. A quantile read
+where either side carries it. A combination involving possibilities comes back as
+possibilities, which carries no weights to have assumed anything about. A quantile read
 off an assumed distribution is a claim about the assumption, and `assumed` is
 how a reader tells the two apart.
 
@@ -196,13 +196,13 @@ six. That is true and it misleads. The middle carries most of the probability
 and the ends carry very little:
 
 ```ts
-const both = combineOutcomes(
+const both = combineIndependentOutcomes(
   advanced,
   advanced,
   (first, second) => first + second,
 );
 
-support(both); // [2, 3, 4, 5, 6]
+possibleValues(both); // [2, 3, 4, 5, 6]
 
 both.outcomes.map((one) => [one.value, one.probability]);
 // [[2, 0.0625], [3, 0.25], [4, 0.375], [5, 0.25], [6, 0.0625]]
@@ -221,7 +221,11 @@ map that.
 Weights survive only where both sides have them:
 
 ```ts
-combineOutcomes(advanced, spread([0, 1]), (first, second) => first + second);
+combineIndependentOutcomes(
+  advanced,
+  possibilities([0, 1]),
+  (first, second) => first + second,
+);
 // { kind: "spread", values: [1, 2, 3, 4] }
 ```
 
@@ -233,11 +237,11 @@ the answer comes back as a range.
 An outcome the search never reaches is refused rather than dropped:
 
 ```ts
-advanceByCoveredDays(ordered, spread([1, 20]), {
+addCoveredDays(ordered, possibilities([1, 20]), {
   during: courier,
   within: Temporal.Duration.from("P3D"),
 });
-// RangeError: advanceByCoveredDays() ran out of search before reaching the
+// RangeError: addCoveredDays() ran out of search before reaching the
 // outcome 20. Dropping it would take that much probability out of the answer
 // without saying so. Widen `within`.
 ```
@@ -252,8 +256,8 @@ durations, instants and the rest of what `Temporal` answers with are ordered as
 they already are. Anything else takes an `order` of its own:
 
 ```ts
-support(
-  spread(["ccc", "a", "bb"]),
+possibleValues(
+  possibilities(["ccc", "a", "bb"]),
   (left, right) => left.length - right.length,
 );
 // ["a", "bb", "ccc"]
@@ -274,9 +278,14 @@ which Quando is well placed to do and does not do yet.
 by whoever supplies them, at a resolution they choose. Quando imposes no
 sampling rate of its own.
 
+Schedule arithmetic accepts the same estimates as the standalone functions.
+An `Estimate<T>` variable works without narrowing it first. A search that
+cannot resolve every outcome throws `UnresolvedOutcomeError`, with the failed
+`outcome`, `operation`, and `within` limit. It never drops outcomes or their probability mass.
+
 <!-- card
 ```ts
-const arrival = advanceByCoveredDays(ordered, advanced, {
+const arrival = addCoveredDays(ordered, advanced, {
   during: courier,
 });
 quantile(arrival, 0.95);

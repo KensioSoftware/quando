@@ -1,7 +1,7 @@
 /** Rejects calendar units where a query needs exact elapsed time. */
 export function checkExactDuration(
   amount: Temporal.Duration,
-  operation = "advanceBy()",
+  operation = "addCoveredTime()",
 ): void {
   const calendar = (["years", "months", "weeks", "days"] as const).filter(
     (unit) => amount[unit] !== 0,

@@ -11,6 +11,13 @@
 
 import type { JsonValue } from "./json.js";
 
+/** Moves a rule's covered time by a number of local calendar days. */
+export interface ShiftDaysRule {
+  readonly type: "shiftDays";
+  readonly days: number;
+  readonly rule: RuleData;
+}
+
 export const WEEKDAYS = [
   "monday",
   "tuesday",
@@ -104,7 +111,8 @@ export type Period = (typeof PERIODS)[number];
  * Values — who is on call, what the tariff is — attach to layers rather than to
  * rules, which is what keeps `not` meaningful and the set algebra simple.
  */
-export type Rule =
+export type RuleData =
+  | ShiftDaysRule
   | AlwaysRule
   | NeverRule
   | DaysOfWeekRule
@@ -275,7 +283,7 @@ export interface CustomRule {
 export interface InCalendarRule {
   readonly type: "inCalendar";
   readonly calendar: string;
-  readonly rule: Rule;
+  readonly rule: RuleData;
 }
 
 /** All time. The identity for intersection. */
@@ -435,7 +443,7 @@ export interface DatesRule {
 export interface InZoneRule {
   readonly type: "inZone";
   readonly zone: string;
-  readonly rule: Rule;
+  readonly rule: RuleData;
 }
 
 /**
@@ -454,7 +462,7 @@ export interface KnownRule {
   readonly type: "known";
   /** The last day the subtree's answer is known for, that day included. */
   readonly through: string;
-  readonly rule: Rule;
+  readonly rule: RuleData;
   /** The zone the day ends in. The evaluation's own zone by default. */
   readonly zone?: string;
 }
@@ -462,17 +470,17 @@ export interface KnownRule {
 /** Every rule must hold: intersection. */
 export interface AllRule {
   readonly type: "all";
-  readonly rules: readonly Rule[];
+  readonly rules: readonly RuleData[];
 }
 
 /** At least one rule must hold: union. */
 export interface AnyRule {
   readonly type: "any";
-  readonly rules: readonly Rule[];
+  readonly rules: readonly RuleData[];
 }
 
 /** The times a rule does not hold: complement. */
 export interface NotRule {
   readonly type: "not";
-  readonly rule: Rule;
+  readonly rule: RuleData;
 }

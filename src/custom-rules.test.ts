@@ -11,7 +11,7 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { custom, weekdays } from "./build.js";
+import { customRule, weekdays } from "./build.js";
 import { canonical, fingerprint } from "./canonical.js";
 import { CustomRuleStreamError } from "./custom-rule-stream.js";
 import {
@@ -22,7 +22,7 @@ import {
 import { intervals } from "./interpret.js";
 import type { Interval } from "./interval.js";
 import { parseRule } from "./parse.js";
-import { activeAt, coveredDuration } from "./query.js";
+import { isActiveAt, coveredDuration } from "./query.js";
 import { explainRule } from "./rule-explanation.js";
 import { rota } from "./rota.js";
 import { schedule } from "./schedule.js";
@@ -59,7 +59,7 @@ describe("a rule the application supplies", () => {
     it("covers the times its registered type yields", () => {
       // Given a rule type the application supplies, and a document naming it.
       const rules: RuleRegistry = { shutdown: wholeDates() };
-      const closure = custom("shutdown", ["2026-03-10", "2026-03-12"]);
+      const closure = customRule("shutdown", ["2026-03-10", "2026-03-12"]);
 
       // When the rule is evaluated with that registry on the context.
       const covered = intervals(closure, {
@@ -77,7 +77,7 @@ describe("a rule the application supplies", () => {
     it("composes with the rest of the rule language", () => {
       // Given weekday opening with an application-supplied shutdown removed.
       const rules: RuleRegistry = { shutdown: wholeDates() };
-      const office = weekdays().except(custom("shutdown", ["2026-03-11"]));
+      const office = weekdays().except(customRule("shutdown", ["2026-03-11"]));
 
       // When the week is measured.
       const open = coveredDuration(office, {
@@ -85,7 +85,7 @@ describe("a rule the application supplies", () => {
         rules,
       });
 
-      // Then four of the five weekdays are left. A custom rule is a rule, and
+      // Then four of the five weekdays are left. A customRule rule is a rule, and
       // `except` neither knows nor cares which kind it was handed.
       assertIdentical(open.toString(), "PT96H");
     });
@@ -95,12 +95,12 @@ describe("a rule the application supplies", () => {
       const rules: RuleRegistry = { shutdown: wholeDates() };
       const office = schedule({ zone: "Europe/London" })
         .open(weekdays(), "09:00-17:00")
-        .closed(custom("shutdown", ["2026-03-11"]));
+        .closed(customRule("shutdown", ["2026-03-11"]));
 
       // When two Wednesdays are asked about.
       // Then the shutdown closes the first and the second is untouched.
-      assertFalse(activeAt(office, when("2026-03-11T10:00"), { rules }));
-      assertTrue(activeAt(office, when("2026-03-18T10:00"), { rules }));
+      assertFalse(isActiveAt(office, when("2026-03-11T10:00"), { rules }));
+      assertTrue(isActiveAt(office, when("2026-03-18T10:00"), { rules }));
     });
 
     it("reads its own zone the way `inZone` does", () => {
@@ -118,13 +118,13 @@ describe("a rule the application supplies", () => {
 
       // When it is evaluated from a London context.
       const covered = [
-        ...intervals(custom("probe", undefined, "Asia/Tokyo"), {
+        ...intervals(customRule("probe", undefined, "Asia/Tokyo"), {
           ...inWindow("2026-03-09T00:00", "2026-03-10T00:00"),
           rules,
         }),
       ];
 
-      // Then it read the instants in Tokyo, and covered nothing. A custom
+      // Then it read the instants in Tokyo, and covered nothing. A customRule
       // rule never has to know the zone field exists.
       assertArrayEmpty(covered);
       assertIdentical(seen, "Asia/Tokyo");
@@ -137,7 +137,7 @@ describe("a rule the application supplies", () => {
       };
 
       // When it is evaluated in a bounded window.
-      const covered = intervals(custom("forever"), {
+      const covered = intervals(customRule("forever"), {
         ...inWindow("2026-03-09T00:00", "2026-03-10T00:00"),
         rules,
       });
@@ -160,7 +160,7 @@ describe("a rule the application supplies", () => {
       };
 
       // When it is evaluated.
-      const covered = intervals(custom("pair"), {
+      const covered = intervals(customRule("pair"), {
         ...inWindow("2026-03-09T00:00", "2026-03-12T00:00"),
         rules,
       });
@@ -185,7 +185,7 @@ describe("a rule the application supplies", () => {
 
       // When it is evaluated.
       const error = assertThrowsError(() => [
-        ...intervals(custom("muddled"), {
+        ...intervals(customRule("muddled"), {
           ...inWindow("2026-03-09T00:00", "2026-03-13T00:00"),
           rules,
         }),
@@ -208,7 +208,7 @@ describe("a rule the application supplies", () => {
 
       // When it is evaluated.
       const error = assertThrowsError(() => [
-        ...intervals(custom("doubled"), {
+        ...intervals(customRule("doubled"), {
           ...inWindow("2026-03-09T00:00", "2026-03-10T00:00"),
           rules,
         }),
@@ -224,7 +224,7 @@ describe("a rule the application supplies", () => {
 
       // When a document naming an absent type is evaluated.
       const error = assertThrowsError(() =>
-        activeAt(custom("easter"), when("2026-03-09T10:00"), { rules }),
+        isActiveAt(customRule("easter"), when("2026-03-09T10:00"), { rules }),
       );
 
       // Then the message names what was asked for and what is there.
@@ -240,7 +240,7 @@ describe("a rule the application supplies", () => {
 
       // When it is evaluated.
       const error = assertThrowsError(() =>
-        activeAt(custom("toString"), when("2026-03-09T10:00"), { rules }),
+        isActiveAt(customRule("toString"), when("2026-03-09T10:00"), { rules }),
       );
 
       // Then it is unknown, rather than a function found on `Object.prototype`
@@ -251,9 +251,9 @@ describe("a rule the application supplies", () => {
 
     it("says what to do when no registry was passed at all", () => {
       // Given a query with no rules on its context.
-      // When a custom rule is evaluated.
+      // When a customRule rule is evaluated.
       const error = assertThrowsError(() =>
-        activeAt(custom("easter"), when("2026-03-09T10:00")),
+        isActiveAt(customRule("easter"), when("2026-03-09T10:00")),
       );
 
       // Then the message points at the field the registry belongs in.
@@ -264,8 +264,8 @@ describe("a rule the application supplies", () => {
 
   describe("the document it stores as", () => {
     it("survives a JSON round trip without the code that runs it", () => {
-      // Given a custom rule built with options and a zone.
-      const written = custom("shutdown", { region: "gb" }, "Europe/London");
+      // Given a customRule rule built with options and a zone.
+      const written = customRule("shutdown", { region: "gb" }, "Europe/London");
 
       // When it is stored and read back in a process holding no registry.
       const stored = JSON.stringify(written);
@@ -280,7 +280,7 @@ describe("a rule the application supplies", () => {
     });
 
     it("refuses a document with no name to look a type up by", () => {
-      // Given a custom rule document missing its name.
+      // Given a customRule rule document missing its name.
       const error = assertThrowsError(() =>
         parseRule({ type: "custom", options: 1 }),
       );
@@ -301,8 +301,8 @@ describe("a rule the application supplies", () => {
 
     it("hashes the same whichever order its options were written in", () => {
       // Given the same options written two ways.
-      const first = custom("shutdown", { region: "gb", year: 2026 });
-      const second = custom("shutdown", { year: 2026, region: "gb" });
+      const first = customRule("shutdown", { region: "gb", year: 2026 });
+      const second = customRule("shutdown", { year: 2026, region: "gb" });
 
       // When both are canonicalised.
       // Then they are one rule. A cache key that depended on key order would
@@ -316,7 +316,7 @@ describe("a rule the application supplies", () => {
 
     it("sorts option keys at every depth and leaves arrays alone", () => {
       // Given options nesting an object inside an array inside an object.
-      const written = custom("shutdown", {
+      const written = customRule("shutdown", {
         regions: ["scotland", "england"],
         window: { to: "2026-03-12", from: "2026-03-10" },
       });
@@ -356,7 +356,7 @@ describe("a rule the application supplies", () => {
     });
 
     it("carries a document with no options through untouched", () => {
-      // Given a stored custom rule naming nothing but its type.
+      // Given a stored customRule rule naming nothing but its type.
       const stored = JSON.stringify({ type: "custom", name: "easter" });
 
       // When it is parsed and canonicalised.
@@ -388,8 +388,8 @@ describe("a rule the application supplies", () => {
     const closedForHolidays = (): Schedule =>
       schedule({ zone: LONDON })
         .open(weekdays(), "09:00-17:00")
-        .closed(custom("bankHolidays"))
-        .withRules(bankHolidays());
+        .closed(customRule("bankHolidays"))
+        .withCustomRules(bankHolidays());
 
     it("answers a schedule question the registry is needed for", () => {
       // Given office hours closed by a holiday package's rule type.
@@ -406,7 +406,7 @@ describe("a rule the application supplies", () => {
       const office = closedForHolidays();
 
       // When the next opening is looked for.
-      const next = office.opensNext(christmasMorning());
+      const next = office.nextOpenInterval(christmasMorning());
 
       // Then it skips the holiday and the weekend after it. A search that
       // could not read the holiday would have answered Boxing Day.
@@ -426,7 +426,7 @@ describe("a rule the application supplies", () => {
       // Then the type's sentence appears where the reason belongs, so the
       // account says why rather than naming a rule it could not read.
       assertFalse(explanation.value);
-      assertStringIncludes(explanation.summary, "It is a bank holiday.");
+      assertStringIncludes(explanation.details, "It is a bank holiday.");
     });
 
     it("carries the registry to a rota and a tally too", () => {
@@ -434,12 +434,12 @@ describe("a rule the application supplies", () => {
       const registry = bankHolidays();
       const onCall = rota<string>()
         .assign(weekdays(), "alice")
-        .assign(custom("bankHolidays"), "bob")
-        .withRules(registry);
+        .assign(customRule("bankHolidays"), "bob")
+        .withCustomRules(registry);
       const staffing = tally()
         .plus(weekdays(), 2)
-        .plus(custom("bankHolidays"), 5)
-        .withRules(registry);
+        .plus(customRule("bankHolidays"), 5)
+        .withCustomRules(registry);
 
       // When Christmas morning is asked about.
       // Then the later assignment wins and the amounts add up.
@@ -450,9 +450,9 @@ describe("a rule the application supplies", () => {
     it("survives the methods that derive a new schedule", () => {
       // Given a registry attached before the layer that needs it.
       const office = schedule({ zone: LONDON })
-        .withRules(bankHolidays())
+        .withCustomRules(bankHolidays())
         .open(weekdays(), "09:00-17:00")
-        .closed(custom("bankHolidays"));
+        .closed(customRule("bankHolidays"));
 
       // When the closed morning is asked about.
       // Then it answers. Every builder method returns a new schedule, and the
@@ -480,7 +480,9 @@ describe("a rule the application supplies", () => {
 
     it("names both ways of supplying one when none is there", () => {
       // Given the same schedule with no registry attached.
-      const office = schedule({ zone: LONDON }).closed(custom("bankHolidays"));
+      const office = schedule({ zone: LONDON }).closed(
+        customRule("bankHolidays"),
+      );
 
       // When it is asked about.
       const error = assertThrowsError(() => office.isOpen(christmasMorning()));
@@ -488,14 +490,14 @@ describe("a rule the application supplies", () => {
       // Then the message names the route this object actually offers, as well
       // as the context one the core queries take.
       assertInstanceOf(error, UnknownCustomRuleError);
-      assertStringIncludes(error.message, "withRules()");
+      assertStringIncludes(error.message, "withCustomRules()");
     });
   });
 
   describe("what it cannot do", () => {
     it("cannot be written as cron, and says why", () => {
-      // Given a rule holding a custom type.
-      const written = toCron(custom("easter"));
+      // Given a rule holding a customRule type.
+      const written = toCron(customRule("easter"));
 
       // When it is written as cron.
       // Then it is refused with the reason. A notation carries what the
@@ -511,13 +513,13 @@ describe("a rule the application supplies", () => {
 
       // When a matching instant is explained.
       const explanation = explainRule(
-        custom("shutdown", ["2026-03-11"]),
+        customRule("shutdown", ["2026-03-11"]),
         when("2026-03-11T10:00"),
         { rules },
       );
 
       // Then the type's own sentence leads, and Quando says whether it held.
-      assertTrue(explanation.matched);
+      assertTrue(explanation.status === "matched");
       assertStringIncludes(explanation.description, "claimed by the");
       assertStringIncludes(explanation.description, "matches at this instant");
     });
@@ -528,7 +530,7 @@ describe("a rule the application supplies", () => {
 
       // When an instant is explained.
       const explanation = explainRule(
-        custom("quiet"),
+        customRule("quiet"),
         when("2026-03-11T10:00"),
         {
           rules,
@@ -537,7 +539,7 @@ describe("a rule the application supplies", () => {
 
       // Then the account names the rule rather than leaving a blank where
       // every other rule gives a reason.
-      assertFalse(explanation.matched);
+      assertFalse(explanation.status === "matched");
       assertStringIncludes(explanation.description, '"quiet"');
       assertStringIncludes(explanation.description, "does not match");
     });

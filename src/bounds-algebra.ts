@@ -23,7 +23,8 @@ import type { Context } from "./context.js";
 import { horizonAt } from "./horizon.js";
 import { hasHorizon } from "./horizon-shape.js";
 import { clip, complement } from "./interval-stream.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
+import { beforeShift, shiftedDays } from "./shift-days.js";
 
 /**
  * A rule's bounds, short-circuited when nothing in it can be unknown.
@@ -32,14 +33,21 @@ import type { Rule } from "./rule.js";
  * nothing to be unsure about has one answer, and it is read once whichever
  * bound asked for it.
  */
-export function boundsOf(rule: Rule, context: Context): Bounds {
+export function boundsOf(rule: RuleData, context: Context): Bounds {
   return hasHorizon(rule, context.rules)
     ? split(rule, context)
     : settled(rule, context);
 }
 
-function split(rule: Rule, context: Context): Bounds {
+function split(rule: RuleData, context: Context): Bounds {
   switch (rule.type) {
+    case "shiftDays": {
+      const inner = boundsOf(rule.rule, beforeShift(context, rule.days));
+      return {
+        certain: repeatable(() => shiftedDays(inner.certain, rule.days)),
+        possible: repeatable(() => shiftedDays(inner.possible, rule.days)),
+      };
+    }
     case "known": {
       return beyond(
         boundsOf(rule.rule, context),

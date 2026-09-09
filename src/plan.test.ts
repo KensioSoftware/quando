@@ -11,14 +11,21 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { all, atMost, atMostTime, spacedBy, weekdays } from "./build.js";
+import {
+  all,
+  atMostOccurrences,
+  atMostOccupiedTime,
+  minimumGap,
+  weekdays,
+} from "./build.js";
 import { MissingOccurrencesError, type Occurrence } from "./occurrence.js";
-import { admits, type Breach, firstBreach } from "./plan.js";
-import type { Rule } from "./rule.js";
+import { allowsPlan, type Breach, firstBreach } from "./plan.js";
+import type { RuleData } from "./rule.js";
 
 describe("checking a whole plan", () => {
   /** At most four a day, four hours apart. */
-  const dosing = (): Rule => all(atMost(4, "days"), spacedBy("PT4H"));
+  const dosing = (): RuleData =>
+    all(atMostOccurrences(4, { per: "day" }), minimumGap("PT4H"));
 
   /** Doses on one day, from times of day. */
   const doses = (hours: readonly string[]): Occurrence[] =>
@@ -102,7 +109,7 @@ describe("checking a whole plan", () => {
       // Given nothing planned at all.
       // When it is checked.
       // Then there is nothing to refuse.
-      assertTrue(admits(dosing(), [], { occurrences: [] }));
+      assertTrue(allowsPlan(dosing(), [], { occurrences: [] }));
     });
   });
 
@@ -139,7 +146,7 @@ describe("checking a whole plan", () => {
 
       // When the trip is checked against the allowance.
       const breach = firstBreach(
-        atMostTime("P90D", "P180D"),
+        atMostOccupiedTime("P90D", { within: "P180D" }),
         daysFrom("2026-04-01T00:00", 10),
         { occurrences: daysFrom("2026-01-01T00:00", 85) },
       );
@@ -150,7 +157,7 @@ describe("checking a whole plan", () => {
       assertIdentical(breach.at.toPlainDate().toString(), "2026-04-06");
       assertStringIncludes(
         breach.explanation.description,
-        "90 days of the 180 days up to this instant is already taken up",
+        "90 days 1 nanosecond of the 180 days up to this instant is already taken up",
       );
     });
   });
@@ -173,8 +180,8 @@ describe("checking a whole plan", () => {
 
       // When each is asked about as a yes or no.
       // Then the answer is the one the breach would have given.
-      assertTrue(admits(dosing(), fits, { occurrences: [] }));
-      assertFalse(admits(dosing(), spills, { occurrences: [] }));
+      assertTrue(allowsPlan(dosing(), fits, { occurrences: [] }));
+      assertFalse(allowsPlan(dosing(), spills, { occurrences: [] }));
     });
   });
 });

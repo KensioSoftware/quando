@@ -11,7 +11,7 @@ import { any } from "./build.js";
 import { daysOfWeek } from "./calendar-rules.js";
 import { nthDayOfWeekInMonth } from "./month-builders.js";
 import { fail } from "./parse-shape.js";
-import type { Period, Rule } from "./rule.js";
+import type { Period, RuleData } from "./rule.js";
 import type { ByDay } from "./rrule-values.js";
 
 /**
@@ -27,7 +27,7 @@ export function byDayRule(
   entries: readonly ByDay[],
   period: Period,
   monthRestricted: boolean,
-): Rule {
+): RuleData {
   // Flattened rather than filtered, so the ordinal is a number from here on
   // and there is no absent one to fall back from.
   const counted = entries.flatMap((entry) =>
@@ -46,7 +46,7 @@ export function byDayRule(
 
   const plain = entries.filter((entry) => entry.ordinal === undefined);
 
-  const rules: Rule[] = counted.map((entry) =>
+  const rules: RuleData[] = counted.map((entry) =>
     nthDayOfWeekInMonth(entry.ordinal, entry.day),
   );
   if (plain.length > 0) {

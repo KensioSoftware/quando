@@ -10,8 +10,8 @@ import { describe, it } from "vitest";
 import { dates } from "./build.js";
 import { intervals } from "./interpret.js";
 import { parseRule } from "./parse.js";
-import { activeAt } from "./query.js";
-import type { Rule } from "./rule.js";
+import { isActiveAt } from "./query.js";
+import type { RuleData } from "./rule.js";
 
 describe("naming days by date", () => {
   /** The days a rule covers in a window, as one readable line. */
@@ -163,7 +163,7 @@ describe("naming days by date", () => {
      * the seek has to get right: an `inZone` wrapper moves the window into the
      * same zone first, so there the two agree whatever the seek reads.
      */
-    const on = (zone: string, ...days: readonly string[]): Rule =>
+    const on = (zone: string, ...days: readonly string[]): RuleData =>
       parseRule({ type: "dates", dates: days, zone });
 
     it("seeks on the rule's zone when it lags the caller's", () => {
@@ -230,7 +230,7 @@ describe("naming days by date", () => {
       const once = (): number => {
         const started = performance.now();
         for (let n = 0; n < runs; n++) {
-          activeAt(rule, at);
+          isActiveAt(rule, at);
         }
         return ((performance.now() - started) / runs) * 1000;
       };

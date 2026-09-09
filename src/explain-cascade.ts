@@ -1,9 +1,9 @@
-import type { Cascade, Layer } from "./cascade.js";
+import { assignmentStep } from "./explain-assignment.js";
+import type { Cascade } from "./cascade.js";
 import type { Context } from "./context.js";
 import type { Explanation, ExplanationStep } from "./explain-types.js";
-import { skippedLayers } from "./explain-skipped.js";
+import { firstEffectiveLayer, skippedLayers } from "./explain-skipped.js";
 import {
-  assignmentDescription,
   type ExplanationDomain,
   replacementDescription,
   summary,
@@ -11,6 +11,8 @@ import {
 import { layerOptionsOf } from "./layer-options.js";
 import { mergeBy } from "./merge.js";
 import { explainRule } from "./rule-explanation.js";
+import { resultDescription } from "./explanation-result-text.js";
+import { unknownValueIn, refuse } from "./horizon-guard.js";
 
 /** Builds the trace shared by core and domain explanations. */
 export function explainCascade<V>(
@@ -20,14 +22,16 @@ export function explainCascade<V>(
   prefix: string,
   domain: ExplanationDomain,
 ): Explanation<V> {
+  const window = { ...context, from: at, to: at.add({ nanoseconds: 1 }) };
+  const fog = unknownValueIn(cascade, window);
+  if (fog !== undefined) {
+    refuse("explain()", fog, window, "unknownValueIntervals()");
+  }
   const evaluated = cascade.layers.map((layer) => ({
     layer,
     match: explainRule(layer.scope, at, context),
   }));
-  const first = highestReplacement(
-    cascade.layers,
-    evaluated.map(({ match }) => match.matched),
-  );
+  const first = firstEffectiveLayer(evaluated);
   const skipped = skippedLayers(evaluated, first, prefix);
   const merge = mergeBy<V>(cascade.merge);
   const steps: ExplanationStep<V>[] = [];
@@ -36,7 +40,7 @@ export function explainCascade<V>(
   for (let index = first; index < cascade.layers.length; index += 1) {
     const layer = cascade.layers[index];
     const match = evaluated[index]?.match;
-    if (layer === undefined || match?.matched !== true) {
+    if (layer === undefined || !(match?.status === "matched")) {
       continue;
     }
 
@@ -44,23 +48,17 @@ export function explainCascade<V>(
     if ("value" in layer) {
       const previous = value;
       value = value === undefined ? layer.value : merge(value, layer.value);
-      steps.push({
-        type: "assignment",
-        path,
-        scope: layer.scope,
-        match,
-        description: assignmentDescription(
+      steps.push(
+        assignmentStep(
           layer,
           match,
           previous,
           value,
+          path,
           cascade.merge ?? "override",
           domain,
         ),
-        ...layerOptionsOf(layer),
-        value: layer.value,
-        result: value,
-      });
+      );
       continue;
     }
 
@@ -86,21 +84,9 @@ export function explainCascade<V>(
   return {
     value,
     merge: cascade.merge ?? "override",
-    summary: summary(value, steps, skipped, at, domain),
+    summary: resultDescription(value, at, domain),
+    details: summary(value, steps, skipped, at, domain),
     steps,
     skipped,
   };
-}
-
-function highestReplacement<V>(
-  layers: readonly Layer<V>[],
-  active: readonly boolean[],
-): number {
-  for (let index = layers.length - 1; index >= 0; index -= 1) {
-    const layer = layers[index];
-    if (layer !== undefined && "replace" in layer && active[index] === true) {
-      return index;
-    }
-  }
-  return 0;
 }

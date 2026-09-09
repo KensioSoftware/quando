@@ -80,9 +80,9 @@ A star leaves a field open. A field naming every day restricts it, so
 an expression or the reason there is none.
 
 ```ts
-import { timeOfDay, toCron, weekdays } from "@kensio/quando";
+import { timeOfDayRange, toCron, weekdays } from "@kensio/quando";
 
-const written = toCron(weekdays().and(timeOfDay("06:00", "06:01")));
+const written = toCron(weekdays().and(timeOfDayRange("06:00", "06:01")));
 if (written.ok) {
   written.cron; // 0 6 * * 1-5
 }
@@ -112,8 +112,8 @@ Friday the 13th is the sharpest case. The expression that looks right,
 | The rule                                 | Why cron has no form for it                        |
 | ---------------------------------------- | -------------------------------------------------- |
 | `.except(…)`                             | Cron selects times and never removes them          |
-| `dates`, `onOrAfter`, `between`          | Cron has no year field                             |
-| `every`                                  | Cron's steps restart within each month             |
+| `dates`, `onOrAfter`, `datesBetween`     | Cron has no year field                             |
+| `everyNthPeriod`                         | Cron's steps restart within each month             |
 | `nthDayOfWeekInMonth`                    | `#` is a Quartz extension                          |
 | `daysOfMonth(-1)`                        | POSIX cron has no `L`                              |
 | A day of the month and a weekday at once | Two restricted day fields mean either one matches  |

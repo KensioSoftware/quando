@@ -2,20 +2,19 @@
 
 import { readFile } from "node:fs/promises";
 
-import type { Built } from "./build.js";
+import type { Rule } from "./build.js";
 import { assertJsonValue, type JsonValue } from "./json.js";
 import { parseRule, RULE_TYPES } from "./parse.js";
 import { parseRota, type Rota } from "./rota.js";
-import type { Rule } from "./rule.js";
 import { parseSchedule, type Schedule } from "./schedule.js";
 import { parseTally, type Tally } from "./tally.js";
 
-export type CliDefinition = Built<Rule> | Schedule | Rota<JsonValue> | Tally;
+export type CliDefinition = Rule | Schedule | Rota<JsonValue> | Tally;
 
 /** Whether a parsed CLI definition is a rule. */
 export function isRuleDefinition(
   definition: CliDefinition,
-): definition is Built<Rule> {
+): definition is Rule {
   return RULE_TYPES.has(definition.type);
 }
 

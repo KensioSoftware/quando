@@ -9,6 +9,29 @@
 
 import type { Estimate } from "./estimate.js";
 import { mapOutcomes } from "./estimate-outcomes.js";
+import { asDuration, type DurationInput } from "./duration-input.js";
+import { DEFAULT_SEARCH_LIMIT, SearchLimitExceededError } from "./search.js";
+
+/** An estimate contains an outcome that the query could not resolve. */
+export class UnresolvedOutcomeError<V = unknown> extends RangeError {
+  public readonly operation: string;
+  public readonly outcome: V;
+  public readonly within: string;
+  public constructor(
+    operation: string,
+    outcome: V,
+    within: DurationInput = DEFAULT_SEARCH_LIMIT,
+  ) {
+    const limit = asDuration(within).toString();
+    super(
+      `${operation} could not resolve outcome ${JSON.stringify(outcome)} within ${limit}. Widen \`within\` to include every outcome.`,
+    );
+    this.name = "UnresolvedOutcomeError";
+    this.operation = operation;
+    this.outcome = outcome;
+    this.within = limit;
+  }
+}
 
 /**
  * An estimate mapped through a query that can fail to find an answer.
@@ -21,15 +44,20 @@ export function resolvedOutcomes<V, W>(
   estimate: Estimate<V>,
   called: string,
   resolve: (value: V) => W | undefined,
+  within: DurationInput = DEFAULT_SEARCH_LIMIT,
 ): Estimate<W> {
   return mapOutcomes(estimate, (value) => {
-    const reached = resolve(value);
+    let reached: W | undefined;
+    try {
+      reached = resolve(value);
+    } catch (error) {
+      if (error instanceof SearchLimitExceededError) {
+        throw new UnresolvedOutcomeError(called, value, within);
+      }
+      throw error;
+    }
     if (reached === undefined) {
-      throw new RangeError(
-        `${called} ran out of search before reaching the outcome ` +
-          `${String(value)}. Dropping it would take that much probability ` +
-          "out of the answer without saying so. Widen `within`.",
-      );
+      throw new UnresolvedOutcomeError(called, value, within);
     }
     return reached;
   });

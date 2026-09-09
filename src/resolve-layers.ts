@@ -7,12 +7,12 @@
  */
 
 import type { CascadeLike, Layer } from "./cascade.js";
-import { bounds, uncertain } from "./bounds.js";
+import { bounds, unknownIntervals } from "./bounds.js";
 import type { Context } from "./context.js";
 import { hasHorizon } from "./horizon-shape.js";
 import { intervals } from "./interpret.js";
 import type { Interval } from "./interval.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { type Uncertain, UNKNOWN } from "./valued-uncertainty.js";
 import { overlay, type ValuedStream } from "./valued-stream.js";
 
@@ -33,9 +33,9 @@ type Settle = <V>(
  * out of the afternoon the override dropped, rather than showing through it.
  */
 export function unreplaced(
-  scope: Rule,
+  scope: RuleData,
   above: readonly Layer<unknown>[],
-): Rule {
+): RuleData {
   const replacing = above.filter((layer) => "replace" in layer);
   if (replacing.length === 0) {
     return scope;
@@ -63,7 +63,7 @@ export function unreplaced(
  */
 export function assignments<V>(
   layer: Layer<V>,
-  region: Rule,
+  region: RuleData,
   context: Context,
   settle: Settle,
 ): ValuedStream<Uncertain<V>> {
@@ -75,8 +75,11 @@ export function assignments<V>(
 }
 
 /** The region a layer might cover and might not, as spans of unknown. */
-function* fog<V>(region: Rule, context: Context): ValuedStream<Uncertain<V>> {
-  for (const interval of uncertain(region, context)) {
+function* fog<V>(
+  region: RuleData,
+  context: Context,
+): ValuedStream<Uncertain<V>> {
+  for (const interval of unknownIntervals(region, context)) {
     yield { ...interval, value: UNKNOWN };
   }
 }
@@ -84,7 +87,7 @@ function* fog<V>(region: Rule, context: Context): ValuedStream<Uncertain<V>> {
 /** The region a layer certainly covers, carrying what it assigns there. */
 function* claimed<V>(
   layer: Layer<V>,
-  region: Rule,
+  region: RuleData,
   context: Context,
   settle: Settle,
 ): ValuedStream<Uncertain<V>> {

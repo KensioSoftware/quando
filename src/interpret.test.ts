@@ -9,14 +9,14 @@ import { describe, it } from "vitest";
 
 import { intervals } from "./interpret.js";
 import { parseRule } from "./parse.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { take } from "./stream.js";
 
 describe("reading a rule as intervals", () => {
   /** Monday 2026-03-09 to Monday 2026-03-16, a whole week. */
   const WEEK = inWindow("2026-03-09T00:00", "2026-03-16T00:00");
 
-  const read = (rule: Rule, context = WEEK): string =>
+  const read = (rule: RuleData, context: Context = WEEK): string =>
     render(intervals(rule, context));
 
   describe("always and never", () => {
@@ -901,7 +901,7 @@ describe("reading a rule as intervals", () => {
   });
 
   describe("combining rules", () => {
-    const officeHours: Rule = {
+    const officeHours: RuleData = {
       type: "all",
       rules: [
         {
@@ -977,7 +977,7 @@ describe("reading a rule as intervals", () => {
     it("excludes a holiday from a working week", () => {
       // Given office hours intersected with the complement of one date, which
       // is the shape every real schedule has.
-      const excused: Rule = {
+      const excused: RuleData = {
         type: "all",
         rules: [
           officeHours,
@@ -1047,7 +1047,7 @@ describe("reading a rule as intervals", () => {
       // Given a London rule read from a Tokyo context. A sweep may take one
       // interval's start and another's end, and those can have been written in
       // different zones.
-      const london: Rule = {
+      const london: RuleData = {
         type: "timeOfDay",
         from: "09:00",
         to: "17:00",
@@ -1063,3 +1063,4 @@ describe("reading a rule as intervals", () => {
     });
   });
 });
+import type { Context } from "./context.js";

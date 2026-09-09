@@ -3,27 +3,27 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { canonical } from "./canonical.js";
 import { intervals } from "./interpret.js";
-import { WEEKDAYS, type Rule } from "./rule.js";
+import { WEEKDAYS, type RuleData } from "./rule.js";
 
 describe("canonical rule laws", () => {
   const days = fc.array(fc.constantFrom(...WEEKDAYS), { maxLength: 9 });
   const hours = fc.integer({ min: 0, max: 23 });
-  const leaf: fc.Arbitrary<Rule> = fc.oneof(
-    fc.constant<Rule>({ type: "always" }),
-    fc.constant<Rule>({ type: "never" }),
-    days.map((selected): Rule => ({ type: "daysOfWeek", days: selected })),
+  const leaf: fc.Arbitrary<RuleData> = fc.oneof(
+    fc.constant<RuleData>({ type: "always" }),
+    fc.constant<RuleData>({ type: "never" }),
+    days.map((selected): RuleData => ({ type: "daysOfWeek", days: selected })),
     fc
       .tuple(hours, fc.integer({ min: 1, max: 23 }))
-      .map(([from, length]): Rule => ({
+      .map(([from, length]): RuleData => ({
         type: "timeOfDay",
         from: `${String(from).padStart(2, "0")}:00`,
         to: `${String((from + length) % 24).padStart(2, "0")}:00`,
       })),
     fc
       .array(fc.integer({ min: 1, max: 31 }), { maxLength: 5 })
-      .map((selected): Rule => ({ type: "daysOfMonth", days: selected })),
+      .map((selected): RuleData => ({ type: "daysOfMonth", days: selected })),
   );
-  function rules(depth: number): fc.Arbitrary<Rule> {
+  function rules(depth: number): fc.Arbitrary<RuleData> {
     if (depth === 0) {
       return leaf;
     }
@@ -31,10 +31,14 @@ describe("canonical rule laws", () => {
     const children = fc.array(child, { maxLength: 3 });
     return fc.oneof(
       leaf,
-      children.map((selected): Rule => ({ type: "all", rules: selected })),
-      children.map((selected): Rule => ({ type: "any", rules: selected })),
-      child.map((rule): Rule => ({ type: "not", rule })),
-      child.map((rule): Rule => ({ type: "inZone", zone: "Asia/Tokyo", rule })),
+      children.map((selected): RuleData => ({ type: "all", rules: selected })),
+      children.map((selected): RuleData => ({ type: "any", rules: selected })),
+      child.map((rule): RuleData => ({ type: "not", rule })),
+      child.map((rule): RuleData => ({
+        type: "inZone",
+        zone: "Asia/Tokyo",
+        rule,
+      })),
     );
   }
 
@@ -67,8 +71,8 @@ describe("the counterexamples that got away", () => {
   it("keeps a wrapping window whole across a spring clock change", () => {
     // Given a window from 02:00 to 01:00 over the week London loses an hour,
     // wrapped in the double negation canonicalisation cancels.
-    const inner: Rule = { type: "timeOfDay", from: "02:00", to: "01:00" };
-    const rule: Rule = { type: "not", rule: { type: "not", rule: inner } };
+    const inner: RuleData = { type: "timeOfDay", from: "02:00", to: "01:00" };
+    const rule: RuleData = { type: "not", rule: { type: "not", rule: inner } };
     const from = Temporal.ZonedDateTime.from("2026-03-27T00:00[Europe/London]");
     const context = { from, to: from.add({ days: 7 }) };
 

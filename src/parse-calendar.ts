@@ -18,7 +18,7 @@ import {
 } from "./parse-fields.js";
 import { asInterval, asMonthDays, asNth } from "./parse-numbers.js";
 import { fail } from "./parse-shape.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 /** The rule types this module parses. */
 export type CalendarRuleType =
@@ -36,7 +36,7 @@ export function parseCalendarRule(
   type: CalendarRuleType,
   node: Record<string, unknown>,
   path: string,
-): Rule {
+): RuleData {
   switch (type) {
     case "daysOfWeek": {
       return {
@@ -120,7 +120,7 @@ export function parseCalendarRule(
  * apart rather than spread together, because the rule type carries the bound
  * it has and refuses the shape with none.
  */
-function parseDateRange(node: Record<string, unknown>, path: string): Rule {
+function parseDateRange(node: Record<string, unknown>, path: string): RuleData {
   const zone = zonePart(node, path);
   const from =
     node["from"] === undefined

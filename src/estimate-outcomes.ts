@@ -18,21 +18,21 @@ import {
   type Estimate,
   isDistribution,
   type Outcome,
-  type Spread,
+  type Possibilities,
 } from "./estimate.js";
 import {
   orderedOutcomes,
   orderedValues,
   valuesOf,
 } from "./estimate-coalesce.js";
-import { naturally, type Order } from "./estimate-order.js";
+import { naturalOrder, type Order } from "./estimate-order.js";
 
 /**
  * An estimate with every outcome run through a calculation.
  *
  * ```ts
  * mapOutcomes(workingDays, (days) =>
- *   advanceByCoveredDays(ordered, days, { during: courier }),
+ *   addCoveredDays(ordered, days, { during: courier }),
  * );
  * ```
  *
@@ -45,10 +45,10 @@ import { naturally, type Order } from "./estimate-order.js";
  * its own needs an `order` here or the call throws.
  */
 export function mapOutcomes<V, W>(
-  estimate: Spread<V>,
+  estimate: Possibilities<V>,
   map: (value: V) => W,
   order?: Order<W>,
-): Spread<W>;
+): Possibilities<W>;
 export function mapOutcomes<V, W>(
   estimate: Distribution<V>,
   map: (value: V) => W,
@@ -62,7 +62,7 @@ export function mapOutcomes<V, W>(
 export function mapOutcomes<V, W>(
   estimate: Estimate<V>,
   map: (value: V) => W,
-  order: Order<W> = naturally,
+  order: Order<W> = naturalOrder,
 ): Estimate<W> {
   if (!isDistribution(estimate)) {
     const mapped = estimate.values.map(map);
@@ -80,7 +80,7 @@ export function mapOutcomes<V, W>(
  * Two estimates put together, one outcome of each at a time.
  *
  * ```ts
- * combineOutcomes(packing, delivery, (hours, days) => ...);
+ * combineIndependentOutcomes(packing, delivery, (hours, days) => ...);
  * ```
  *
  * **Independence is assumed.** Two parcels leaving the same warehouse on the
@@ -88,30 +88,30 @@ export function mapOutcomes<V, W>(
  * often both are late. Where a shared cause matters, model it as one estimate
  * over the cause and map that.
  *
- * Weights survive only where both sides have them. A spread on either side
- * gives a spread back, because there is no honest weight to give the pairs
+ * Weights survive only where both sides have them. A possibilities on either side
+ * gives a possibilities back, because there is no honest weight to give the pairs
  * it contributes. `assumed` comes back where either distribution carried it,
  * and a spread result carries nothing.
  *
  * The result is in order, on the same terms as {@link mapOutcomes}.
  */
-export function combineOutcomes<A, B, C>(
+export function combineIndependentOutcomes<A, B, C>(
   left: Distribution<A>,
   right: Distribution<B>,
   join: (first: A, second: B) => C,
   order?: Order<C>,
 ): Distribution<C>;
-export function combineOutcomes<A, B, C>(
+export function combineIndependentOutcomes<A, B, C>(
   left: Estimate<A>,
   right: Estimate<B>,
   join: (first: A, second: B) => C,
   order?: Order<C>,
 ): Estimate<C>;
-export function combineOutcomes<A, B, C>(
+export function combineIndependentOutcomes<A, B, C>(
   left: Estimate<A>,
   right: Estimate<B>,
   join: (first: A, second: B) => C,
-  order: Order<C> = naturally,
+  order: Order<C> = naturalOrder,
 ): Estimate<C> {
   if (isDistribution(left) && isDistribution(right)) {
     const paired: Outcome<C>[] = [];

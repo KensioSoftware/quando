@@ -9,7 +9,7 @@
 
 import { daysOfWeek } from "./build.js";
 import { daysOfMonth, monthsOfYear } from "./month-builders.js";
-import { MONTHS, type Period, type Rule, WEEKDAYS } from "./rule.js";
+import { MONTHS, type Period, type RuleData, WEEKDAYS } from "./rule.js";
 import { fail } from "./parse-shape.js";
 import { byDayRule } from "./rrule-days.js";
 import { impliedBy } from "./rrule-frequency.js";
@@ -25,7 +25,7 @@ function calendarRules(
   parts: Map<string, string>,
   period: Period,
   start: Temporal.PlainDate,
-): Rule[] {
+): RuleData[] {
   const byDay = parts.has("BYDAY")
     ? parseByDay(parts.get("BYDAY") ?? "")
     : undefined;
@@ -45,7 +45,7 @@ function calendarRules(
     return fail("BYMONTHDAY", "has no meaning under FREQ=WEEKLY");
   }
 
-  const rules: Rule[] = [];
+  const rules: RuleData[] = [];
   if (byDay !== undefined) {
     rules.push(byDayRule(byDay, period, byMonth !== undefined));
   } else if (implied.weekday) {

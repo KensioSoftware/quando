@@ -9,7 +9,7 @@
  */
 
 import { type Unwritable, unwritable } from "./export-result.js";
-import type { CalendarRule, Rule } from "./rule.js";
+import type { CalendarRule, RuleData } from "./rule.js";
 
 interface Union {
   readonly ok: true;
@@ -17,7 +17,7 @@ interface Union {
 }
 
 export function unionOf(
-  rules: readonly Rule[],
+  rules: readonly RuleData[],
   zones: Set<string>,
 ): Union | Unwritable {
   const leaves: CalendarRule[] = [];
@@ -48,7 +48,7 @@ export function unionOf(
 }
 
 /** A rule as a leaf, or nothing when it holds other rules. */
-function leafOf(rule: Rule): CalendarRule | undefined {
+function leafOf(rule: RuleData): CalendarRule | undefined {
   switch (rule.type) {
     case "daysOfWeek":
     case "daysOfMonth":
@@ -62,6 +62,7 @@ function leafOf(rule: Rule): CalendarRule | undefined {
       return rule;
     }
     case "always":
+    case "shiftDays":
     case "never":
     case "atMost":
     case "atMostTime":

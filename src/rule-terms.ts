@@ -13,7 +13,7 @@
  */
 
 import { type Unwritable, unwritable } from "./export-result.js";
-import type { CalendarRule, Rule } from "./rule.js";
+import type { CalendarRule, RuleData } from "./rule.js";
 import { unionOf } from "./rule-union.js";
 
 /**
@@ -38,7 +38,7 @@ export interface Terms {
  * is lifted to the whole of it — a notation has one clock, so two zones in one
  * rule is where this stops.
  */
-export function ruleTerms(rule: Rule): Terms | Unwritable {
+export function ruleTerms(rule: RuleData): Terms | Unwritable {
   const terms: Term[] = [];
   const zones = new Set<string>();
 
@@ -55,11 +55,16 @@ export function ruleTerms(rule: Rule): Terms | Unwritable {
 }
 
 function collect(
-  rule: Rule,
+  rule: RuleData,
   into: Term[],
   zones: Set<string>,
 ): Unwritable | undefined {
   switch (rule.type) {
+    case "shiftDays": {
+      return unwritable(
+        "calendar-day shifts need the original schedule definition",
+      );
+    }
     case "always": {
       // Narrows nothing, so it adds no term. An `all` of nothing but `always`
       // leaves no terms at all, which is every minute and writes as one.

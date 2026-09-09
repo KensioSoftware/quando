@@ -13,7 +13,11 @@ import { validate, type ValidationDiagnostic } from "./semantic-validation.js";
 const HELP = `Usage:
   quando validate <file> --from <datetime> --to <datetime> [--format json|text]
 
-Finds problems in a finite window. A result containing diagnostics exits with status 1.`;
+Finds problems in a finite window. Warnings and errors exit with status 1.
+Inactive rules and layers are informational and exit with status 0.
+
+Example:
+  quando validate hours.json --from '2026-03-09T00:00[Europe/London]' --to '2026-03-16T00:00[Europe/London]'`;
 
 /** Finds semantic problems in a stored definition. */
 export async function validateCommand(
@@ -29,7 +33,9 @@ export async function validateCommand(
   return {
     output:
       format === "text" ? validationText(diagnostics) : jsonOutput(diagnostics),
-    exitCode: diagnostics.length === 0 ? 0 : 1,
+    exitCode: diagnostics.some((diagnostic) => diagnostic.severity !== "info")
+      ? 1
+      : 0,
   };
 }
 

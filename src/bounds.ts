@@ -26,7 +26,7 @@ import type { Context } from "./context.js";
 import { readIn } from "./interpret.js";
 import { difference } from "./interval-difference.js";
 import type { IntervalStream } from "./interval-stream.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { checkWindow } from "./validation.js";
 
 /** What a rule is worth knowing, as the two bounds that hold the answer. */
@@ -44,7 +44,7 @@ export interface Bounds {
  * horizon, and narrower for one that does. Each bound is its own lazy stream
  * and may be read independently, or more than once.
  */
-export function bounds(rule: Rule, context: Context): Bounds {
+export function bounds(rule: RuleData, context: Context): Bounds {
   checkWindow(context.from, context.to);
   const zone = context.from.timeZoneId;
   const calendar = calendarOf(context);
@@ -64,7 +64,10 @@ export function bounds(rule: Rule, context: Context): Bounds {
  * Empty for every rule that declares no horizon, which is every rule written
  * before horizons existed.
  */
-export function uncertain(rule: Rule, context: Context): IntervalStream {
+export function unknownIntervals(
+  rule: RuleData,
+  context: Context,
+): IntervalStream {
   // Answered without walking, which matters for more than speed. The two
   // bounds are the same stream when no horizon is declared, and a difference
   // between two endless streams that never part has nothing to discover that

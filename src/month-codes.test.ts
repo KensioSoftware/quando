@@ -12,12 +12,12 @@ import { describe, it } from "vitest";
 
 import { inCalendar, monthCodes, monthsOfYear } from "./build.js";
 import type { MonthCode } from "./rule.js";
-import { canonical, equals } from "./canonical.js";
+import { canonical, sameDefinition } from "./canonical.js";
 import type { Context } from "./context.js";
 import { toCron } from "./cron-export.js";
 import { intervals } from "./interpret.js";
 import { parseRule } from "./parse.js";
-import { activeAt } from "./query.js";
+import { isActiveAt } from "./query.js";
 import { explainRule } from "./rule-explanation.js";
 import { toRRule } from "./rrule-export.js";
 
@@ -122,8 +122,8 @@ describe("naming a month by its code", () => {
 
       // When the same instant is checked with and without the calendar.
       // Then the calendar decides. Read as ISO the instant is in M02.
-      assertTrue(activeAt(adarI, inAdarI));
-      assertFalse(activeAt(monthCodes("M05L"), inAdarI));
+      assertTrue(isActiveAt(adarI, inAdarI));
+      assertFalse(isActiveAt(monthCodes("M05L"), inAdarI));
     });
   });
 
@@ -221,7 +221,9 @@ describe("naming a month by its code", () => {
       // Given one selection written twice.
       // When the two are compared.
       // Then they are the same rule.
-      assertTrue(equals(monthCodes("M01", "M02"), monthCodes("M02", "M01")));
+      assertTrue(
+        sameDefinition(monthCodes("M01", "M02"), monthCodes("M02", "M01")),
+      );
     });
 
     it("stays a different rule from the Gregorian name", () => {
@@ -230,7 +232,7 @@ describe("naming a month by its code", () => {
       // Then they differ. The two cover the same days on the ISO calendar and
       // different days under a wrapper, so the syntactic form keeps them
       // apart.
-      assertFalse(equals(monthCodes("M03"), monthsOfYear("march")));
+      assertFalse(sameDefinition(monthCodes("M03"), monthsOfYear("march")));
     });
   });
 
@@ -244,7 +246,7 @@ describe("naming a month by its code", () => {
 
       // Then the account says which month the instant is in and how many were
       // listed.
-      assertFalse(explanation.matched);
+      assertFalse(explanation.status === "matched");
       assertIdentical(
         explanation.description,
         "Month M02 is not one of 4 listed month codes.",
@@ -263,7 +265,7 @@ describe("naming a month by its code", () => {
 
       // Then the account names the calendar and reports the match. The same
       // instant read as ISO is in M02.
-      assertTrue(explanation.matched);
+      assertTrue(explanation.status === "matched");
       assertIdentical(
         explanation.description,
         "The rule counts on the hebrew calendar. The month is M05L.",

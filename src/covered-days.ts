@@ -1,9 +1,13 @@
+import type { QueryArrival } from "./query-arrival.js";
+import { dayArrival } from "./day-arrival.js";
+import { refuse, unknownIn } from "./horizon-guard.js";
+import { requireWindowEnd } from "./context.js";
 /**
  * Counting whole days, where [query.ts](./query.ts) counts elapsed time.
  *
  * "Three working days" is not three multiples of some length of day. It counts
  * the days on which work happens, and a day open from nine until one is one of
- * them exactly as a day open from nine until five is. `advanceBy` refuses `P3D`
+ * them exactly as a day open from nine until five is. `addCoveredTime` refuses `P3D`
  * because a duration in days is ambiguous. A count of days is exact. It is a
  * different operation and it lives here.
  *
@@ -12,16 +16,12 @@
  * is a count of dates on one wall calendar.
  */
 
-import type { Covers } from "./assigned.js";
-import type { Context } from "./context.js";
+import type { CoverageSource } from "./assigned.js";
+import type { Context, QueryWindow } from "./context.js";
 import { coveredDays } from "./day-walk.js";
-import type { Distribution, Estimate, Spread } from "./estimate.js";
+import type { Estimate } from "./estimate.js";
 import { resolvedOutcomes } from "./estimate-query.js";
-import {
-  boundSearch,
-  SearchLimitExceededError,
-  type Search,
-} from "./search.js";
+import type { Search } from "./search.js";
 
 /**
  * Whether the date a count starts on can itself be counted.
@@ -33,11 +33,11 @@ import {
  */
 export type StartingDay = "excluded" | "included";
 
-/** What {@link advanceByCoveredDays} reads, and how far it looks for an answer. */
+/** What {@link addCoveredDays} reads, and how far it looks for an answer. */
 export interface CoveredDayOptions<V>
   extends Pick<Search, "within">, Omit<Context, "from" | "to"> {
   /** The rule, schedule or selected cascade value whose days are counted. */
-  readonly during: Covers<V>;
+  readonly during: CoverageSource<V>;
 
   /** Whether the starting date counts. `"excluded"` by default. */
   readonly startingDay?: StartingDay;
@@ -56,13 +56,16 @@ export interface CoveredDayOptions<V>
  * hours.
  */
 export function coveredDayCount<V>(
-  covers: Covers<V>,
-  context: Context,
+  covers: CoverageSource<V>,
+  context: QueryWindow,
 ): number {
-  if (context.to === undefined) {
-    throw new RangeError(
-      "coveredDayCount() needs a window with an end: give the context a `to`.",
-    );
+  requireWindowEnd(
+    context,
+    "coveredDayCount() needs a window with an end: give the context a `to`.",
+  );
+  const fog = unknownIn(covers, context);
+  if (fog !== undefined) {
+    refuse("coveredDayCount()", fog, context);
   }
   return [...coveredDays(covers, context)].length;
 }
@@ -71,7 +74,7 @@ export function coveredDayCount<V>(
  * Where you get to after a number of whole days on which something is covered.
  *
  * ```ts
- * advanceByCoveredDays(ordered, 3, { during: openingHours });
+ * addCoveredDays(ordered, 3, { during: openingHours });
  * ```
  *
  * Three working days from a Friday afternoon is Wednesday, and this is the
@@ -86,75 +89,19 @@ export function coveredDayCount<V>(
  * covered time with `startingDay: "included"`, a count of one answers with
  * `from`.
  */
-export function advanceByCoveredDays<V>(
+export function addCoveredDays<V, A extends number | Estimate<number>>(
   from: Temporal.ZonedDateTime,
-  count: number,
+  count: A,
   options: CoveredDayOptions<V>,
-): Temporal.ZonedDateTime | undefined;
-export function advanceByCoveredDays<V>(
-  from: Temporal.ZonedDateTime,
-  count: Spread<number>,
-  options: CoveredDayOptions<V>,
-): Spread<Temporal.ZonedDateTime>;
-export function advanceByCoveredDays<V>(
-  from: Temporal.ZonedDateTime,
-  count: Distribution<number>,
-  options: CoveredDayOptions<V>,
-): Distribution<Temporal.ZonedDateTime>;
-export function advanceByCoveredDays<V>(
-  from: Temporal.ZonedDateTime,
-  count: Estimate<number> | number,
-  options: CoveredDayOptions<V>,
-): Estimate<Temporal.ZonedDateTime> | Temporal.ZonedDateTime | undefined {
-  if (typeof count !== "number") {
-    return resolvedOutcomes(count, "advanceByCoveredDays()", (days) =>
-      advanceByCoveredDays(from, days, options),
-    );
-  }
-
-  checkDayCount(count);
-  if (count === 0) {
-    return from;
-  }
-
-  const { during, within, startingDay = "excluded", ...rest } = options;
-  const search = boundSearch(
-    { ...rest, from },
-    within === undefined ? undefined : { within },
-  );
-  const startDate = from.toPlainDate();
-
-  let counted = 0;
-  for (const day of coveredDays(during, search.context)) {
-    if (startingDay === "excluded" && day.date.equals(startDate)) {
-      continue;
-    }
-    counted += 1;
-    if (counted === count) {
-      return day.opensAt;
-    }
-  }
-
-  if (search.automaticLimit !== undefined) {
-    throw new SearchLimitExceededError(
-      "advanceByCoveredDays()",
-      search.automaticLimit,
-    );
-  }
-  return undefined;
-}
-
-/** Rejects a count that is not a whole number of days forward. */
-function checkDayCount(count: number): void {
-  if (!Number.isInteger(count)) {
-    throw new RangeError(
-      `advanceByCoveredDays() counts whole days. Asked for ${count}. ` +
-        "Part of a covered day is an elapsed duration, which advanceBy() takes.",
-    );
-  }
-  if (count < 0) {
-    throw new RangeError(
-      `advanceByCoveredDays() cannot go backwards. Asked for ${count} days.`,
-    );
-  }
+): QueryArrival<A> {
+  const arrival =
+    typeof count === "number"
+      ? dayArrival(from, count, options)
+      : resolvedOutcomes(
+          count,
+          "addCoveredDays()",
+          (days) => dayArrival(from, days, options),
+          options.within,
+        );
+  return arrival as QueryArrival<A>;
 }

@@ -2,7 +2,7 @@
  * Putting outcomes in order, which is what a median and a CDF need.
  *
  * An estimate holds outcomes of whatever type the query answers with, and the
- * useful ones here are counts, durations and datetimes. {@link naturally}
+ * useful ones here are counts, durations and datetimes. {@link naturalOrder}
  * knows those and the rest of what `Temporal` returns. Anything else needs an
  * {@link Order} of its own, and every view takes one.
  */
@@ -16,7 +16,7 @@ export type Order<V> = (left: V, right: V) => number;
  * Throws where the outcomes are of some other type, naming the option that
  * takes an order for them.
  */
-export function naturally<V>(left: V, right: V): number {
+export function naturalOrder<V>(left: V, right: V): number {
   if (left instanceof Temporal.Duration && right instanceof Temporal.Duration) {
     return Temporal.Duration.compare(left, right);
   }

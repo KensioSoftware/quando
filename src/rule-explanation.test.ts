@@ -12,11 +12,11 @@ import {
   all,
   always,
   any,
-  between,
+  datesBetween,
   dates,
   daysOfMonth,
   daysOfWeek,
-  every,
+  everyNthPeriod,
   inZone,
   monthsOfYear,
   never,
@@ -24,7 +24,7 @@ import {
   not,
   onOrAfter,
   onOrBefore,
-  timeOfDay,
+  timeOfDayRange,
   weekdays,
 } from "./build.js";
 import { explainRule } from "./rule-explanation.js";
@@ -32,20 +32,20 @@ import { explainRule } from "./rule-explanation.js";
 describe("explaining why a rule matches", () => {
   it("describes each condition in a compound rule", () => {
     // Given ordinary weekday office hours with no caller-written description.
-    const officeHours = all(weekdays(), timeOfDay("09:00", "17:00"));
+    const officeHours = all(weekdays(), timeOfDayRange("09:00", "17:00"));
 
     // When a Wednesday morning is explained.
     const explanation = explainRule(officeHours, when("2026-03-11T10:00"));
 
     // Then the result says what matched in calendar and clock terms.
-    assertTrue(explanation.matched);
+    assertTrue(explanation.status === "matched");
     assertIdentical(
       explanation.description,
       "Every condition matches. Wednesday is a weekday. " +
         "10:00 falls within the 09:00-17:00 window.",
     );
     assertArrayEquals(
-      explanation.conditions.map(({ matched }) => matched),
+      explanation.conditions.map(({ status }) => status === "matched"),
       [true, true],
     );
   });
@@ -58,9 +58,9 @@ describe("explaining why a rule matches", () => {
     const explanation = explainRule(dayOff, when("2026-12-25T10:00"));
 
     // Then the matching and non-matching alternatives are both visible.
-    assertTrue(explanation.matched);
+    assertTrue(explanation.status === "matched");
     assertArrayEquals(
-      explanation.conditions.map(({ matched }) => matched),
+      explanation.conditions.map(({ status }) => status === "matched"),
       [true, false],
     );
     assertIdentical(
@@ -81,8 +81,8 @@ describe("explaining why a rule matches", () => {
     const explanation = explainRule(workingDate, when("2026-12-26T10:00"));
 
     // Then the excluded date's failure explains the outer match.
-    assertTrue(explanation.matched);
-    assertFalse(explanation.conditions[0]?.matched ?? true);
+    assertTrue(explanation.status === "matched");
+    assertFalse(explanation.conditions[0]?.status === "matched");
     assertIdentical(
       explanation.description,
       "The excluded condition does not match. The date is not 2026-12-25.",
@@ -91,7 +91,7 @@ describe("explaining why a rule matches", () => {
 
   it("uses and names a rule's own time zone", () => {
     // Given Tokyo business hours viewed at the same instant from London.
-    const tokyoHours = timeOfDay("09:00", "17:00", "Asia/Tokyo");
+    const tokyoHours = timeOfDayRange("09:00", "17:00", "Asia/Tokyo");
     const londonMorning = Temporal.ZonedDateTime.from(
       "2026-03-11T01:00[Europe/London]",
     );
@@ -100,7 +100,7 @@ describe("explaining why a rule matches", () => {
     const explanation = explainRule(tokyoHours, londonMorning);
 
     // Then the local Tokyo clock time and zone make the match clear.
-    assertTrue(explanation.matched);
+    assertTrue(explanation.status === "matched");
     assertIdentical(
       explanation.description,
       "The rule uses Asia/Tokyo. 10:00 falls within the 09:00-17:00 window.",
@@ -129,9 +129,9 @@ describe("explaining why a rule matches", () => {
     const noTime = explainRule(never(), at);
 
     // Then their fixed outcomes are stated directly.
-    assertTrue(everyTime.matched);
+    assertTrue(everyTime.status === "matched");
     assertIdentical(everyTime.description, "This rule always matches.");
-    assertFalse(noTime.matched);
+    assertFalse(noTime.status === "matched");
     assertIdentical(noTime.description, "This rule never matches.");
   });
 
@@ -145,14 +145,14 @@ describe("explaining why a rule matches", () => {
     const excluded = explainRule(not(dates("2026-12-25")), at);
 
     // Then the explanation names the reason for each failure.
-    assertFalse(required.matched);
+    assertFalse(required.status === "matched");
     assertStringIncludes(
       required.description,
       "A required condition does not match.",
     );
-    assertFalse(alternative.matched);
+    assertFalse(alternative.status === "matched");
     assertStringIncludes(alternative.description, "No alternative matches.");
-    assertFalse(excluded.matched);
+    assertFalse(excluded.status === "matched");
     assertStringIncludes(
       excluded.description,
       "The excluded condition matches.",
@@ -202,9 +202,9 @@ describe("explaining why a rule matches", () => {
 
     // Then the account says what was matched against rather than restating the
     // date, which is what makes it usable in an end-user answer.
-    assertTrue(onTheDay.matched);
+    assertTrue(onTheDay.status === "matched");
     assertIdentical(onTheDay.description, "The 31st matches the last day.");
-    assertFalse(theDayBefore.matched);
+    assertFalse(theDayBefore.status === "matched");
     assertIdentical(
       theDayBefore.description,
       "The 30th does not match the last day.",
@@ -243,12 +243,12 @@ describe("explaining why a rule matches", () => {
     const none = explainRule(monthsOfYear(), august);
 
     // Then the month is named rather than numbered, in each shape.
-    assertTrue(summer.matched);
+    assertTrue(summer.status === "matched");
     assertIdentical(
       summer.description,
       "August is included in June, July, and August.",
     );
-    assertFalse(one.matched);
+    assertFalse(one.status === "matched");
     assertIdentical(one.description, "August is not January.");
     assertIdentical(none.description, "No months are listed.");
   });
@@ -264,12 +264,12 @@ describe("explaining why a rule matches", () => {
 
     // Then the count is stated either way. It is the fact the reader cannot
     // see from the date, and it is the whole reason the rule matched or not.
-    assertTrue(onTheDay.matched);
+    assertTrue(onTheDay.status === "matched");
     assertIdentical(
       onTheDay.description,
       "This is the 2nd Tuesday of the month.",
     );
-    assertFalse(aWeekLater.matched);
+    assertFalse(aWeekLater.status === "matched");
     assertIdentical(
       aWeekLater.description,
       "This is the 3rd Tuesday of the month, and the rule wants the 2nd.",
@@ -285,7 +285,7 @@ describe("explaining why a rule matches", () => {
     const explanation = explainRule(monthEnd, when("2026-03-27T10:00"));
 
     // Then the account counts from the end, the way the rule does.
-    assertTrue(explanation.matched);
+    assertTrue(explanation.status === "matched");
     assertIdentical(
       explanation.description,
       "This is the last Friday of the month.",
@@ -300,7 +300,7 @@ describe("explaining why a rule matches", () => {
 
     // Then the weekday alone settles it. Counting Mondays on a Wednesday
     // would be an answer to a question nobody asked.
-    assertFalse(wrongDay.matched);
+    assertFalse(wrongDay.status === "matched");
     assertIdentical(wrongDay.description, "Wednesday is not Monday.");
     assertIdentical(none.description, "No weekdays are listed.");
   });
@@ -308,7 +308,7 @@ describe("explaining why a rule matches", () => {
   it("says which cycle of a recurrence the instant is in", () => {
     // Given a fortnightly cycle anchored on Monday 9 March, explained on the
     // anchor, one week later, and two weeks later.
-    const fortnightly = every(2, "weeks", { anchor: "2026-03-09" });
+    const fortnightly = everyNthPeriod(2, "weeks", { anchor: "2026-03-09" });
 
     // When each is explained.
     const onAnchor = explainRule(fortnightly, when("2026-03-09T10:00"));
@@ -317,17 +317,17 @@ describe("explaining why a rule matches", () => {
 
     // Then the count of periods from the anchor is stated, which is the fact
     // the reader cannot get from the date.
-    assertTrue(onAnchor.matched);
+    assertTrue(onAnchor.status === "matched");
     assertIdentical(
       onAnchor.description,
       "This is in the same week as 2026-03-09, so it is on every 2 weeks.",
     );
-    assertFalse(weekAfter.matched);
+    assertFalse(weekAfter.status === "matched");
     assertIdentical(
       weekAfter.description,
       "This is 1 week after 2026-03-09, so it is not on every 2 weeks.",
     );
-    assertTrue(fortnightAfter.matched);
+    assertTrue(fortnightAfter.status === "matched");
     assertIdentical(
       fortnightAfter.description,
       "This is 2 weeks after 2026-03-09, so it is on every 2 weeks.",
@@ -337,13 +337,13 @@ describe("explaining why a rule matches", () => {
   it("counts back when the instant is before the anchor", () => {
     // Given a quarterly cycle anchored in April, explained on a date before
     // it. The anchor sets the phase and is not a bound.
-    const quarterly = every(3, "months", { anchor: "2026-04-01" });
+    const quarterly = everyNthPeriod(3, "months", { anchor: "2026-04-01" });
 
     // When January is explained.
     const explanation = explainRule(quarterly, when("2026-01-15T10:00"));
 
     // Then the account counts backwards and the cycle still matches.
-    assertTrue(explanation.matched);
+    assertTrue(explanation.status === "matched");
     assertIdentical(
       explanation.description,
       "This is 3 months before 2026-04-01, so it is on every 3 months.",
@@ -352,7 +352,7 @@ describe("explaining why a rule matches", () => {
 
   it("says every day rather than every 1 days", () => {
     // Given the interval RRULE leaves out.
-    const daily = every(1, "days", { anchor: "2026-03-09" });
+    const daily = everyNthPeriod(1, "days", { anchor: "2026-03-09" });
 
     // When a later day is explained.
     const explanation = explainRule(daily, when("2026-03-10T10:00"));
@@ -369,7 +369,7 @@ describe("explaining why a rule matches", () => {
     // three and on one inside them.
     const inside = when("2026-07-15T10:00");
     const outside = when("2026-03-15T10:00");
-    const summer = between("2026-06-01", "2026-08-31");
+    const summer = datesBetween("2026-06-01", "2026-08-31");
 
     // When each is explained.
     const within = explainRule(summer, inside);
@@ -380,12 +380,12 @@ describe("explaining why a rule matches", () => {
 
     // Then each account names the bound it was measured against, which is the
     // thing the reader cannot see from the date.
-    assertTrue(within.matched);
+    assertTrue(within.status === "matched");
     assertIdentical(
       within.description,
       "2026-07-15 falls within 2026-06-01 to 2026-08-31.",
     );
-    assertFalse(before.matched);
+    assertFalse(before.status === "matched");
     assertIdentical(
       before.description,
       "2026-03-15 falls outside 2026-06-01 to 2026-08-31.",
@@ -403,13 +403,13 @@ describe("explaining why a rule matches", () => {
 
   it("describes an overnight window at a precise time", () => {
     // Given a night shift and a time with non-zero seconds.
-    const shift = timeOfDay("22:00", "06:00");
+    const shift = timeOfDayRange("22:00", "06:00");
 
     // When a time during the shift is explained.
     const explanation = explainRule(shift, when("2026-03-11T23:15:30"));
 
     // Then the overnight shape and precise time are both retained.
-    assertTrue(explanation.matched);
+    assertTrue(explanation.status === "matched");
     assertIdentical(
       explanation.description,
       "23:15:30 falls within the overnight 22:00-06:00 window.",
@@ -420,7 +420,7 @@ describe("explaining why a rule matches", () => {
     // Given Monday morning in Tokyo, viewed late on Sunday in London.
     const tokyoMonday = inZone(
       "Asia/Tokyo",
-      all(weekdays(), timeOfDay("08:00", "09:00")),
+      all(weekdays(), timeOfDayRange("08:00", "09:00")),
     );
     const londonSunday = when("2026-03-08T23:30");
 
@@ -428,7 +428,7 @@ describe("explaining why a rule matches", () => {
     const explanation = explainRule(tokyoMonday, londonSunday);
 
     // Then every child uses Tokyo's calendar and clock.
-    assertTrue(explanation.matched);
+    assertTrue(explanation.status === "matched");
     assertStringIncludes(explanation.description, "The rule uses Asia/Tokyo.");
     assertStringIncludes(explanation.description, "Monday is a weekday.");
     assertStringIncludes(

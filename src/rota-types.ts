@@ -5,33 +5,45 @@ import type { RuleRegistry } from "./custom-rules.js";
 import type { Explanation } from "./explain.js";
 import type { JsonCompatible } from "./json.js";
 import type { LayerOptions } from "./layer-options.js";
-import type { PlainRule } from "./plain-forms.js";
-import type { ValidationDiagnostic } from "./semantic-validation.js";
+import type { RuleInput } from "./plain-forms.js";
+import type {
+  ValidationDiagnostic,
+  ValidationOptions,
+} from "./semantic-validation.js";
 import type { ValuedStream } from "./valued-stream.js";
+import type { EvaluationOptions } from "./context.js";
+
+/** The local time zone used by rota assignments. */
+export interface RotaOptions {
+  readonly zone?: string;
+}
 
 /** The stored form of a rota. */
 export interface RotaData<V> {
   readonly type: "rota";
   readonly cascade: Cascade<V>;
+  readonly zone?: string;
 }
 
 /** Assignments over time with methods for rota questions. */
-export interface Rota<V> extends RotaData<V> {
-  readonly assign: <const W>(
-    scope: PlainRule,
+export interface Rota<V, Allowed = V> extends RotaData<V> {
+  readonly assign: <const W extends Allowed>(
+    scope: RuleInput,
     value: W & JsonCompatible<W>,
     options?: LayerOptions,
-  ) => Rota<V | W>;
-  readonly swap: <const W>(
-    day: PlainRule,
-    value: W & JsonCompatible<W>,
-    options?: LayerOptions,
-  ) => Rota<V | W>;
-  readonly whoIsOn: (at: Temporal.ZonedDateTime) => V | undefined;
-  readonly explain: (at: Temporal.ZonedDateTime) => Explanation<V>;
+  ) => Rota<V | W, Allowed>;
+  readonly whoIsOn: (
+    at: Temporal.ZonedDateTime,
+    options?: EvaluationOptions,
+  ) => V | undefined;
+  readonly explain: (
+    at: Temporal.ZonedDateTime,
+    options?: EvaluationOptions,
+  ) => Explanation<V>;
   readonly shifts: (
     from: Temporal.ZonedDateTime,
     to?: Temporal.ZonedDateTime,
+    options?: EvaluationOptions,
   ) => ValuedStream<V>;
   /**
    * The same rota, reading `custom` rules from this registry.
@@ -40,11 +52,12 @@ export interface Rota<V> extends RotaData<V> {
    * rides beside it, and `toJSON` is unchanged. Calling this twice replaces
    * the registry rather than merging the two.
    */
-  readonly withRules: (rules: RuleRegistry) => Rota<V>;
+  readonly withCustomRules: (rules: RuleRegistry) => Rota<V, Allowed>;
 
   readonly validate: (
     from: Temporal.ZonedDateTime,
     to: Temporal.ZonedDateTime,
+    options?: EvaluationOptions & ValidationOptions,
   ) => readonly ValidationDiagnostic[];
   readonly toJSON: () => RotaData<V>;
 }

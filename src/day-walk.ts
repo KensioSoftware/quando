@@ -10,7 +10,7 @@
  * rule selects. This walks what a rule already produced.
  */
 
-import { type Covers, covered } from "./assigned.js";
+import { type CoverageSource, covered } from "./assigned.js";
 import { startOfDay } from "./calendar-walk.js";
 import type { Context } from "./context.js";
 import type { Interval } from "./interval.js";
@@ -31,7 +31,7 @@ export interface CoveredDay {
  * afternoon) are one covered day, keeping the earlier opening.
  */
 export function* coveredDays<V>(
-  covers: Covers<V>,
+  covers: CoverageSource<V>,
   context: Context,
 ): Iterable<CoveredDay> {
   const zone = context.from.timeZoneId;

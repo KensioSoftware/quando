@@ -14,11 +14,11 @@
 
 import { bench, describe } from "vitest";
 
-import { dates, timeOfDay, weekdays } from "../src/build.js";
+import { dates, timeOfDayRange, weekdays } from "../src/build.js";
 import { canonical } from "../src/canonical.js";
 import { intervals } from "../src/interpret.js";
 import { parseRule } from "../src/parse.js";
-import type { Rule } from "../src/rule.js";
+import type { RuleData } from "../src/rule.js";
 import { parseSchedule, schedule } from "../src/schedule.js";
 
 const ZONE = "Europe/London";
@@ -67,7 +67,7 @@ describe("a point in time", () => {
 
 describe("searching forward", () => {
   bench("opensNext, from a Friday evening", () => {
-    office.opensNext(FRIDAY_EVENING);
+    office.nextOpenInterval(FRIDAY_EVENING);
   });
 
   bench("firstOpenSlot, four hours", () => {
@@ -82,7 +82,7 @@ describe("searching forward", () => {
 describe("a window", () => {
   const YEAR_START = at("2026-01-01T00:00");
   const YEAR_END = at("2027-01-01T00:00");
-  const rule = weekdays().and(timeOfDay("09:00", "17:00"));
+  const rule = weekdays().and(timeOfDayRange("09:00", "17:00"));
 
   bench("a year of intervals", () => {
     drain(intervals(rule, { from: YEAR_START, to: YEAR_END }));
@@ -106,7 +106,7 @@ describe("a window", () => {
 
 describe("documents", () => {
   const written = JSON.stringify(withHolidays);
-  const rule: Rule = weekdays().and(timeOfDay("09:00", "17:00"));
+  const rule: RuleData = weekdays().and(timeOfDayRange("09:00", "17:00"));
   const writtenRule = JSON.stringify(rule);
 
   bench("writing a schedule as JSON", () => {

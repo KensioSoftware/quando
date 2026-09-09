@@ -10,7 +10,7 @@
 import type { Bounds } from "./bounds.js";
 import type { Context } from "./context.js";
 import { customHorizonAt } from "./horizon.js";
-import { intervals } from "./interpret.js";
+import { assumedIntervals } from "./interpret.js";
 import type { Interval } from "./interval.js";
 import {
   clip,
@@ -18,7 +18,7 @@ import {
   type IntervalStream,
   union,
 } from "./interval-stream.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 /** All of time, before a window narrows it. */
 const UNBOUNDED: IntervalStream = [{ start: undefined, end: undefined }];
@@ -71,8 +71,8 @@ export function beyond(
  * without knowing how far it was loaded, so the horizon comes from the code
  * answering rather than from the rule.
  */
-export function settled(rule: Rule, context: Context): Bounds {
-  const times = repeatable(() => intervals(rule, context));
+export function settled(rule: RuleData, context: Context): Bounds {
+  const times = repeatable(() => assumedIntervals(rule, context));
   const whole: Bounds = { certain: times, possible: times };
   const at =
     rule.type === "custom" ? customHorizonAt(rule, context) : undefined;

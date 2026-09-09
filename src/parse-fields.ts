@@ -10,7 +10,7 @@
  * that JSON is the shape it claims to be and know nothing about time.
  */
 
-import { asString, asStrings, fail } from "./parse-shape.js";
+import { parseString, asStrings, fail } from "./parse-shape.js";
 import { isMonthCode, MONTH_CODE_FORM } from "./validation.js";
 import {
   type MonthCode,
@@ -59,7 +59,7 @@ export function asMonthCodes(value: unknown, path: string): MonthCode[] {
 }
 
 export function asPeriod(value: unknown, path: string): Period {
-  const period = asString(value, path);
+  const period = parseString(value, path);
   return PERIODS.includes(period as Period)
     ? (period as Period)
     : fail(
@@ -70,7 +70,7 @@ export function asPeriod(value: unknown, path: string): Period {
 
 /** Checked by construction, so a malformed time is caught where it is written. */
 export function asTime(value: unknown, path: string): string {
-  const time = asString(value, path);
+  const time = parseString(value, path);
   try {
     Temporal.PlainTime.from(time);
   } catch {
@@ -89,7 +89,7 @@ export function asDates(value: unknown, path: string): string[] {
 }
 
 export function asDate(value: unknown, path: string): string {
-  const date = asString(value, path);
+  const date = parseString(value, path);
   try {
     Temporal.PlainDate.from(date);
   } catch {
@@ -107,7 +107,7 @@ export function asDate(value: unknown, path: string): string {
  * hours later when something asks a question of it.
  */
 export function asZone(value: unknown, path: string): string {
-  const zone = asString(value, path);
+  const zone = parseString(value, path);
   try {
     Temporal.PlainDate.from("2000-01-01").toZonedDateTime({
       timeZone: zone,

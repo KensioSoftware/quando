@@ -2,22 +2,22 @@ import type { Interval } from "./interval.js";
 import type { JsonValue } from "./json.js";
 import type { LayerOptions } from "./layer-options.js";
 import type { MergeStrategy } from "./merge.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 /** An interval with a JSON-compatible value assigned to it. */
-export interface Valued<V> extends Interval {
+export interface ValueInterval<V> extends Interval {
   readonly value: V;
 }
 
 /** A layer assigning one value across its scope. */
 export interface ConstantLayer<V> extends LayerOptions {
-  readonly scope: Rule;
+  readonly scope: RuleData;
   readonly value: V;
 }
 
 /** A layer that replaces lower layers throughout its scope. */
 export interface ReplacingLayer<V> extends LayerOptions {
-  readonly scope: Rule;
+  readonly scope: RuleData;
   readonly replace: Cascade<V>;
 }
 
@@ -45,6 +45,8 @@ export function asCascade<V>(value: CascadeLike<V>): Cascade<V> {
 }
 
 /** Checks whether a data node is a cascade. */
-export function isCascade<V>(value: Rule | Cascade<V>): value is Cascade<V> {
+export function isCascade<V>(
+  value: RuleData | Cascade<V>,
+): value is Cascade<V> {
   return value.type === "cascade";
 }

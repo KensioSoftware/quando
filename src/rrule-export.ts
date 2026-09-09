@@ -13,7 +13,7 @@
  */
 
 import type { Unwritable } from "./export-result.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import { ruleTerms } from "./rule-terms.js";
 import { boundsOf } from "./rrule-export-start.js";
 import { frequencyOf } from "./rrule-export-frequency.js";
@@ -50,7 +50,7 @@ export type RRuleExport = WrittenRRule | Unwritable;
  * A rule as an RFC 5545 recurrence, when it has one.
  *
  * ```ts
- * const written = toRRule(weekdays().and(timeOfDay("09:00", "17:00")), {
+ * const written = toRRule(weekdays().and(timeOfDayRange("09:00", "17:00")), {
  *   start: "2026-03-30",
  * });
  * if (written.ok) {
@@ -68,7 +68,10 @@ export type RRuleExport = WrittenRRule | Unwritable;
  * builders do. A rule that simply has no recurrence form comes back with
  * `ok: false` instead.
  */
-export function toRRule(rule: Rule, options: ToRRuleOptions = {}): RRuleExport {
+export function toRRule(
+  rule: RuleData,
+  options: ToRRuleOptions = {},
+): RRuleExport {
   const read = ruleTerms(rule);
   if (!read.ok) {
     return read;

@@ -9,12 +9,12 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { all, atMost, spacedBy, weekdays } from "./build.js";
-import { canonical, equals } from "./canonical.js";
+import { all, atMostOccurrences, minimumGap, weekdays } from "./build.js";
+import { canonical, sameDefinition } from "./canonical.js";
 import { toCron } from "./cron-export.js";
 import { MissingOccurrencesError, type Occurrence } from "./occurrence.js";
 import { parseRule } from "./parse.js";
-import { activeAt, nextCoveredInterval } from "./query.js";
+import { isActiveAt, nextCoveredInterval } from "./query.js";
 import { explainRule } from "./rule-explanation.js";
 
 describe("constraints on what has already happened", () => {
@@ -24,10 +24,10 @@ describe("constraints on what has already happened", () => {
 
   /** Whether an instant is permitted, given a history. */
   const permits = (
-    rule: Parameters<typeof activeAt>[0],
+    rule: Parameters<typeof isActiveAt>[0],
     at: string,
     occurrences: readonly Occurrence[],
-  ): boolean => activeAt(rule, when(at), { occurrences });
+  ): boolean => isActiveAt(rule, when(at), { occurrences });
 
   describe("a cap on a rolling window", () => {
     it("permits one more while the window has room", () => {
@@ -36,7 +36,7 @@ describe("constraints on what has already happened", () => {
       // Then it is permitted. The window holds three.
       assertTrue(
         permits(
-          atMost(4, "PT24H"),
+          atMostOccurrences(4, { within: "PT24H" }),
           "2026-03-10T20:00",
           taken("08:00", "12:00", "16:00"),
         ),
@@ -49,7 +49,7 @@ describe("constraints on what has already happened", () => {
       // Then it is refused.
       assertFalse(
         permits(
-          atMost(4, "PT24H"),
+          atMostOccurrences(4, { within: "PT24H" }),
           "2026-03-10T21:00",
           taken("08:00", "12:00", "16:00", "20:00"),
         ),
@@ -63,18 +63,31 @@ describe("constraints on what has already happened", () => {
       // When the instant a full day after the first is asked about.
       // Then it is permitted, because the 08:00 dose has aged out and three
       // are left. Nothing about midnight matters to a rolling window.
-      assertTrue(permits(atMost(4, "PT24H"), "2026-03-11T08:00", history));
+      assertTrue(
+        permits(
+          atMostOccurrences(4, { within: "PT24H" }),
+          "2026-03-11T08:00",
+          history,
+        ),
+      );
 
       // And a nanosecond earlier it is not, because the 08:00 dose is still
       // inside the day looking back.
       assertFalse(
-        permits(atMost(4, "PT24H"), "2026-03-11T07:59:59.999999999", history),
+        permits(
+          atMostOccurrences(4, { within: "PT24H" }),
+          "2026-03-11T07:59:59.999999999",
+          history,
+        ),
       );
     });
 
     it("says when the next one is due", () => {
       // Given a day's doses, four hours apart, and both rules at once.
-      const dosing = all(atMost(4, "PT24H"), spacedBy("PT4H"));
+      const dosing = all(
+        atMostOccurrences(4, { within: "PT24H" }),
+        minimumGap("PT4H"),
+      );
       const history = taken("08:00", "12:00", "16:00", "20:00");
 
       // When the next permitted stretch is looked for.
@@ -101,8 +114,20 @@ describe("constraints on what has already happened", () => {
       // When the same hour on the 10th and on the 11th are asked about.
       // Then the day is full and the next day is empty. A bucket resets where
       // a rolling window would still be counting.
-      assertFalse(permits(atMost(2, "days"), "2026-03-10T22:00", history));
-      assertTrue(permits(atMost(2, "days"), "2026-03-11T06:00", history));
+      assertFalse(
+        permits(
+          atMostOccurrences(2, { per: "day" }),
+          "2026-03-10T22:00",
+          history,
+        ),
+      );
+      assertTrue(
+        permits(
+          atMostOccurrences(2, { per: "day" }),
+          "2026-03-11T06:00",
+          history,
+        ),
+      );
     });
 
     it("closes a full bucket at both ends of itself", () => {
@@ -111,7 +136,11 @@ describe("constraints on what has already happened", () => {
       // Then it is refused. A full day is full whichever end is asked about,
       // and nothing can be slipped in earlier after the fact.
       assertFalse(
-        permits(atMost(2, "days"), "2026-03-10T06:00", taken("08:00", "20:00")),
+        permits(
+          atMostOccurrences(2, { per: "day" }),
+          "2026-03-10T06:00",
+          taken("08:00", "20:00"),
+        ),
       );
     });
 
@@ -126,9 +155,27 @@ describe("constraints on what has already happened", () => {
       // Then both days are closed and the third is open. The two full days
       // meet at midnight and coalesce into one stretch, which is what keeps
       // the stream the algebra needs.
-      assertFalse(permits(atMost(1, "days"), "2026-03-10T20:00", history));
-      assertFalse(permits(atMost(1, "days"), "2026-03-11T20:00", history));
-      assertTrue(permits(atMost(1, "days"), "2026-03-12T20:00", history));
+      assertFalse(
+        permits(
+          atMostOccurrences(1, { per: "day" }),
+          "2026-03-10T20:00",
+          history,
+        ),
+      );
+      assertFalse(
+        permits(
+          atMostOccurrences(1, { per: "day" }),
+          "2026-03-11T20:00",
+          history,
+        ),
+      );
+      assertTrue(
+        permits(
+          atMostOccurrences(1, { per: "day" }),
+          "2026-03-12T20:00",
+          history,
+        ),
+      );
     });
 
     it("counts a week from Monday", () => {
@@ -140,8 +187,20 @@ describe("constraints on what has already happened", () => {
       // When the Sunday that ends that week and the Monday that opens the
       // next are asked about.
       // Then the week is full to its end and the next one is open.
-      assertFalse(permits(atMost(2, "weeks"), "2026-03-15T09:00", history));
-      assertTrue(permits(atMost(2, "weeks"), "2026-03-16T09:00", history));
+      assertFalse(
+        permits(
+          atMostOccurrences(2, { per: "week" }),
+          "2026-03-15T09:00",
+          history,
+        ),
+      );
+      assertTrue(
+        permits(
+          atMostOccurrences(2, { per: "week" }),
+          "2026-03-16T09:00",
+          history,
+        ),
+      );
     });
   });
 
@@ -152,9 +211,9 @@ describe("constraints on what has already happened", () => {
 
       // When just before and just after four hours later are asked about.
       // Then exactly four hours is far enough, and a nanosecond less is not.
-      assertTrue(permits(spacedBy("PT4H"), "2026-03-10T16:00", history));
+      assertTrue(permits(minimumGap("PT4H"), "2026-03-10T16:00", history));
       assertFalse(
-        permits(spacedBy("PT4H"), "2026-03-10T15:59:59.999999999", history),
+        permits(minimumGap("PT4H"), "2026-03-10T15:59:59.999999999", history),
       );
     });
 
@@ -167,9 +226,9 @@ describe("constraints on what has already happened", () => {
       // Then the rule reads both ways round. Two things four hours apart are
       // four hours apart whichever came first, and a check on a plan needs
       // that as much as a query looking forward does.
-      assertTrue(permits(spacedBy("PT4H"), "2026-03-10T08:00", history));
+      assertTrue(permits(minimumGap("PT4H"), "2026-03-10T08:00", history));
       assertFalse(
-        permits(spacedBy("PT4H"), "2026-03-10T08:00:00.000000001", history),
+        permits(minimumGap("PT4H"), "2026-03-10T08:00:00.000000001", history),
       );
     });
 
@@ -185,8 +244,8 @@ describe("constraints on what has already happened", () => {
       // When one o'clock and a minute before it are asked about.
       // Then the hour is counted from when the shift finished rather than
       // from when it started.
-      assertTrue(permits(spacedBy("PT1H"), "2026-03-10T13:00", shift));
-      assertFalse(permits(spacedBy("PT1H"), "2026-03-10T12:59", shift));
+      assertTrue(permits(minimumGap("PT1H"), "2026-03-10T13:00", shift));
+      assertFalse(permits(minimumGap("PT1H"), "2026-03-10T12:59", shift));
     });
   });
 
@@ -195,14 +254,19 @@ describe("constraints on what has already happened", () => {
       // Given an empty history.
       // When anything is asked about.
       // Then it is permitted. Nothing has been used up.
-      assertTrue(permits(atMost(1, "days"), "2026-03-10T09:00", []));
-      assertTrue(permits(spacedBy("P1D"), "2026-03-10T09:00", []));
+      assertTrue(
+        permits(atMostOccurrences(1, { per: "day" }), "2026-03-10T09:00", []),
+      );
+      assertTrue(permits(minimumGap("P1D"), "2026-03-10T09:00", []));
     });
 
     it("refuses to answer at all when the history is left out", () => {
       // Given a cap asked about with no `occurrences` on the context.
       const error = assertThrowsError(() =>
-        activeAt(atMost(1, "days"), when("2026-03-10T09:00")),
+        isActiveAt(
+          atMostOccurrences(1, { per: "day" }),
+          when("2026-03-10T09:00"),
+        ),
       );
 
       // Then it throws rather than answering. Absent and empty mean different
@@ -220,7 +284,13 @@ describe("constraints on what has already happened", () => {
       // Then the day is full. An interval stream would have coalesced these
       // into one covered minute, and the count is the whole question, which
       // is why a history is a plain array and never a stream.
-      assertFalse(permits(atMost(2, "days"), "2026-03-10T18:00", history));
+      assertFalse(
+        permits(
+          atMostOccurrences(2, { per: "day" }),
+          "2026-03-10T18:00",
+          history,
+        ),
+      );
     });
   });
 
@@ -229,8 +299,11 @@ describe("constraints on what has already happened", () => {
       // Given one visit at ten at night in London, which is already seven the
       // next morning in Tokyo, and a cap of one a day written both ways.
       const history = [{ at: when("2026-03-10T22:00") }];
-      const perTokyoDay = atMost(1, "days", { zone: "Asia/Tokyo" });
-      const perLondonDay = atMost(1, "days");
+      const perTokyoDay = atMostOccurrences(1, {
+        per: "day",
+        zone: "Asia/Tokyo",
+      });
+      const perLondonDay = atMostOccurrences(1, { per: "day" });
 
       // When two London afternoons are asked about.
       // Then the two rules disagree about both of them, and the zone is the
@@ -247,7 +320,7 @@ describe("constraints on what has already happened", () => {
   describe("composing with the rest of the language", () => {
     it("narrows a calendar rule the way any other rule does", () => {
       // Given weekdays, capped at one a day.
-      const rule = all(weekdays(), atMost(1, "days"));
+      const rule = all(weekdays(), atMostOccurrences(1, { per: "day" }));
       const history = [{ at: when("2026-03-10T09:00") }];
 
       // When a used-up Tuesday, a free Wednesday and a free Sunday are asked
@@ -263,7 +336,7 @@ describe("constraints on what has already happened", () => {
     it("names how many it counted and how many are allowed", () => {
       // Given a full day of doses.
       const explanation = explainRule(
-        atMost(4, "PT24H"),
+        atMostOccurrences(4, { within: "PT24H" }),
         when("2026-03-10T21:00"),
         { occurrences: taken("08:00", "12:00", "16:00", "20:00") },
       );
@@ -271,7 +344,7 @@ describe("constraints on what has already happened", () => {
       // Then the account says what was counted. This is the reason a
       // constraint is a rule the library knows rather than a custom one. A
       // custom rule could only give its own name back.
-      assertFalse(explanation.matched);
+      assertFalse(explanation.status === "matched");
       assertIdentical(
         explanation.description,
         "There are already 4 occurrences in the 24 hours up to this instant, " +
@@ -282,7 +355,7 @@ describe("constraints on what has already happened", () => {
     it("says how far the nearest occurrence is", () => {
       // Given one dose an hour ago and a four-hour gap.
       const explanation = explainRule(
-        spacedBy("PT4H"),
+        minimumGap("PT4H"),
         when("2026-03-10T13:00"),
         { occurrences: taken("12:00") },
       );
@@ -299,24 +372,24 @@ describe("constraints on what has already happened", () => {
     it("names the bucket it counted in", () => {
       // Given two visits filling a week, a month and a year at once.
       const history = taken("08:00", "20:00");
-      const account = (per: string): string =>
-        explainRule(atMost(2, per), when("2026-03-10T22:00"), {
+      const account = (per: "day" | "week" | "month" | "year"): string =>
+        explainRule(atMostOccurrences(2, { per }), when("2026-03-10T22:00"), {
           occurrences: history,
         }).description;
 
       // Then each cap says which bucket it counted, in the singular. The
       // count comes from the same function the evaluator buckets with, so an
       // account can never describe a rule nobody is evaluating.
-      assertStringIncludes(account("days"), "in this day");
-      assertStringIncludes(account("weeks"), "in this week");
-      assertStringIncludes(account("months"), "in this month");
-      assertStringIncludes(account("years"), "in this year");
+      assertStringIncludes(account("day"), "in this day");
+      assertStringIncludes(account("week"), "in this week");
+      assertStringIncludes(account("month"), "in this month");
+      assertStringIncludes(account("year"), "in this year");
     });
 
     it("reads a window as the document wrote it", () => {
       // Given a rolling day, written as twenty-four hours.
       const account = explainRule(
-        atMost(2, "PT24H"),
+        atMostOccurrences(2, { within: "PT24H" }),
         when("2026-03-10T22:00"),
         {
           occurrences: taken("08:00", "20:00"),
@@ -331,7 +404,7 @@ describe("constraints on what has already happened", () => {
 
     it("balances a distance it measured itself", () => {
       // Given a month's spacing and an occurrence a long way off.
-      const account = explainRule(spacedBy("P1M"), when("2026-04-12T20:00"), {
+      const account = explainRule(minimumGap("P1M"), when("2026-04-12T20:00"), {
         occurrences: taken("20:00"),
       }).description;
 
@@ -343,9 +416,13 @@ describe("constraints on what has already happened", () => {
 
     it("counts one occurrence in the singular", () => {
       // Given a single visit against a cap of two.
-      const account = explainRule(atMost(2, "days"), when("2026-03-10T09:00"), {
-        occurrences: taken("08:00"),
-      }).description;
+      const account = explainRule(
+        atMostOccurrences(2, { per: "day" }),
+        when("2026-03-10T09:00"),
+        {
+          occurrences: taken("08:00"),
+        },
+      ).description;
 
       // Then the sentence agrees with itself.
       assertIdentical(
@@ -356,9 +433,13 @@ describe("constraints on what has already happened", () => {
 
     it("says nothing is any distance away at the very instant", () => {
       // Given a dose and the exact instant it was taken.
-      const account = explainRule(spacedBy("PT4H"), when("2026-03-10T12:00"), {
-        occurrences: taken("12:00"),
-      }).description;
+      const account = explainRule(
+        minimumGap("PT4H"),
+        when("2026-03-10T12:00"),
+        {
+          occurrences: taken("12:00"),
+        },
+      ).description;
 
       // Then the distance is nothing rather than an empty phrase.
       assertStringIncludes(account, "no time away");
@@ -366,9 +447,13 @@ describe("constraints on what has already happened", () => {
 
     it("measures to an occurrence still ahead of the instant", () => {
       // Given a dose booked for noon, asked about at six in the morning.
-      const account = explainRule(spacedBy("PT4H"), when("2026-03-10T06:00"), {
-        occurrences: taken("12:00"),
-      }).description;
+      const account = explainRule(
+        minimumGap("PT4H"),
+        when("2026-03-10T06:00"),
+        {
+          occurrences: taken("12:00"),
+        },
+      ).description;
 
       // Then the distance is measured forwards. A spacing reads both ways
       // round, and so does the account of it.
@@ -386,9 +471,13 @@ describe("constraints on what has already happened", () => {
         { at: when("2026-03-10T12:30") },
       ];
 
-      const account = explainRule(spacedBy("PT1H"), when("2026-03-10T10:00"), {
-        occurrences: history,
-      }).description;
+      const account = explainRule(
+        minimumGap("PT1H"),
+        when("2026-03-10T10:00"),
+        {
+          occurrences: history,
+        },
+      ).description;
 
       // Then the distance is nothing. Measuring back to where the shift began
       // would give a negative duration, and a negative one sorts below every
@@ -400,7 +489,7 @@ describe("constraints on what has already happened", () => {
     it("reads a distance shorter than a second", () => {
       // Given half a second between two events.
       const account = explainRule(
-        spacedBy("PT0.5S"),
+        minimumGap("PT0.5S"),
         when("2026-03-10T09:00:01.9"),
         { occurrences: [{ at: when("2026-03-10T09:00:01.7") }] },
       ).description;
@@ -413,7 +502,7 @@ describe("constraints on what has already happened", () => {
     it("says so when nothing has happened", () => {
       // Given a spacing and an empty history.
       const explanation = explainRule(
-        spacedBy("PT4H"),
+        minimumGap("PT4H"),
         when("2026-03-10T13:00"),
         {
           occurrences: [],
@@ -422,7 +511,7 @@ describe("constraints on what has already happened", () => {
 
       // Then it says why it matched rather than reporting a distance it does
       // not have.
-      assertTrue(explanation.matched);
+      assertTrue(explanation.status === "matched");
       assertStringIncludes(explanation.description, "Nothing has happened yet");
     });
   });
@@ -438,15 +527,29 @@ describe("constraints on what has already happened", () => {
       // Then the calendar day has passed and the twenty-four hours have not.
       // Both readings are wanted: a Schengen window is written in days and a
       // rate limit is written in real time.
-      assertTrue(permits(atMost(1, "P1D"), "2026-03-29T12:00", history));
-      assertFalse(permits(atMost(1, "PT24H"), "2026-03-29T12:00", history));
+      assertTrue(
+        permits(
+          atMostOccurrences(1, { within: "P1D" }),
+          "2026-03-29T12:00",
+          history,
+        ),
+      );
+      assertFalse(
+        permits(
+          atMostOccurrences(1, { within: "PT24H" }),
+          "2026-03-29T12:00",
+          history,
+        ),
+      );
     });
   });
 
   describe("the document it stores as", () => {
     it("survives a JSON round trip", () => {
       // Given both constraints together.
-      const written = JSON.stringify(all(atMost(4, "PT24H"), spacedBy("PT4H")));
+      const written = JSON.stringify(
+        all(atMostOccurrences(4, { within: "PT24H" }), minimumGap("PT4H")),
+      );
 
       // When stored and read back.
       // Then nothing has moved.
@@ -463,9 +566,12 @@ describe("constraints on what has already happened", () => {
       // When each is built.
       // Then the builder reads the shape of the word and the document says
       // which was meant, so nothing downstream has to guess.
-      assertStringIncludes(JSON.stringify(atMost(4, "days")), '"per":"days"');
       assertStringIncludes(
-        JSON.stringify(atMost(4, "PT24H")),
+        JSON.stringify(atMostOccurrences(4, { per: "day" })),
+        '"per":"days"',
+      );
+      assertStringIncludes(
+        JSON.stringify(atMostOccurrences(4, { within: "PT24H" })),
         '"within":"PT24H"',
       );
     });
@@ -474,7 +580,7 @@ describe("constraints on what has already happened", () => {
       // Given one gap written twice.
       // When the two are compared.
       // Then they are the same rule.
-      assertTrue(equals(spacedBy("PT4H"), spacedBy("pt4h")));
+      assertTrue(sameDefinition(minimumGap("PT4H"), minimumGap("pt4h")));
     });
 
     it("keeps two durations apart when balancing them needs a calendar", () => {
@@ -482,15 +588,19 @@ describe("constraints on what has already happened", () => {
       // When the two are compared.
       // Then they differ. Canonical form is syntactic everywhere else for the
       // same reason, and a duration holding months cannot be balanced at all.
-      assertFalse(equals(spacedBy("PT60M"), spacedBy("PT1H")));
+      assertFalse(sameDefinition(minimumGap("PT60M"), minimumGap("PT1H")));
     });
 
     it("sorts beside the other rules in canonical form", () => {
       // Given a cap written after the days it applies to.
       // When it is canonicalised.
       // Then the operands are ordered the one way, as they are for any `all`.
-      const capFirst = canonical(all(atMost(1, "days"), weekdays()));
-      const daysFirst = canonical(all(weekdays(), atMost(1, "days")));
+      const capFirst = canonical(
+        all(atMostOccurrences(1, { per: "day" }), weekdays()),
+      );
+      const daysFirst = canonical(
+        all(weekdays(), atMostOccurrences(1, { per: "day" })),
+      );
       assertIdentical(JSON.stringify(daysFirst), JSON.stringify(capFirst));
     });
   });
@@ -519,7 +629,9 @@ describe("constraints on what has already happened", () => {
 
     it("refuses a cap of nothing, and names the rule that says it", () => {
       // Given a cap of zero.
-      const error = assertThrowsError(() => atMost(0, "days"));
+      const error = assertThrowsError(() =>
+        atMostOccurrences(0, { per: "day" }),
+      );
 
       // Then it is refused rather than quietly meaning `never()`.
       assertInstanceOf(error, RangeError);
@@ -528,7 +640,7 @@ describe("constraints on what has already happened", () => {
 
     it("refuses a gap that runs backwards", () => {
       // Given a negative spacing.
-      const error = assertThrowsError(() => spacedBy("-PT4H"));
+      const error = assertThrowsError(() => minimumGap("-PT4H"));
 
       // Then it is refused rather than read as its own opposite.
       assertStringIncludes(error.message, "runs backwards");
@@ -536,7 +648,7 @@ describe("constraints on what has already happened", () => {
 
     it("refuses a gap that is not a length of time", () => {
       // Given a spacing written the way it is said.
-      const error = assertThrowsError(() => spacedBy("four hours"));
+      const error = assertThrowsError(() => minimumGap("four hours"));
 
       // Then it is refused, with the form that would have worked.
       assertStringIncludes(error.message, '"PT4H"');
@@ -556,7 +668,7 @@ describe("constraints on what has already happened", () => {
 
     it("refuses a gap of no time", () => {
       // Given a spacing of zero.
-      const error = assertThrowsError(() => spacedBy("PT0S"));
+      const error = assertThrowsError(() => minimumGap("PT0S"));
 
       // Then it is refused. A spacing of nothing spaces nothing, which is a
       // quiet way of writing a rule that does not constrain.
@@ -565,7 +677,7 @@ describe("constraints on what has already happened", () => {
 
     it("cannot be written as cron or a recurrence, and says why", () => {
       // Given a cap written as cron.
-      const written = toCron(atMost(4, "PT24H"));
+      const written = toCron(atMostOccurrences(4, { within: "PT24H" }));
 
       // Then it is refused, and the reason is the history rather than the
       // shape. Neither notation has anywhere to carry one.

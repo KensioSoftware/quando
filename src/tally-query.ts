@@ -1,3 +1,4 @@
+import { requireWindowEnd } from "./context.js";
 import { accumulate, type ElapsedUnit } from "./accumulate.js";
 import type { Cascade } from "./cascade.js";
 import type { Context } from "./context.js";
@@ -8,14 +9,19 @@ import { resolve } from "./resolve.js";
 import { validate } from "./semantic-validation.js";
 import type { Tally } from "./tally-types.js";
 import { checkWindow } from "./validation.js";
+import { refuse, unknownValueIn } from "./horizon-guard.js";
+import { coalesce, overlay, type ValuedStream } from "./valued-stream.js";
+import type { QueryWindow } from "./context.js";
 
-/**
- * The current query names. `at` is a deprecated alias for `countAt` and stays
- * in [tally.ts](./tally.ts), so nothing here has to name it.
- */
+/** Query methods for numeric values over time. */
 type TallyQueries = Pick<
   Tally,
-  "countAt" | "explain" | "least" | "totalBetween" | "counts" | "validate"
+  | "countAt"
+  | "explain"
+  | "minimumCount"
+  | "totalBetween"
+  | "countIntervals"
+  | "validate"
 >;
 
 /**
@@ -30,29 +36,19 @@ export function tallyQueries(
   read?: Omit<Context, "from" | "to">,
 ): TallyQueries {
   return {
-    countAt: (at) => countAt(document, at, read),
-    explain: (at) => explainTally(document, at, read),
-    least: (from, to) => leastValue(document, from, to, read),
-    totalBetween: (from, to, unit: ElapsedUnit) =>
-      accumulate(document, { ...read, from, to }, unit),
-    counts: (from, to) =>
-      resolve(
-        document,
-        to === undefined ? { ...read, from } : { ...read, from, to },
-      ),
-    validate: (from, to) => validate(document, { ...read, from, to }),
+    countAt: (at, options) =>
+      valueAt(document, at, { ...read, ...options }) ?? 0,
+    explain: (at, options) =>
+      explainTally(document, at, { ...read, ...options }),
+    minimumCount: (from, to, options) =>
+      leastValue(document, from, to, { ...read, ...options }),
+    totalBetween: (from, to, unit: ElapsedUnit, options) =>
+      accumulate(document, { ...read, ...options, from, to }, unit),
+    countIntervals: (from, to, options) =>
+      completeCounts(document, { ...read, ...options, from, to }),
+    validate: (from, to, options) =>
+      validate(document, { ...read, ...options, from, to }, options),
   };
-}
-
-const ZERO_DURATION = Temporal.Duration.from({ seconds: 0 });
-
-/** Returns the tally count at one instant. */
-export function countAt(
-  document: Cascade<number>,
-  at: Temporal.ZonedDateTime,
-  read?: Omit<Context, "from" | "to">,
-): number {
-  return valueAt(document, at, read) ?? 0;
 }
 
 /** Finds the lowest tally value across a complete time window. */
@@ -63,8 +59,13 @@ export function leastValue(
   read?: Omit<Context, "from" | "to">,
 ): number {
   checkWindow(from, to);
+  const context = { ...read, from, to };
+  const fog = unknownValueIn(document, context);
+  if (fog !== undefined) {
+    refuse("minimumCount()", fog, context, "unknownValueIntervals()");
+  }
   let lowest: number | undefined;
-  let covered = ZERO_DURATION;
+  let covered = Temporal.Duration.from({ seconds: 0 });
   for (const span of resolve(document, { ...read, from, to })) {
     lowest = lowest === undefined ? span.value : Math.min(lowest, span.value);
     const length = duration(span);
@@ -73,5 +74,30 @@ export function leastValue(
     }
   }
   const window = from.until(to, { largestUnit: "hour" });
-  return Temporal.Duration.compare(covered, window) < 0 ? 0 : (lowest ?? 0);
+  return Temporal.Duration.compare(covered, window) < 0
+    ? Math.min(0, lowest ?? 0)
+    : (lowest ?? 0);
+}
+
+/** Includes the tally's zero count wherever no contribution applies. */
+function completeCounts(
+  document: Cascade<number>,
+  context: QueryWindow,
+): ValuedStream<number> {
+  checkWindow(context.from, context.to);
+  requireWindowEnd(context, "countIntervals() needs a finite window with to.");
+  const fog = unknownValueIn(document, context);
+  if (fog !== undefined) {
+    refuse("countIntervals()", fog, context, "unknownValueIntervals()");
+  }
+  if (context.from.equals(context.to)) {
+    return [];
+  }
+  return coalesce(
+    overlay(
+      [{ start: context.from, end: context.to, value: 0 }],
+      resolve(document, context),
+      (_zero, count) => count,
+    ),
+  );
 }

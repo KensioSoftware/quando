@@ -19,8 +19,8 @@
  */
 
 import { all, inCalendar, inZone } from "./build.js";
-import { build, type Built } from "./built-rule.js";
-import type { Rule } from "./rule.js";
+import { build, type Rule } from "./built-rule.js";
+import type { RuleData } from "./rule.js";
 import { repeatedTerm, unreadableTerm } from "./terms-errors.js";
 import { type Contribution, readQualified } from "./terms-qualified.js";
 import { readShape } from "./terms-shapes.js";
@@ -28,7 +28,7 @@ import { nearestWord, QUALIFIERS } from "./terms-words.js";
 
 /** What the terms so far have said, as they are folded together. */
 interface Reading {
-  readonly rules: Rule[];
+  readonly rules: RuleData[];
   zone: string | undefined;
   calendar: string | undefined;
 }
@@ -37,10 +37,10 @@ interface Reading {
  * The rule a line of terms names.
  *
  * ```ts
- * parseTerms("mon-fri 09:00-17:00 @Europe/London except:2026-12-25");
+ * parseRuleExpression("mon-fri 09:00-17:00 @Europe/London except:2026-12-25");
  * ```
  */
-export function parseTerms(input: string): Built<Rule> {
+export function parseRuleExpression(input: string): Rule {
   const terms = input.split(/\s+/u).filter((term) => term !== "");
   if (terms.length === 0) {
     throw new RangeError(
@@ -79,7 +79,7 @@ function add(reading: Reading, contribution: Contribution): void {
  * The zone goes outermost so that a calendar inside it is read on the clock
  * the line named. `explainRule` reads a scope in that order too.
  */
-function assembled(reading: Reading): Built<Rule> {
+function assembled(reading: Reading): Rule {
   const [only, ...rest] = reading.rules;
   const met =
     only === undefined ? all() : rest.length === 0 ? only : all(only, ...rest);

@@ -53,7 +53,7 @@ function describeSpacing(
     : `The nearest occurrence is ${away} away, which is closer than the ${least} allowed.`;
 }
 
-const NO_TIME = Temporal.Duration.from({ seconds: 0 });
+const NO_TIME: Temporal.DurationLike = { seconds: 0 };
 
 /**
  * How far the closest occurrence is, either side of an instant.
@@ -88,5 +88,5 @@ function distanceTo(
   const finished = endOf(one);
   return Temporal.ZonedDateTime.compare(at, finished) >= 0
     ? finished.until(at)
-    : NO_TIME;
+    : Temporal.Duration.from(NO_TIME);
 }

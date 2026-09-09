@@ -12,10 +12,10 @@
  * code holding that table can.
  */
 
-import { build, type Built } from "./built-rule.js";
+import { build, type Rule } from "./built-rule.js";
 import { startOfDay } from "./calendar-walk.js";
 import { type Context, zoneOf } from "./context.js";
-import type { CustomRule, KnownRule, Rule } from "./rule.js";
+import type { CustomRule, KnownRule, RuleData } from "./rule.js";
 import { asDate, asZone } from "./validation.js";
 
 /**
@@ -31,9 +31,9 @@ import { asDate, asZone } from "./validation.js";
  */
 export function knownThrough(
   through: string,
-  rule: Rule,
+  rule: RuleData,
   zone?: string,
-): Built<KnownRule> {
+): Rule<KnownRule> {
   return build({
     type: "known",
     through: asDate(through, "through"),
@@ -60,7 +60,7 @@ export function customHorizonAt(
   rule: CustomRule,
   context: Context,
 ): Temporal.ZonedDateTime | undefined {
-  const declared = context.rules?.[rule.name]?.known?.(rule.options);
+  const declared = context.rules?.[rule.name]?.knownThrough?.(rule.options);
   return declared === undefined
     ? undefined
     : endOfDay(declared, zoneOf(context, rule.zone), context);

@@ -11,11 +11,11 @@ import {
   all,
   always,
   any,
-  between,
+  datesBetween,
   dates,
   daysOfMonth,
   daysOfWeek,
-  every,
+  everyNthPeriod,
   inZone,
   monthsOfYear,
   never,
@@ -23,20 +23,20 @@ import {
   not,
   onOrAfter,
   onOrBefore,
-  timeOfDay,
+  timeOfDayRange,
   weekdays,
   weekends,
 } from "./build.js";
 import { intervals } from "./interpret.js";
 import { parseRule } from "./parse.js";
-import type { Month, Period, Rule, Weekday } from "./rule.js";
+import type { Month, Period, RuleData, Weekday } from "./rule.js";
 
 describe("the builder", () => {
   /** Monday 2026-03-09 to the Monday after it. */
   const WEEK = inWindow("2026-03-09T00:00", "2026-03-16T00:00");
 
   /** Keeps an assertion about the rule and off the plumbing. */
-  const read = (rule: Rule, context = WEEK): string =>
+  const read = (rule: RuleData, context = WEEK): string =>
     render(intervals(rule, context));
 
   describe("a built rule", () => {
@@ -59,7 +59,7 @@ describe("the builder", () => {
       const parsed = parseRule(stored);
 
       // When the restored rule is extended with opening hours.
-      const office = parsed.and(timeOfDay("09:00", "17:00"));
+      const office = parsed.and(timeOfDayRange("09:00", "17:00"));
 
       // Then it retains the fluent API and covers the expected week.
       assertArrayLength(read(office).split(" "), 5);
@@ -67,7 +67,7 @@ describe("the builder", () => {
 
     it("is the document it stands for, with the methods left out", () => {
       // Given office hours built through the fluent form.
-      const rule = weekdays().and(timeOfDay("09:00", "17:00"));
+      const rule = weekdays().and(timeOfDayRange("09:00", "17:00"));
 
       // When it is serialised.
       // Then out comes the object literal it stands for. JSON.stringify drops
@@ -89,7 +89,7 @@ describe("the builder", () => {
 
     it("keeps its literal type through the builder", () => {
       // Given the same rule.
-      const rule = weekdays().and(timeOfDay("09:00", "17:00"));
+      const rule = weekdays().and(timeOfDayRange("09:00", "17:00"));
 
       // When its type tag is read.
       // Then it is the literal `"all"` and not `string`, so an interpreter can
@@ -103,14 +103,14 @@ describe("the builder", () => {
       // Given a built rule assigned straight to the plain type.
       // When its tag is read.
       // Then it holds, with no build step in between.
-      const rule: Rule = weekends();
+      const rule: RuleData = weekends();
 
       assertIdentical(rule.type, "daysOfWeek");
     });
 
     it("survives a round trip through JSON unchanged", () => {
       // Given a built rule, stored and read back through the parser.
-      const built = weekdays().and(timeOfDay("09:00", "17:00"));
+      const built = weekdays().and(timeOfDayRange("09:00", "17:00"));
       const stored = JSON.stringify(built);
       const parsed = parseRule(JSON.parse(stored));
 
@@ -125,8 +125,8 @@ describe("the builder", () => {
       // Given malformed times, equal endpoints, dates, and zones.
       // When each is passed to a builder.
       // Then each fails before a query starts.
-      assertThrowsError(() => timeOfDay("breakfast", "17:00"));
-      assertThrowsError(() => timeOfDay("09:00", "09:00"));
+      assertThrowsError(() => timeOfDayRange("breakfast", "17:00"));
+      assertThrowsError(() => timeOfDayRange("09:00", "09:00"));
       assertThrowsError(() => dates("Christmas"));
       assertThrowsError(() => daysOfWeek("monday", "funday" as Weekday));
       assertThrowsError(() => inZone("Mars/Olympus", weekdays()));
@@ -158,7 +158,7 @@ describe("the builder", () => {
       // When each is passed to a builder.
       // Then each fails where it is written. A backwards range covers no time
       // and almost always means the arguments were swapped.
-      assertThrowsError(() => between("2026-04-30", "2026-04-01"));
+      assertThrowsError(() => datesBetween("2026-04-30", "2026-04-01"));
       assertThrowsError(() => onOrAfter("Christmas"));
       assertThrowsError(() => onOrBefore("2026-13-45"));
     });
@@ -169,16 +169,18 @@ describe("the builder", () => {
       // When each is passed to the builder.
       // Then each fails where it is written.
       const anchor = { anchor: "2026-03-09" };
-      assertThrowsError(() => every(0, "weeks", anchor));
-      assertThrowsError(() => every(1.5, "weeks", anchor));
-      assertThrowsError(() => every(-2, "weeks", anchor));
-      assertThrowsError(() => every(2, "week" as Period, anchor));
-      assertThrowsError(() => every(2, "weeks", { anchor: "Christmas" }));
+      assertThrowsError(() => everyNthPeriod(0, "weeks", anchor));
+      assertThrowsError(() => everyNthPeriod(1.5, "weeks", anchor));
+      assertThrowsError(() => everyNthPeriod(-2, "weeks", anchor));
+      assertThrowsError(() => everyNthPeriod(2, "week" as Period, anchor));
+      assertThrowsError(() =>
+        everyNthPeriod(2, "weeks", { anchor: "Christmas" }),
+      );
     });
 
     it("runs a fortnightly meeting from an anchor and a weekday", () => {
       // Given the fortnightly cycle a real meeting is written as.
-      const meeting = every(2, "weeks", { anchor: "2026-03-09" }).and(
+      const meeting = everyNthPeriod(2, "weeks", { anchor: "2026-03-09" }).and(
         daysOfWeek("monday"),
       );
       const month = inWindow("2026-03-09T00:00", "2026-04-13T00:00");
@@ -197,7 +199,7 @@ describe("the builder", () => {
       // Given the same fortnightly meeting, starting in April. The anchor sets
       // the phase and covers time before it, so a start date is a separate
       // rule and the two compose.
-      const meeting = every(2, "weeks", { anchor: "2026-03-09" })
+      const meeting = everyNthPeriod(2, "weeks", { anchor: "2026-03-09" })
         .and(daysOfWeek("monday"))
         .and(onOrAfter("2026-03-23"));
       const month = inWindow("2026-03-09T00:00", "2026-04-13T00:00");
@@ -221,7 +223,10 @@ describe("the builder", () => {
       // Then the cycle turns over on Tokyo's midnight rather than London's.
       assertIdentical(
         read(
-          every(2, "weeks", { anchor: "2026-03-09", zone: "Asia/Tokyo" }),
+          everyNthPeriod(2, "weeks", {
+            anchor: "2026-03-09",
+            zone: "Asia/Tokyo",
+          }),
           days,
         ),
         "[2026-03-08T15:00:00,2026-03-10T00:00:00)",
@@ -234,7 +239,7 @@ describe("the builder", () => {
       // Then it covers that whole day rather than nothing.
       const april = inWindow("2026-04-01T00:00", "2026-05-01T00:00");
       assertIdentical(
-        read(between("2026-04-10", "2026-04-10"), april),
+        read(datesBetween("2026-04-10", "2026-04-10"), april),
         "[2026-04-10T00:00:00,2026-04-11T00:00:00)",
       );
     });
@@ -248,14 +253,14 @@ describe("the builder", () => {
       // When it is read.
       // Then the interval is Tokyo's day on London's clock.
       assertIdentical(
-        read(between("2026-04-01", "2026-04-01", "Asia/Tokyo"), april),
+        read(datesBetween("2026-04-01", "2026-04-01", "Asia/Tokyo"), april),
         "[2026-04-01T00:00:00,2026-04-01T16:00:00)",
       );
     });
 
     it("takes a zone on a one-sided bound too", () => {
       // Given a start and an end in Tokyo, which is nine hours ahead. Both
-      // one-sided builders take a zone the way `between` does.
+      // one-sided builders take a zone the way `datesBetween` does.
       const twoDays = inWindow("2026-04-01T00:00", "2026-04-03T00:00");
 
       // When each is read from a London context.
@@ -273,7 +278,9 @@ describe("the builder", () => {
     it("bounds opening hours to a season", () => {
       // Given weekend hours that only run over the summer, which is the shape
       // this rule exists for.
-      const summerOnly = weekends().and(between("2026-06-01", "2026-08-31"));
+      const summerOnly = weekends().and(
+        datesBetween("2026-06-01", "2026-08-31"),
+      );
       const may = inWindow("2026-05-01T00:00", "2026-06-01T00:00");
       const june = inWindow("2026-06-01T00:00", "2026-06-15T00:00");
 
@@ -312,7 +319,9 @@ describe("the builder", () => {
     it("ands", () => {
       // Given weekdays intersected with office hours.
       // When the week is read.
-      const days = read(weekdays().and(timeOfDay("09:00", "17:00"))).split(" ");
+      const days = read(weekdays().and(timeOfDayRange("09:00", "17:00"))).split(
+        " ",
+      );
 
       // Then five working days come back, one per weekday.
       assertArrayLength(days, 5);
@@ -334,7 +343,7 @@ describe("the builder", () => {
     it("excepts, which is the shape a schedule with holidays actually has", () => {
       // Given office hours with one day taken out of them.
       const open = weekdays()
-        .and(timeOfDay("09:00", "17:00"))
+        .and(timeOfDayRange("09:00", "17:00"))
         .except(dates("2026-03-11"));
 
       // When the week is read.
@@ -393,7 +402,7 @@ describe("the builder", () => {
         "2026-03-10T00:00",
         "Asia/Tokyo",
       );
-      const london = inZone("Europe/London", timeOfDay("09:00", "17:00"));
+      const london = inZone("Europe/London", timeOfDayRange("09:00", "17:00"));
 
       // When the rule is serialised, and read over that day.
       // Then the zone is in the document, and the Tokyo day catches the tail of
@@ -411,7 +420,7 @@ describe("the builder", () => {
       // When the rule is serialised.
       // Then the document is the same either way.
       assertIdentical(
-        JSON.stringify(timeOfDay("09:00", "17:00", "Europe/London")),
+        JSON.stringify(timeOfDayRange("09:00", "17:00", "Europe/London")),
         '{"type":"timeOfDay","from":"09:00","to":"17:00","zone":"Europe/London"}',
       );
     });
@@ -423,7 +432,7 @@ describe("the builder", () => {
       // JSON anyway, and would make two equivalent rules compare as different
       // documents on the way in.
       assertIdentical(
-        JSON.stringify(timeOfDay("09:00", "17:00")),
+        JSON.stringify(timeOfDayRange("09:00", "17:00")),
         '{"type":"timeOfDay","from":"09:00","to":"17:00"}',
       );
     });
@@ -433,7 +442,7 @@ describe("the builder", () => {
       // days then excepted out.
       const rule = daysOfWeek("monday")
         .or(daysOfWeek("wednesday"))
-        .and(timeOfDay("09:00", "12:00"))
+        .and(timeOfDayRange("09:00", "12:00"))
         .except(dates("2026-03-09"));
 
       // When it is read.
@@ -445,7 +454,7 @@ describe("the builder", () => {
       // Given London office hours grouped under one zone.
       const london = inZone(
         "Europe/London",
-        weekdays().and(timeOfDay("09:00", "17:00")),
+        weekdays().and(timeOfDayRange("09:00", "17:00")),
       );
       const tokyo = inWindow(
         "2026-03-09T00:00",

@@ -3,7 +3,11 @@
 An explanation says what a schedule, rota, tally, or cascade resolved to, why
 its contributing rules applied, and why other rules did not.
 
-## Read a complete explanation
+`summary` gives one result sentence. `details` contains the full readable trace,
+including labels and skipped layers. `steps` and `skipped` retain the structured
+trace. Domain explanations throw `BeyondHorizonError` when the value is unknown.
+
+## Read an explanation
 
 Call `explain` with the same instant you would pass to `isOpen`:
 
@@ -19,7 +23,7 @@ const christmasMorning = Temporal.ZonedDateTime.from(
 );
 const explanation = openingHours.explain(christmasMorning);
 
-console.log(explanation.summary);
+console.log(explanation.details);
 ```
 
 ```text
@@ -35,7 +39,7 @@ account of `daysOfMonth(1)` inside `inCalendar("hebrew", ...)` reads the Hebrew
 day of the month, and the wrapper says which calendar that was.
 
 `explanation.value` contains the same result as `isOpen`. A schedule always
-returns `true` or `false`. An unmatched schedule is closed and its summary
+returns `true` or `false`. An unmatched schedule is closed and its details
 describes why each candidate layer did not apply.
 
 ## Add business context
@@ -64,7 +68,7 @@ The same final options object works with rota and tally methods:
 import { rota, tally, weekdays } from "@kensio/quando";
 
 const onCall = rota().assign(weekdays(), "alice", {
-  label: "Primary support",
+  label: "Primary possibleValues",
   comment: "Alice handles weekday incidents.",
 });
 
@@ -91,7 +95,7 @@ console.log(final?.description);
 
 console.log(final?.match);
 // {
-//   matched: true,
+//   status: "matched",
 //   description: "The date is 2026-12-25.",
 //   conditions: [],
 //   rule: { type: "dates", dates: ["2026-12-25"] }
@@ -125,7 +129,7 @@ import { cascade, explain, explainRule, layer } from "@kensio/quando/core";
 
 const weekdayMatch = explainRule(weekdays(), christmasMorning);
 const onCall = cascade(
-  layer(weekdays(), "alice", { label: "Primary support" }),
+  layer(weekdays(), "alice", { label: "Primary possibleValues" }),
 );
 const assignment = explain(onCall, christmasMorning);
 ```
@@ -140,6 +144,6 @@ and [validation](../validation/) for inactive or shadowed layers.
 <!-- card
 ```ts
 const explanation = openingHours.explain(at);
-console.log(explanation.summary);
+console.log(explanation.details);
 ```
 -->

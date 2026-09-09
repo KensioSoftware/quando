@@ -1,100 +1,78 @@
-/**
- * Building the rules that count what has already happened.
- *
- * One argument says which window a cap counts in, and its shape says which
- * kind. `atMost(4, "days")` is four a day, and the count starts again at
- * midnight. `atMost(4, "PT24H")` is four in any twenty-four hours, and the
- * oldest falls out the far end as time passes. The document keeps the two in
- * separate fields, where every reader of it sees the same thing.
- */
-
-import { build, type Built } from "./built-rule.js";
-import {
-  type AtMostRule,
-  type AtMostTimeRule,
-  PERIODS,
-  type SpacedByRule,
+import { build, type Rule } from "./built-rule.js";
+import { asDuration, type DurationInput } from "./duration-input.js";
+import type {
+  AtMostRule,
+  AtMostTimeRule,
+  Period,
+  SpacedByRule,
 } from "./rule.js";
 import { asCount, asExactGap, asGap } from "./occurrence-validation.js";
 import { asPeriod, asZone } from "./validation.js";
 
-/** Options for a cap. */
-export interface AtMostOptions {
+/** Calendar buckets restart at the beginning of each named period. */
+export type CalendarPeriod = "day" | "week" | "month" | "year";
+
+/** A cap counts either calendar buckets or rolling windows. */
+export type AtMostOptions = {
   readonly zone?: string;
+} & (
+  | { readonly per: CalendarPeriod; readonly within?: never }
+  | { readonly within: DurationInput; readonly per?: never }
+);
+
+type CountWindow =
+  | { readonly per: Period; readonly within?: undefined }
+  | { readonly within: string; readonly per?: undefined };
+
+function countWindow(options: AtMostOptions, exact: boolean): CountWindow {
+  if ((options.per === undefined) === (options.within === undefined)) {
+    throw new TypeError("A cap needs exactly one of per or within.");
+  }
+  if (options.per !== undefined) {
+    return { per: asPeriod(`${options.per}s`, "per") };
+  }
+  const duration = asDuration(options.within).toString();
+  return {
+    within: exact ? asExactGap(duration, "within") : asGap(duration, "within"),
+  };
 }
 
-/**
- * At most `count` occurrences in each window.
- *
- * `per` is a calendar period (`"days"`, `"weeks"`, `"months"`, `"years"`) for
- * buckets that reset, or an ISO duration (`"PT24H"`, `"P180D"`) for a rolling
- * window that does not.
- */
-export function atMost(
+function capZone(options: AtMostOptions): { readonly zone?: string } {
+  return options.zone === undefined
+    ? {}
+    : { zone: asZone(options.zone, "zone") };
+}
+
+/** Limits the number of occurrences in a calendar bucket or rolling window. */
+export function atMostOccurrences(
   count: number,
-  per: string,
-  options: AtMostOptions = {},
-): Built<AtMostRule> {
-  const checked = asCount(count, "count");
-  const zone =
-    options.zone === undefined ? {} : { zone: asZone(options.zone, "zone") };
-
-  return build(
-    isPeriodWord(per)
-      ? { type: "atMost", count: checked, per: asPeriod(per, "per"), ...zone }
-      : { type: "atMost", count: checked, within: asGap(per, "per"), ...zone },
-  );
+  options: AtMostOptions,
+): Rule<AtMostRule> {
+  return build({
+    type: "atMost",
+    count: asCount(count, "count"),
+    ...countWindow(options, false),
+    ...capZone(options),
+  });
 }
 
-function isPeriodWord(per: string): boolean {
-  return PERIODS.some((period) => period === per);
+/** Limits occupied elapsed time. Overlapping occurrences count once. */
+export function atMostOccupiedTime(
+  total: DurationInput,
+  options: AtMostOptions,
+): Rule<AtMostTimeRule> {
+  return build({
+    type: "atMostTime",
+    total: asExactGap(asDuration(total).toString(), "total"),
+    ...countWindow(options, true),
+    ...capZone(options),
+  });
 }
 
-/**
- * At most `total` time occupied in each window.
- *
- * The sibling of {@link atMost}, capping how long things went on rather than
- * how many there were. `atMostTime("P90D", "P180D")` is ninety days in any
- * rolling one hundred and eighty, and `atMostTime("PT56H", "weeks")` is
- * fifty-six hours a week.
- *
- * Both durations are exact time. Years, months and weeks are refused, and a
- * day is read as 24 hours. An occurrence with no `lasting` takes no time and
- * fills nothing.
- */
-export function atMostTime(
-  total: string,
-  per: string,
-  options: AtMostOptions = {},
-): Built<AtMostTimeRule> {
-  const checked = asExactGap(total, "total");
-  const zone =
-    options.zone === undefined ? {} : { zone: asZone(options.zone, "zone") };
-
-  return build(
-    isPeriodWord(per)
-      ? {
-          type: "atMostTime",
-          total: checked,
-          per: asPeriod(per, "per"),
-          ...zone,
-        }
-      : {
-          type: "atMostTime",
-          total: checked,
-          within: asExactGap(per, "per"),
-          ...zone,
-        },
-  );
-}
-
-/**
- * Occurrences at least `gap` apart, written as an ISO duration.
- *
- * Measured from the end of one to the start of the next, and read both ways
- * round, so an instant too close before an occurrence is refused the same as
- * one too close after.
- */
-export function spacedBy(gap: string): Built<SpacedByRule> {
-  return build({ type: "spacedBy", gap: asGap(gap, "gap") });
+/** Requires a gap from one occurrence's end to the next occurrence's start. */
+export function minimumGap(gap: DurationInput): Rule<SpacedByRule> {
+  return build({
+    type: "spacedBy",
+    gap: asGap(asDuration(gap).toString(), "gap"),
+  });
 }

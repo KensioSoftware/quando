@@ -8,8 +8,8 @@
  * could be read twice and mean two things.
  */
 
-import { every } from "./build.js";
-import type { Period, Rule } from "./rule.js";
+import { everyNthPeriod } from "./build.js";
+import type { Period, RuleData } from "./rule.js";
 import { badTerm } from "./terms-errors.js";
 
 /** The units a cycle can be counted in, written short or long. */
@@ -36,7 +36,7 @@ const PERIOD_WORDS: Readonly<Record<string, Period>> = {
  * implied anchor would mean a different set of weeks depending on when the
  * string was read.
  */
-export function readCycle(term: string, at: string, value: string): Rule {
+export function readCycle(term: string, at: string, value: string): RuleData {
   const parts = value.split("@");
   const [count = "", anchor] = parts;
   if (parts.length !== 2 || anchor === undefined || anchor === "") {
@@ -59,5 +59,5 @@ export function readCycle(term: string, at: string, value: string): Rule {
         '"m" is not one of them, because it reads as minutes as often as months',
     );
   }
-  return every(Number(digits), period, { anchor });
+  return everyNthPeriod(Number(digits), period, { anchor });
 }

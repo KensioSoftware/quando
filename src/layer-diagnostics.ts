@@ -3,9 +3,9 @@
 import { all, always, any, not } from "./build.js";
 import type { Cascade, Layer } from "./cascade.js";
 import { intervals } from "./interpret.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 import type {
-  ValidationDiagnostic,
+  DiagnosticFinding,
   ValidationWindow,
 } from "./semantic-validation.js";
 
@@ -13,17 +13,17 @@ import type {
 export function layerDiagnostics(
   cascade: Cascade<unknown>,
   window: ValidationWindow,
-): readonly ValidationDiagnostic[] {
+): readonly DiagnosticFinding[] {
   return inspectLayers(cascade, window, always(), "");
 }
 
 function inspectLayers(
   cascade: Cascade<unknown>,
   window: ValidationWindow,
-  region: Rule,
+  region: RuleData,
   prefix: string,
-): readonly ValidationDiagnostic[] {
-  const diagnostics: ValidationDiagnostic[] = [];
+): readonly DiagnosticFinding[] {
+  const diagnostics: DiagnosticFinding[] = [];
   for (const [index, layer] of cascade.layers.entries()) {
     const path = `${prefix}layers[${index}]`;
     const scope = all(region, layer.scope);
@@ -57,7 +57,7 @@ function visibleScope(
   cascade: Cascade<unknown>,
   layer: Layer<unknown>,
   index: number,
-): Rule {
+): RuleData {
   const above = cascade.layers.slice(index + 1);
   const hiding =
     cascade.merge === undefined || cascade.merge === "override"

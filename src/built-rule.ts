@@ -1,24 +1,24 @@
 import { withMethods } from "./fluent.js";
-import type { AllRule, AnyRule, Rule } from "./rule.js";
+import type { AllRule, AnyRule, RuleData } from "./rule.js";
 
 /** A rule, plus the methods for combining it with others. */
-export type Built<R extends Rule> = R & {
+export type Rule<R extends RuleData = RuleData> = R & {
   /** Both this and the others must hold. */
-  readonly and: (...others: readonly Rule[]) => Built<AllRule>;
+  readonly and: (...others: readonly RuleData[]) => Rule<AllRule>;
   /** This or any of the others. */
-  readonly or: (...others: readonly Rule[]) => Built<AnyRule>;
+  readonly or: (...others: readonly RuleData[]) => Rule<AnyRule>;
   /** This rule without the times covered by any of the others. */
-  readonly except: (...others: readonly Rule[]) => Built<AllRule>;
+  readonly except: (...others: readonly RuleData[]) => Rule<AllRule>;
 };
 
 /** Attaches fluent combination methods to a rule document. */
-export function build<R extends Rule>(node: R): Built<R> {
-  const self: Built<R> = withMethods(node, {
-    and: (...others: readonly Rule[]) =>
+export function build<R extends RuleData>(node: R): Rule<R> {
+  const self: Rule<R> = withMethods(node, {
+    and: (...others: readonly RuleData[]) =>
       build({ type: "all", rules: [self, ...others] }),
-    or: (...others: readonly Rule[]) =>
+    or: (...others: readonly RuleData[]) =>
       build({ type: "any", rules: [self, ...others] }),
-    except: (...others: readonly Rule[]) =>
+    except: (...others: readonly RuleData[]) =>
       build({
         type: "all",
         rules: [

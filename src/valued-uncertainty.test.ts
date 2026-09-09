@@ -7,13 +7,13 @@ import {
 } from "@kensio/smartass";
 import { describe, it } from "vitest";
 
-import { assigned, nextValue, valueAt } from "./assigned.js";
+import { assigned, nextValueInterval, valueAt } from "./assigned.js";
 import { always, dates, weekdays } from "./build.js";
 import type { Cascade } from "./cascade.js";
 import { BeyondHorizonError } from "./horizon-guard.js";
 import { knownThrough } from "./horizon.js";
-import { activeAt } from "./query.js";
-import { resolve, uncertainValues } from "./resolve.js";
+import { isActiveAt } from "./query.js";
+import { resolve, unknownValueIntervals } from "./resolve.js";
 
 describe("a cascade whose layers run out of data", () => {
   /** Christmas, from a table loaded only as far as 2026. */
@@ -43,7 +43,7 @@ describe("a cascade whose layers run out of data", () => {
         renderValued(resolve(roster, BEYOND)),
         "[2029-04-02T00:00:00,2029-04-07T00:00:00)=open",
       );
-      assertIdentical(render(uncertainValues(roster, BEYOND)), "");
+      assertIdentical(render(unknownValueIntervals(roster, BEYOND)), "");
     });
   });
 
@@ -64,7 +64,7 @@ describe("a cascade whose layers run out of data", () => {
       // "closed" to any moment of it, weekend included.
       assertIdentical(renderValued(resolve(schedule, BEYOND)), "");
       assertIdentical(
-        render(uncertainValues(schedule, BEYOND)),
+        render(unknownValueIntervals(schedule, BEYOND)),
         "[2029-04-02T00:00:00,2029-04-09T00:00:00)",
       );
     });
@@ -77,7 +77,7 @@ describe("a cascade whose layers run out of data", () => {
         renderValued(resolve(schedule, WITHIN)),
         "[2026-03-09T00:00:00,2026-03-14T00:00:00)=open",
       );
-      assertIdentical(render(uncertainValues(schedule, WITHIN)), "");
+      assertIdentical(render(unknownValueIntervals(schedule, WITHIN)), "");
     });
 
     it("refuses to say what holds at a moment it cannot settle", () => {
@@ -109,7 +109,7 @@ describe("a cascade whose layers run out of data", () => {
         renderValued(resolve(covered, BEYOND)),
         "[2029-04-02T00:00:00,2029-04-09T00:00:00)=open",
       );
-      assertIdentical(render(uncertainValues(covered, BEYOND)), "");
+      assertIdentical(render(unknownValueIntervals(covered, BEYOND)), "");
     });
 
     it("leaves only the part no settled layer reaches", () => {
@@ -130,7 +130,7 @@ describe("a cascade whose layers run out of data", () => {
         "[2029-04-02T00:00:00,2029-04-07T00:00:00)=open",
       );
       assertIdentical(
-        render(uncertainValues(partly, BEYOND)),
+        render(unknownValueIntervals(partly, BEYOND)),
         "[2029-04-07T00:00:00,2029-04-09T00:00:00)",
       );
     });
@@ -153,7 +153,7 @@ describe("a cascade whose layers run out of data", () => {
       // and one of them cannot be vouched for.
       assertIdentical(renderValued(resolve(headcount, BEYOND)), "");
       assertIdentical(
-        render(uncertainValues(headcount, BEYOND)),
+        render(unknownValueIntervals(headcount, BEYOND)),
         "[2029-04-02T00:00:00,2029-04-09T00:00:00)",
       );
     });
@@ -184,7 +184,7 @@ describe("a cascade whose layers run out of data", () => {
 
     it("refuses a search that would run through the fog", () => {
       // Given a window opening past the horizon.
-      const asking = (): unknown => nextValue(schedule, BEYOND);
+      const asking = (): unknown => nextValueInterval(schedule, BEYOND);
 
       // Then it refuses, because an unsettled stretch might have been the
       // answer.
@@ -196,7 +196,7 @@ describe("a cascade whose layers run out of data", () => {
       const open = assigned(schedule, "open");
 
       // When a Tuesday past the horizon is asked about.
-      const asking = (): boolean => activeAt(open, when("2029-04-03T10:00"));
+      const asking = (): boolean => isActiveAt(open, when("2029-04-03T10:00"));
 
       // Then it refuses, the same way the cascade itself does.
       assertInstanceOf(assertThrowsError(asking), BeyondHorizonError);
@@ -226,7 +226,7 @@ describe("a cascade whose layers run out of data", () => {
       // it and the base hours would then be out of the way.
       assertIdentical(renderValued(resolve(nested, BEYOND)), "");
       assertIdentical(
-        render(uncertainValues(nested, BEYOND)),
+        render(unknownValueIntervals(nested, BEYOND)),
         "[2029-04-02T00:00:00,2029-04-09T00:00:00)",
       );
     });

@@ -8,17 +8,17 @@ import {
 import { describe, it } from "vitest";
 
 import { accumulate, type ElapsedUnit } from "./accumulate.js";
-import { dates, timeOfDay, weekdays } from "./build.js";
+import { dates, timeOfDayRange, weekdays } from "./build.js";
 import { layer, merged } from "./cascade.js";
 
 describe("accumulating values over time", () => {
   const week = inWindow("2026-03-09T00:00", "2026-03-16T00:00");
-  const workingHours = weekdays().and(timeOfDay("09:00", "17:00"));
+  const workingHours = weekdays().and(timeOfDayRange("09:00", "17:00"));
 
   it("adds each value multiplied by how long it applies", () => {
     // Given three people throughout the working week and two extra people for
     // Wednesday's eight-hour shift.
-    const wednesday = dates("2026-03-11").and(timeOfDay("09:00", "17:00"));
+    const wednesday = dates("2026-03-11").and(timeOfDayRange("09:00", "17:00"));
     const staffing = merged("sum", layer(workingHours, 3), layer(wednesday, 2));
 
     // When the staffing is totalled in hours.
@@ -74,6 +74,7 @@ describe("accumulating values over time", () => {
 
     // When the open-ended value is accumulated.
     const error = assertThrowsError(() =>
+      // @ts-expect-error A missing end is also rejected for JavaScript callers.
       accumulate(staffing, openEnded, "hour"),
     );
 

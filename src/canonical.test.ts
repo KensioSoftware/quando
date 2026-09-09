@@ -6,29 +6,29 @@ import {
   all,
   always,
   any,
-  between,
-  custom,
+  datesBetween,
+  customRule,
   dates,
   daysOfMonth,
   daysOfWeek,
-  every,
+  everyNthPeriod,
   inZone,
   monthsOfYear,
   never,
   nthDayOfWeekInMonth,
   not,
   onOrAfter,
-  timeOfDay,
+  timeOfDayRange,
   weekdays,
 } from "./build.js";
-import { canonical, equals, fingerprint } from "./canonical.js";
+import { canonical, sameDefinition, fingerprint } from "./canonical.js";
 import { parseRule } from "./parse.js";
 import { cascade, layer, merged, replace, whenever } from "./cascade.js";
-import type { Rule } from "./rule.js";
+import type { RuleData } from "./rule.js";
 
 describe("putting a rule in canonical form", () => {
   /** What a rule looks like once canonicalised. */
-  const formOf = (rule: Rule): string => JSON.stringify(canonical(rule));
+  const formOf = (rule: RuleData): string => JSON.stringify(canonical(rule));
 
   describe("flattening", () => {
     it("lifts a nested all into the one around it", () => {
@@ -174,7 +174,7 @@ describe("putting a rule in canonical form", () => {
       // When both are canonicalised.
       // Then they stay two rules. Deciding they are one means knowing which
       // month is being asked about, and canonical form never evaluates.
-      assertFalse(equals(daysOfMonth(-1), daysOfMonth(31)));
+      assertFalse(sameDefinition(daysOfMonth(-1), daysOfMonth(31)));
     });
 
     it("orders the weekdays of an occurrence and keeps the count", () => {
@@ -197,7 +197,7 @@ describe("putting a rule in canonical form", () => {
       // Then they stay two rules, for the same reason the last day of the
       // month stays apart from the 31st.
       assertFalse(
-        equals(
+        sameDefinition(
           nthDayOfWeekInMonth(-1, "friday"),
           nthDayOfWeekInMonth(4, "friday"),
         ),
@@ -219,7 +219,7 @@ describe("putting a rule in canonical form", () => {
 
     it("writes the anchor of a cycle one way", () => {
       // Given the same fortnightly cycle with the anchor written the long way.
-      const written = every(2, "weeks", { anchor: "2026-03-09" });
+      const written = everyNthPeriod(2, "weeks", { anchor: "2026-03-09" });
       const same = parseRule({
         type: "every",
         interval: 2,
@@ -229,7 +229,7 @@ describe("putting a rule in canonical form", () => {
 
       // When both are canonicalised.
       // Then they compare equal.
-      assertTrue(equals(written, same));
+      assertTrue(sameDefinition(written, same));
     });
 
     it("keeps two cycles on different phases apart", () => {
@@ -238,16 +238,16 @@ describe("putting a rule in canonical form", () => {
       // When both are canonicalised.
       // Then they stay two rules. The anchor is part of what the rule says.
       assertFalse(
-        equals(
-          every(2, "weeks", { anchor: "2026-03-09" }),
-          every(2, "weeks", { anchor: "2026-03-16" }),
+        sameDefinition(
+          everyNthPeriod(2, "weeks", { anchor: "2026-03-09" }),
+          everyNthPeriod(2, "weeks", { anchor: "2026-03-16" }),
         ),
       );
     });
 
     it("writes the ends of a range one way", () => {
       // Given the same range with one end written the long way round.
-      const written = between("2026-04-01", "2026-04-30");
+      const written = datesBetween("2026-04-01", "2026-04-30");
       const same = parseRule({
         type: "dateRange",
         from: "2026-04-01",
@@ -256,7 +256,7 @@ describe("putting a rule in canonical form", () => {
 
       // When both are canonicalised.
       // Then they compare equal, and an open end stays absent.
-      assertTrue(equals(written, same));
+      assertTrue(sameDefinition(written, same));
       assertIdentical(
         formOf(onOrAfter("2026-04-01")),
         '{"type":"dateRange","from":"2026-04-01"}',
@@ -289,19 +289,19 @@ describe("putting a rule in canonical form", () => {
     it("reads two spellings of a time as one", () => {
       // Given the same window written with and without seconds, which is what
       // one hand-written rule and one machine-written rule look like.
-      const written = timeOfDay("09:00", "17:00");
-      const spelledOut = timeOfDay("09:00:00", "17:00:00");
+      const written = timeOfDayRange("09:00", "17:00");
+      const spelledOut = timeOfDayRange("09:00:00", "17:00:00");
 
       // When both are canonicalised.
       // Then they agree.
-      assertTrue(equals(written, spelledOut));
+      assertTrue(sameDefinition(written, spelledOut));
     });
 
     it("leaves a value it cannot read alone", () => {
       // Given a rule holding a time that will not parse, as a bad database
       // row would. Canonical form is used for cache keys, so it has to be
       // total. `parseRule` is the place that refuses a document.
-      const broken: Rule = {
+      const broken: RuleData = {
         type: "timeOfDay",
         from: "half five",
         to: "17:00",
@@ -331,7 +331,7 @@ describe("putting a rule in canonical form", () => {
         formOf(london),
         '{"type":"inZone","zone":"Europe/London","rule":{"type":"daysOfWeek","days":["monday","tuesday"]}}',
       );
-      assertFalse(equals(london, tokyo));
+      assertFalse(sameDefinition(london, tokyo));
     });
 
     it("keeps the ends of a window in the order they were written", () => {
@@ -340,7 +340,7 @@ describe("putting a rule in canonical form", () => {
       // Then the ends are left where they are. Sorting them would turn a
       // night shift into a day.
       assertIdentical(
-        formOf(timeOfDay("22:00", "06:00")),
+        formOf(timeOfDayRange("22:00", "06:00")),
         '{"type":"timeOfDay","from":"22:00:00","to":"06:00:00"}',
       );
     });
@@ -350,12 +350,12 @@ describe("putting a rule in canonical form", () => {
     it("holds for a rule built two ways", () => {
       // Given opening hours built up in two sittings, which is what composing
       // a rule from stored pieces gives, against the same thing written out.
-      const built = all(all(weekdays()), timeOfDay("09:00", "17:00"));
-      const written = all(timeOfDay("09:00:00", "17:00:00"), weekdays());
+      const built = all(all(weekdays()), timeOfDayRange("09:00", "17:00"));
+      const written = all(timeOfDayRange("09:00:00", "17:00:00"), weekdays());
 
       // When they are compared.
       // Then they are equal, which they are not as written documents.
-      assertTrue(equals(built, written));
+      assertTrue(sameDefinition(built, written));
       assertFalse(JSON.stringify(built) === JSON.stringify(written));
     });
 
@@ -376,7 +376,7 @@ describe("putting a rule in canonical form", () => {
       // When they are compared.
       // Then they are not equal. Equality here is about what a rule says, and
       // deciding the other question means evaluating both over all of time.
-      assertFalse(equals(everything, everyDay));
+      assertFalse(sameDefinition(everything, everyDay));
     });
   });
 
@@ -387,8 +387,8 @@ describe("putting a rule in canonical form", () => {
      * reading the host's collation therefore writes this rule one way in one
      * place and another way in another.
      */
-    const accented = (): Rule =>
-      any(custom("\u00F6resund-holiday"), custom("zurich-holiday"));
+    const accented = (): RuleData =>
+      any(customRule("\u00F6resund-holiday"), customRule("zurich-holiday"));
 
     it("orders operands by code unit rather than by collation", () => {
       // Given two custom rules whose names collate differently in different
@@ -407,8 +407,8 @@ describe("putting a rule in canonical form", () => {
       // Given the same two rules written the other way round, as a merge of
       // two sources would produce.
       const other = any(
-        custom("zurich-holiday"),
-        custom("\u00F6resund-holiday"),
+        customRule("zurich-holiday"),
+        customRule("\u00F6resund-holiday"),
       );
 
       // When both are fingerprinted.
@@ -423,8 +423,11 @@ describe("putting a rule in canonical form", () => {
     it("is the same string for two rules that say the same thing", () => {
       // Given a rule and a differently written version of it, as two rows of
       // a cache might hold.
-      const built = weekdays().and(timeOfDay("09:00", "17:00"));
-      const nested = all(all(weekdays()), timeOfDay("09:00:00", "17:00:00"));
+      const built = weekdays().and(timeOfDayRange("09:00", "17:00"));
+      const nested = all(
+        all(weekdays()),
+        timeOfDayRange("09:00:00", "17:00:00"),
+      );
 
       // When each is fingerprinted.
       // Then one key reaches both.
@@ -466,7 +469,7 @@ describe("putting a rule in canonical form", () => {
 
       // When both are canonicalised.
       // Then they are the same document, because they always meant the same.
-      assertTrue(equals(named, silent));
+      assertTrue(sameDefinition(named, silent));
     });
 
     it("keeps explanation context in cascade identity", () => {
@@ -480,7 +483,7 @@ describe("putting a rule in canonical form", () => {
 
       // When their complete cascade documents are compared.
       // Then different explanations make them different definitions.
-      assertFalse(equals(primary, escalation));
+      assertFalse(sameDefinition(primary, escalation));
     });
 
     it("keeps a merge that changes the answer", () => {
@@ -492,7 +495,7 @@ describe("putting a rule in canonical form", () => {
       // under the other.
       const adding = merged("sum", ...layers);
       const displacing = cascade(...layers);
-      assertFalse(equals(adding, displacing));
+      assertFalse(sameDefinition(adding, displacing));
     });
 
     it("reaches into a replacement", () => {
