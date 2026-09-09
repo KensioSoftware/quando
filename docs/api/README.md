@@ -222,7 +222,8 @@ class CustomRuleStreamError extends RangeError {
 ```
 
 A `custom` rule document names a rule type. `context.rules` holds the code that
-runs it, so a document stores, travels and canonicalises without it. Evaluating
+runs it. A document stores, travels and canonicalises without that code.
+Evaluating
 a rule the registry does not hold throws `UnknownCustomRuleError`.
 
 A schedule, a rota and a tally take the registry through `withRules(rules)`.
@@ -233,8 +234,8 @@ always returned.
 `intervals` must yield in ascending order of start without overlaps, the same
 contract every interval stream keeps. Touching intervals are merged. Anything
 else throws `CustomRuleStreamError`. Quando clips the result to the query
-window, so a rule type may yield without end. A `zone` reads the rule the way
-`inZone` does.
+window, and a rule type is free to yield without end. A `zone` reads the rule
+the way `inZone` does.
 
 `toCron` and `toRRule` refuse a rule holding a custom type, and give the
 reason. `canonical` orders the keys of `options` so that two documents with the
@@ -274,7 +275,7 @@ function parseTerms(line: string): Built<Rule>;
 
 Reads a whitespace-separated line such as `"mon-fri 09:00-17:00"` as a rule.
 Each term narrows what the rule covers and a comma inside one offers
-alternatives, so a line is one conjunction. It throws on a term it cannot read,
+alternatives. A line is one conjunction. It throws on a term it cannot read,
 naming the term and the nearest word that would have worked. Every string a
 schedule, rota or tally accepts in place of a rule is read this way. See
 [terms](../terms/).
