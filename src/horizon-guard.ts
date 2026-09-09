@@ -12,7 +12,10 @@
  * before horizons existed.
  */
 
-import { covered, type Covers, isRule } from "./assigned.js";
+import type { Covers } from "./assigned.js";
+import type { Rule } from "./rule.js";
+import type { CascadeLike } from "./cascade.js";
+import { uncertainValues } from "./resolve.js";
 import { uncertain } from "./bounds.js";
 import type { Context } from "./context.js";
 import { hasHorizon } from "./horizon-shape.js";
@@ -28,12 +31,15 @@ import { take } from "./stream.js";
  * raised: a Saturday past the horizon of a holiday list is still closed.
  */
 export class BeyondHorizonError extends Error {
-  constructor(query: string, from: Temporal.ZonedDateTime) {
+  constructor(
+    query: string,
+    from: Temporal.ZonedDateTime,
+    reader = "uncertain()",
+  ) {
     super(
       `${query} cannot answer for ${from.toPlainDateTime().toString()}: ` +
-        "the rules stop being known before then. " +
-        "Use uncertain() to read where the answer runs out, or widen the " +
-        "horizon the rules declare.",
+        `the rules stop being known before then. Use ${reader} to read ` +
+        "where the answer runs out, or widen the horizon the rules declare.",
     );
     this.name = "BeyondHorizonError";
   }
@@ -49,10 +55,13 @@ export function unknownIn<V>(
   covers: Covers<V>,
   context: Context,
 ): Interval | undefined {
-  // A cascade is refused by `resolve`, which every valued question goes
-  // through, so by the time a query reads one there is nothing left to check.
+  // A cascade asks which value holds, and unknown there is a third state on
+  // every span rather than a second bound on a set of times. `resolve` carries
+  // it, and this reads it back the same way.
   if (!isRule(covers)) {
-    return undefined;
+    const cascade: CascadeLike<unknown> =
+      "cascade" in covers ? covers.cascade : covers;
+    return unknownValueIn(cascade, context);
   }
   if (!hasHorizon(covers, context.rules)) {
     return undefined;
@@ -67,8 +76,13 @@ export function unknownIn<V>(
  * Called by a query that has found fog in the part of the window its answer
  * depends on.
  */
-export function refuse(query: string, fog: Interval, context: Context): never {
-  throw new BeyondHorizonError(query, fog.start ?? context.from);
+export function refuse(
+  query: string,
+  fog: Interval,
+  context: Context,
+  reader?: string,
+): never {
+  throw new BeyondHorizonError(query, fog.start ?? context.from, reader);
 }
 
 /**
@@ -88,28 +102,23 @@ export function upTo(
   return at === undefined ? context : { ...context, to: at };
 }
 
-/** Whether a rule certainly covers an instant, or is not known to. */
-export type Certainty = "covered" | "uncovered" | "unknown";
-
 /**
- * Whether a rule covers an instant, and whether that answer is known.
+ * The first stretch a cascade cannot settle a value for.
  *
- * What an explanation reads. A query refuses where this says `unknown`, and an
- * explanation reports it, because the job of an explanation is to say what the
- * state is rather than to act on it.
+ * `undefined` where every moment in the window has one answer, which includes
+ * every cascade whose layers declare no horizon.
  */
-export function certaintyAt<V>(
-  covers: Covers<V>,
-  at: Temporal.ZonedDateTime,
-  context: Omit<Context, "from" | "to"> | undefined,
-): Certainty {
-  const moment: Context = {
-    ...context,
-    from: at,
-    to: at.add({ nanoseconds: 1 }),
-  };
-  if (take(covered(covers, moment), 1).length > 0) {
-    return "covered";
-  }
-  return unknownIn(covers, moment) === undefined ? "uncovered" : "unknown";
+export function unknownValueIn<V>(
+  cascade: CascadeLike<V>,
+  context: Context,
+): Interval | undefined {
+  const [span] = take(uncertainValues(cascade, context), 1);
+  return span;
+}
+
+/** Whether a query is reading a rule or a cascade. */
+function isRule<V>(covers: Covers<V>): covers is Rule {
+  return (
+    "type" in covers && covers.type !== "cascade" && !("cascade" in covers)
+  );
 }

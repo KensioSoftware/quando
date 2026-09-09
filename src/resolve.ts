@@ -19,18 +19,15 @@
  * no such thing as the value of an unassigned moment.
  */
 
-import {
-  asCascade,
-  type Cascade,
-  type CascadeLike,
-  type Layer,
-} from "./cascade.js";
+import { asCascade, type CascadeLike } from "./cascade.js";
 import type { Context } from "./context.js";
-import type { Interval } from "./interval.js";
-import { intervals } from "./interpret.js";
-import { mergeBy } from "./merge.js";
-import type { Rule } from "./rule.js";
-import { hasHorizon } from "./horizon-shape.js";
+import type { IntervalStream } from "./interval-stream.js";
+import { assignments, unreplaced } from "./resolve-layers.js";
+import {
+  type Uncertain,
+  uncertainMerge,
+  isKnown,
+} from "./valued-uncertainty.js";
 import { coalesce, overlay, type ValuedStream } from "./valued-stream.js";
 import { checkWindow } from "./validation.js";
 
@@ -40,129 +37,60 @@ import { checkWindow } from "./validation.js";
  * Lazy, and endless when the context has no end and the layers recur, which is
  * the same contract `intervals` keeps because this is built out of it.
  */
-export function resolve<V>(
+export function* resolve<V>(
   source: CascadeLike<V>,
   context: Context,
 ): ValuedStream<V> {
+  for (const span of settled<V>(source, context)) {
+    if (isKnown(span.value)) {
+      yield { start: span.start, end: span.end, value: span.value };
+    }
+  }
+}
+
+/**
+ * The stretches a cascade cannot settle a value for.
+ *
+ * Empty for every cascade whose layers declare no horizon. Where it is not,
+ * each stretch is time the layers disagree about or have run out of data for,
+ * and {@link resolve} leaves it out rather than picking one of the answers.
+ */
+export function* uncertainValues<V>(
+  source: CascadeLike<V>,
+  context: Context,
+): IntervalStream {
+  for (const span of settled<V>(source, context)) {
+    if (!isKnown(span.value)) {
+      yield { start: span.start, end: span.end };
+    }
+  }
+}
+
+/**
+ * The fold, with an unknown carried through it as an ordinary value.
+ *
+ * See [valued-uncertainty.ts](./valued-uncertainty.ts) for why that is all
+ * `override` needs to get the precise answer.
+ */
+function settled<V>(
+  source: CascadeLike<V>,
+  context: Context,
+): ValuedStream<Uncertain<V>> {
   checkWindow(context.from, context.to);
   const cascade = asCascade(source);
-  checkKnown(cascade, context);
-  const merge = mergeBy<V>(cascade.merge);
+  const merge = uncertainMerge<V>(cascade.merge);
 
-  let stack: ValuedStream<V> = [];
+  let stack: ValuedStream<Uncertain<V>> = [];
   for (const [index, layer] of cascade.layers.entries()) {
     const above = cascade.layers.slice(index + 1);
-    const claimed = assignments(layer, unreplaced(layer.scope, above), context);
+    const claimed = assignments(
+      layer,
+      unreplaced(layer.scope, above),
+      context,
+      settled,
+    );
     stack = overlay(stack, claimed, merge);
   }
 
   return coalesce(stack);
-}
-
-/**
- * A layer's own scope, minus every scope a replacing layer above it claims.
- *
- * Nothing needs subtracting for an ordinary layer above. The fold already
- * settles that, and under `override` the later value wins the overlap outright.
- * A replacing layer is the case that cannot be left to the fold, because it
- * claims its scope whether or not the cascade inside it assigns anything
- * there. Closing early on one day is exactly that. The base hours must stay
- * out of the afternoon the override dropped, rather than showing through it.
- */
-function unreplaced(scope: Rule, above: readonly Layer<unknown>[]): Rule {
-  const replacing = above.filter((layer) => "replace" in layer);
-  if (replacing.length === 0) {
-    return scope;
-  }
-
-  return {
-    type: "all",
-    rules: [
-      scope,
-      {
-        type: "not",
-        rule: { type: "any", rules: replacing.map((layer) => layer.scope) },
-      },
-    ],
-  };
-}
-
-/** What a layer assigns, over the region it covers. */
-function* assignments<V>(
-  layer: Layer<V>,
-  region: Rule,
-  context: Context,
-): ValuedStream<V> {
-  for (const interval of intervals(region, context)) {
-    if ("value" in layer) {
-      yield { ...interval, value: layer.value };
-      continue;
-    }
-
-    // A replacing layer claims the region and hands the question inwards. The
-    // inner cascade is resolved against the region rather than against the
-    // whole context, which is what stops it reaching outside the scope it
-    // replaces. It also carries its own merge, so a replacement says how its
-    // own layers combine without the cascade around it having a view.
-    yield* resolve(layer.replace, within(context, interval));
-  }
-}
-
-/**
- * A context narrowed to one interval.
- *
- * The interval came from evaluating a rule against this context, so its start
- * is inside the window and never unbounded. The fallback is for the type
- * rather than for a case that occurs.
- */
-function within(context: Context, interval: Interval): Context {
-  const { from, to: _replaced, ...rest } = context;
-  const start = interval.start ?? from;
-
-  return interval.end === undefined
-    ? { ...rest, from: start }
-    : { ...rest, from: start, to: interval.end };
-}
-
-/**
- * Refuses a cascade whose layers declare a horizon.
- *
- * A rule answers whether a time is covered, so unknown there is a second
- * bound on a set of times and [bounds.ts](./bounds.ts) carries it. A cascade
- * answers which value holds, so unknown here is a third state on every span,
- * and that is a larger change than the one that landed. Refusing keeps the
- * promise the rules make, which is that an answer is one somebody has the
- * data for.
- *
- * The one place worth checking, because every valued question goes through
- * `resolve` on its way to an answer.
- */
-function checkKnown<V>(cascade: Cascade<V>, context: Context): void {
-  for (const layer of cascade.layers) {
-    if (hasHorizon(layer.scope, context.rules)) {
-      throw new UnknownValueError(layer.label);
-    }
-    if ("replace" in layer) {
-      checkKnown(layer.replace, context);
-    }
-  }
-}
-
-/**
- * A cascade layer that declares a horizon, which is not yet supported.
- *
- * A rule answers whether a time is covered, so unknown there is a second
- * bound on a set of times. A cascade answers which value holds, so unknown
- * there is a third state on every span, and that is a larger change than this
- * one. Refusing is the honest answer until it is built.
- */
-export class UnknownValueError extends Error {
-  constructor(label: string | undefined) {
-    super(
-      `The ${label === undefined ? "cascade layer" : `"${label}" layer`} ` +
-        "declares a horizon, and a cascade cannot yet report which value is " +
-        "unknown. Ask about the rule directly, with bounds() or uncertain().",
-    );
-    this.name = "UnknownValueError";
-  }
 }

@@ -128,13 +128,82 @@ of the rule.
 carrying one, and say why. Each notation states a recurrence as though it held
 forever, and writing the rule out would drop the horizon.
 
-## Limits
+## Cascades
 
-A cascade assigns values, and unknown inside one means not knowing which value
-holds. That is a third state on every span, and it is a larger change than the
-one that landed. Every query over a cascade refuses a layer whose scope
-declares a horizon, raising `UnknownValueError`. Ask about the rule directly
-until that lands.
+A cascade assigns values, and unknown inside one means not knowing _which_
+value holds. `uncertainValues` returns the stretches it cannot settle, and
+`resolve` leaves them out rather than picking one of the answers.
+
+```ts
+const schedule = {
+  type: "cascade",
+  layers: [
+    { scope: weekdays(), value: "open" },
+    { label: "holidays", scope: holidays, value: "closed" },
+  ],
+};
+
+[...uncertainValues(schedule, week)];
+// the whole week: past its horizon the holiday layer might claim any of it
+
+valueAt(schedule, at("2029-04-03T10:00"));
+// BeyondHorizonError: valueAt() cannot answer for 2029-04-03T10:00:00 …
+```
+
+The whole week is unsettled here, weekend included, and that is the right
+answer rather than a coarse one. The holiday layer sits on top, so past its
+horizon it might assign `"closed"` to a Saturday that no other layer claims at
+all.
+
+### A layer that could not have changed the answer
+
+Turn the same two layers the other way up and the fog goes away where a settled
+layer covers it.
+
+```ts
+const schedule = {
+  type: "cascade",
+  layers: [
+    { label: "holidays", scope: holidays, value: "closed" },
+    { scope: weekdays(), value: "open" },
+  ],
+};
+
+[...resolve(schedule, week)];
+// [{ start: Mon, end: Sat, value: "open" }]
+
+[...uncertainValues(schedule, week)];
+// [{ start: Sat, end: Mon }]
+
+valueAt(schedule, at("2029-04-03T10:00")); // "open"
+```
+
+The weekdays are settled, because the layer above the fogged one certainly
+claims them and displaces whatever it might have said. Only the weekend is left
+in doubt, which is the only part the fogged layer could still have reached.
+
+That precision costs nothing to arrange. The unknown travels through the fold
+as an ordinary value, and `override` keeping the later layer is already the
+right answer both ways round.
+
+### Merges that add contributions up
+
+`sum`, `max`, `min` and `concat` have no such luck. Every layer counts towards
+the result, so one contribution nobody can vouch for leaves the whole of it
+unsettled.
+
+```ts
+const headcount = {
+  type: "cascade",
+  merge: "sum",
+  layers: [
+    { scope: always(), value: 1 },
+    { scope: knownThrough("2026-12-31", always()), value: 1 },
+  ],
+};
+
+[...resolve(headcount, week)]; // nothing settled past the horizon
+```
 
 <!-- card
 ```ts

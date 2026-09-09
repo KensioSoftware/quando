@@ -48,7 +48,7 @@ export {
 export { canonical, equals, fingerprint } from "./canonical.js";
 export { knownThrough } from "./horizon.js";
 export { BeyondHorizonError } from "./horizon-guard.js";
-export { UnknownValueError } from "./resolve.js";
+export { uncertainValues } from "./resolve.js";
 export { uncertain } from "./bounds.js";
 export { CustomRuleStreamError } from "./custom-rule-stream.js";
 export type { CustomRuleType, RuleRegistry } from "./custom-rules.js";
