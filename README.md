@@ -144,10 +144,11 @@ Quando calculates times and intervals. It leaves job execution, persistence,
 and holiday data to the application.
 
 Constraints that depend on previous occurrences are in scope. `atMost` caps how
-many things may happen in a window and `spacedBy` sets the least time between
-them, `atMostTime` caps the total _time_ they take, and all three read against
-a history the query carries. Checking a whole proposed plan rather than the
-next occurrence is still to come. See [constraints](docs/constraints/).
+many things may happen in a window, `spacedBy` sets the least time between
+them, and `atMostTime` caps the total _time_ they take. All three read against
+a history the query carries, and `firstBreach` checks a whole proposed plan
+against them, feeding each occurrence into the history before asking about the
+next. See [constraints](docs/constraints/).
 
 How far a rule can be trusted is in scope too. `knownThrough` declares the last
 day a subtree counts as evidence, and a query whose answer would rest on

@@ -181,15 +181,86 @@ const shifts = all(weekdays(), atMost(5, "weeks"), spacedBy("PT11H"));
 long enough, and `validate` reports on the whole thing. None of them needed
 anything adding.
 
-## Limits
+## Checking a whole plan
 
-**A constraint answers the marginal question.** "May I, next, given what has
-happened?" Checking a whole proposed plan is a different question, because with
-a rolling window each planned day changes whether the next one is allowed. That
-wants a separate entry point, still to come.
+A constraint answers the marginal question. "May I, next, given what has
+happened?" A plan is a different question, because the things in it feed each
+other. Asking the rule once about each of five doses against an empty history
+admits all five, because none of them counts the others.
+
+`firstBreach` walks the plan in time order, admitting each occurrence into the
+history before asking about the one after it.
+
+```ts
+import { admits, firstBreach } from "@kensio/quando";
+
+const plan = ["08:00", "12:00", "16:00", "20:00", "23:59"].map((hour) => ({
+  at: at(`2026-03-10T${hour}`),
+}));
+
+admits(dosing, plan.slice(0, 4), { occurrences: [] });
+// true
+
+const breach = firstBreach(dosing, plan, { occurrences: [] });
+breach?.index; // 4
+breach?.at; // 23:59
+breach?.explanation.description;
+// "A required condition does not match. There are already 4 occurrences in
+//  this day, which is the most allowed. The nearest occurrence is 3 hours 59
+//  minutes away, which is closer than the 4 hours allowed."
+```
+
+The plan may arrive in any order. `index` names where the refused occurrence
+sat in the list as given, which is where to point at it.
+
+An occurrence that lasts has to be allowed throughout. A booking opening on a
+Friday against a weekdays-only rule is refused at the Saturday it runs into,
+and `at` is that Saturday.
+
+### Counting a trip day by day
+
+A cap on total time reads a long stay as one lump, and a stay is admitted or
+refused whole. Model a trip as the days it covers where the answer should be
+"you may go until Thursday".
+
+```ts
+const days = (from: string, count: number) =>
+  Array.from({ length: count }, (_, index) => ({
+    at: utc(from).add({ days: index }),
+    lasting: Temporal.Duration.from({ days: 1 }),
+  }));
+
+const breach = firstBreach(
+  atMostTime("P90D", "P180D"),
+  days("2026-04-01T00:00", 10),
+  { occurrences: days("2026-01-01T00:00", 85) },
+);
+
+breach?.index; // 5
+breach?.at; // 2026-04-06
+breach?.explanation.description;
+// "90 days of the 180 days up to this instant is already taken up, which is
+//  the most allowed."
+```
+
+Eighty-five days are already spent. The sixth day of the trip is the
+ninety-first, and the first one refused. Days of presence is also how the rule
+being modelled counts them.
+
+A history the context carries is where the walk starts, and the same rules
+apply to it. Leaving `occurrences` out throws where the rule counts what has
+happened, because a plan checked against a history nobody supplied would report
+a fifth dose as fine.
+
+## Limits
 
 **One history per query.** A context carries one `occurrences` array. A
 document constraining two different series wants two queries, one per series.
+
+**A plan is admitted one occurrence at a time.** `firstBreach` asks whether
+each is allowed given everything before it. An occurrence that would overflow a
+time cap partway through itself is admitted whole. Splitting it into the days
+it covers is the answer, and the section above shows it.
 
 [`toCron`](../cron/) and [`toRRule`](../recurrence/) both refuse a constraint,
 and say why. Each notation describes a pattern on the calendar, and a history
