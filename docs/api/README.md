@@ -377,6 +377,16 @@ function advanceBy<V>(
   amount: Temporal.Duration,
   options: { during: Covers<V> } & Search & Omit<Context, "from" | "to">,
 ): Temporal.ZonedDateTime | undefined;
+function advanceBy<V>(
+  from: Temporal.ZonedDateTime,
+  amount: Spread<Temporal.Duration>,
+  options: { during: Covers<V> } & Search & Omit<Context, "from" | "to">,
+): Spread<Temporal.ZonedDateTime>;
+function advanceBy<V>(
+  from: Temporal.ZonedDateTime,
+  amount: Distribution<Temporal.Duration>,
+  options: { during: Covers<V> } & Search & Omit<Context, "from" | "to">,
+): Distribution<Temporal.ZonedDateTime>;
 
 function coveredDayCount<V>(covers: Covers<V>, context: Context): number;
 
@@ -385,6 +395,16 @@ function advanceByCoveredDays<V>(
   count: number,
   options: CoveredDayOptions<V>,
 ): Temporal.ZonedDateTime | undefined;
+function advanceByCoveredDays<V>(
+  from: Temporal.ZonedDateTime,
+  count: Spread<number>,
+  options: CoveredDayOptions<V>,
+): Spread<Temporal.ZonedDateTime>;
+function advanceByCoveredDays<V>(
+  from: Temporal.ZonedDateTime,
+  count: Distribution<number>,
+  options: CoveredDayOptions<V>,
+): Distribution<Temporal.ZonedDateTime>;
 
 function firstGap<V>(
   covers: Covers<V>,
@@ -510,6 +530,81 @@ the requested unit. Its context must have a finite end.
 calendar day contains its visible window and exact covered spans. Pass
 `{ format: "text" }` for a fixed-width chart built from the same data. The
 context must have a finite end.
+
+### Uncertainty
+
+```ts
+interface Outcome<V> {
+  readonly value: V;
+  readonly probability: number;
+}
+
+interface Spread<V> {
+  readonly kind: "spread";
+  readonly values: readonly V[];
+}
+
+interface Distribution<V> {
+  readonly kind: "distribution";
+  readonly outcomes: readonly Outcome<V>[];
+  readonly assumed?: boolean;
+}
+
+type Estimate<V> = Distribution<V> | Spread<V>;
+
+type Order<V> = (left: V, right: V) => number;
+
+function spread<V>(values: Iterable<V>): Spread<V>;
+function chances<V>(outcomes: Iterable<Outcome<V>>): Distribution<V>;
+function certainly<V>(value: V): Distribution<V>;
+function assumeUniform<V>(over: Spread<V>): Distribution<V>;
+function isDistribution<V>(estimate: Estimate<V>): estimate is Distribution<V>;
+
+function mapOutcomes<V, W>(
+  estimate: Estimate<V>,
+  map: (value: V) => W,
+  order?: Order<W>,
+): Estimate<W>;
+
+function combineOutcomes<A, B, C>(
+  left: Estimate<A>,
+  right: Estimate<B>,
+  join: (first: A, second: B) => C,
+  order?: Order<C>,
+): Estimate<C>;
+
+function support<V>(estimate: Estimate<V>, order?: Order<V>): readonly V[];
+function mode<V>(over: Distribution<V>, order?: Order<V>): V;
+function median<V>(over: Distribution<V>, order?: Order<V>): V;
+function quantile<V>(over: Distribution<V>, at: number, order?: Order<V>): V;
+function chanceBefore<V>(
+  over: Distribution<V>,
+  value: V,
+  order?: Order<V>,
+): number;
+
+function naturally<V>(left: V, right: V): number;
+```
+
+`spread` carries outcomes with no weights and `chances` carries a probability
+against each. `chances` requires probabilities above zero totalling one.
+
+`advanceBy` and `advanceByCoveredDays` return whichever shape they were given.
+An outcome the search never reaches is refused rather than dropped.
+`mapOutcomes` runs any function over every outcome and adds together the ones
+that land in the same place. `combineOutcomes` assumes the two estimates are
+independent, and returns a `Spread` where either side carries no weights.
+
+`mode`, `median`, `quantile` and `chanceBefore` refuse a `Spread` and name
+`assumeUniform` as the way to opt in. A distribution built by `assumeUniform`
+carries `assumed`. `mapOutcomes` carries it forward, and so does
+`combineOutcomes` where both sides are distributions and either carries it. A
+combination involving a `Spread` returns a `Spread`, which has no weights and
+no `assumed`.
+
+`naturally` orders numbers, bigints, strings and `Temporal` values. It refuses
+`NaN`, which compares false both ways round and would otherwise read as equal
+to every other outcome. Every view takes an `order` for anything else.
 
 ### Comparison and JSON types
 

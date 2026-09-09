@@ -40,6 +40,8 @@ Read the pages in this order if Quando is new to you:
 - [Terms](terms/) writes a rule as a line such as `mon-fri 09:00-17:00`.
 - [Constraints](constraints/) caps and spaces occurrences against a history.
 - [Horizons](horizon/) says how far a rule can be trusted, and refuses past it.
+- [Uncertainty](uncertainty/) estimates an answer that has several possible
+  outcomes, and reads a range or a quantile off it.
 - [Cron expressions](cron/) reads and writes cron expressions as rules.
 - [Recurrence rules](recurrence/) reads and writes RFC 5545 RRULEs as rules.
 - [Cascades](cascades/) assigns values with ordered overrides.

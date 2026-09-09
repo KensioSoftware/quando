@@ -156,6 +156,12 @@ anything past it refuses. A cascade carries the same thing per value, so
 `uncertainValues` says which stretches its layers cannot settle. See
 [horizons](docs/horizon/).
 
+So is an answer with several possible outcomes. "One to three working days"
+goes into a query as an estimate and comes back as dates, with the weekends and
+the holidays already applied. Read the plain range off it for a customer, a
+quantile for a contract, or the chance of beating a date. See
+[uncertainty](docs/uncertainty/).
+
 ## Licence
 
 [Apache-2.0](LICENSE).
