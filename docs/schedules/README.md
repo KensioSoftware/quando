@@ -1,7 +1,12 @@
+---
+description: "Model opening hours and assign values over time with Quando schedules and rotas."
+---
+
 # Schedules and rotas
 
-Schedules model open and closed time. Rotas assign application values over
-time. Both APIs use ordered methods, with later calls taking precedence.
+Use a schedule for open and closed periods. Use a rota to assign a value, such
+as a person's name, over time. Both APIs return new objects as you add rules.
+Later calls take precedence where periods overlap.
 
 ## Build a schedule
 
@@ -26,9 +31,10 @@ third replaces Wednesday's usual hours with a shorter day.
 | `.closed(scope, options?)`        | Closes the whole scope                             |
 | `.setHours(day, hours, options?)` | Replaces all earlier hours inside the day or scope |
 
-A scope can be a rule or a line of terms such as `"2026-03-10"` or
-`"mon-fri 09:00-17:00"`. Hours can be a rule or a range such as
-`"09:00-17:00"`. See the [terms guide](../terms/) for what a line can hold.
+A scope selects the period the method changes. Supply a rule or a text
+expression such as `"2026-03-10"` or `"mon-fri 09:00-17:00"`. Hours can be a
+rule or a range such as `"09:00-17:00"`. See the [terms guide](../terms/) for
+the expression syntax.
 
 ### Method order sets precedence
 
@@ -43,8 +49,8 @@ const seasonalHours = schedule({ zone: "Europe/London" })
 ```
 
 `closed` overrides the normal weekday hours on Christmas Day. `setHours`
-claims all of Christmas Eve before applying its shorter hours. Earlier hours do
-not resume after 15:00.
+replaces all earlier hours on Christmas Eve. The office is closed after 15:00
+that day.
 
 ### The schedule zone
 
@@ -57,11 +63,13 @@ zones.
 
 ### Overnight hours
 
-`open("fri", "22:00-06:00")` opens Friday evening through Saturday morning.
-It does not open early Friday morning. The starting date owns the whole shift.
-`setHours("2026-03-13", "09:00-17:00")` replaces that Friday's hours, including
-the following morning of an earlier overnight opening. A later `closed` call
-closes the calendar time its scope names, including any overlapping overnight hours.
+`open("fri", "22:00-06:00")` opens from Friday at 22:00 to Saturday at
+06:00. The whole shift is associated with Friday.
+
+`setHours("2026-03-13", "09:00-17:00")` replaces every earlier shift that
+starts on that Friday, including its Saturday hours. A later `closed` call
+closes the calendar period it selects, including any overnight hours within
+that period.
 
 ### Evaluation options
 
@@ -125,8 +133,9 @@ const boundedOpening = openingHours.nextOpenInterval(friday.add({ hours: 2 }), {
 });
 ```
 
-An explicit search returns `undefined` when it finds no answer. The default
-search throws `SearchLimitExceededError` when its safety limit expires. The
+A search with an explicit `within` limit returns `undefined` if no result
+fits. The default search throws `SearchLimitExceededError` if it reaches its
+safety limit. The
 [queries guide](../queries/#bound-a-search) explains the search options.
 
 `openSlots` returns a lazy sequence. `lasting` sets the slot length and `every`
@@ -157,11 +166,12 @@ console.log(delivery?.toString());
 2026-03-18T09:00:00+00:00[Europe/London]
 ```
 
-A day counts when the schedule is open for any part of it, so a half-day is a
-whole open day. Both day methods read dates on the schedule's own calendar, the
-zone given to `schedule({ zone })`, matching `timeline`. `addOpenDays`
-hands its answer back in the caller's zone, the one `from` was written in, so
-the two zones only differ in how the instant reads. The
+A date counts as one open day if the schedule is open during any part of it.
+A half-day therefore counts as one day.
+
+`addOpenDays` and `openDayCount` count dates in the schedule's configured time
+zone, as `timeline` does. The instant returned by `addOpenDays` is displayed in
+the zone of `from`. The
 [queries guide](../queries/#which-day-the-count-starts-on) covers the
 `startingDay` convention and clear days.
 
@@ -194,10 +204,9 @@ Pass the result to `renderTimeline(data)` for a text chart. See the
 
 ## Build a rota
 
-`rota({ zone })` fixes assignment scopes to a local clock, as it does for schedules.
-
-A rota assigns one JSON-compatible value at any moment. The value can be a
-name, identifier, status, or application object.
+A rota assigns one JSON-compatible value at a time. The value can be a name,
+identifier, status, or application object. Use `rota({ zone })` to evaluate
+assignment scopes in a fixed time zone.
 
 ```ts
 import { rota, weekdays, weekends } from "@kensio/quando";
@@ -226,9 +235,9 @@ alice
 
 `assign` appends an assignment. Later assignments win where scopes overlap.
 
-Literal values accumulate in the inferred type. In the example,
-`whoIsOn` returns `"alice" | "bob" | "carol" | undefined`. Use an explicit
-type when the values arrive at runtime:
+TypeScript infers a union of the assigned values. In this example,
+`whoIsOn` returns `"alice" | "bob" | "carol" | undefined`. Supply an explicit
+value type when assignments come from runtime data:
 
 ```ts
 interface Duty {

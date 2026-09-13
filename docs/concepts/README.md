@@ -1,9 +1,14 @@
+---
+description: "How Quando represents time with rules and ordered value layers."
+---
+
 # Concepts
 
 Quando models time with rules, contexts, intervals, and ordered value layers.
 
-You can use the domain APIs without working with every part of this model. The
-model becomes useful when you need custom rules or lower-level queries.
+Start with `schedule`, `rota`, or `tally` for common application tasks. The
+underlying rule and interval model is useful when building custom rules or
+using the lower-level APIs.
 
 ## Choose the smallest useful API
 
@@ -21,7 +26,8 @@ The `@kensio/quando/core` entry point adds interval and cascade operations.
 
 ## Rules describe when
 
-A rule describes a set of covered times. It carries no application value.
+A rule describes a set of covered times. At a known instant it either applies
+or does not apply. Values such as a person's name belong to a rota or cascade.
 
 ```ts
 import { dates, timeOfDayRange, weekdays } from "@kensio/quando";
@@ -31,8 +37,8 @@ const dispatchHours = weekdays()
   .except(dates("2026-12-25"));
 ```
 
-This rule covers weekday office hours except Christmas Day. The parts have
-ordinary set meanings:
+This rule covers weekday office hours except Christmas Day. Combine rules
+with these operations:
 
 | Operation | Meaning                                            |
 | --------- | -------------------------------------------------- |
@@ -40,8 +46,8 @@ ordinary set meanings:
 | `or`      | At least one rule must cover the time              |
 | `except`  | The first rule covers it and an exception does not |
 
-Rules are useful on their own and also form the scopes used by schedules,
-rotas, tallies, and cascades.
+Schedules, rotas, tallies, and cascades use rules as scopes. A scope is the
+period in which an opening, assignment, or contribution applies.
 
 ## A context bounds evaluation
 
@@ -74,8 +80,8 @@ for (const interval of intervals(dispatchHours, week)) {
 Intervals are half-open. `[start, end)` includes the start and excludes the
 end. Adjacent intervals do not overlap at their shared boundary.
 
-Most applications do not need to iterate intervals directly. The common query
-functions answer nine questions:
+The common query functions answer these questions without requiring you to
+iterate the intervals yourself:
 
 | Function              | Answer                                  |
 | --------------------- | --------------------------------------- |
@@ -112,8 +118,8 @@ and [merging](../merging/) guides cover the low-level API.
 
 ## Definitions are data
 
-Rules and domain objects have explicit JSON forms. Builder methods are attached
-as non-enumerable properties, so JSON storage sees only the definition.
+Rules and domain objects have JSON-compatible definitions. Their builder
+methods are non-enumerable properties and are excluded from `JSON.stringify`.
 
 Parsers accept `unknown`, validate the complete document, and restore the
 methods. Your application remains responsible for storing the JSON. See
@@ -121,29 +127,28 @@ methods. Your application remains responsible for storing the JSON. See
 
 ## Limits
 
-Quando calculates times and intervals. It does not run scheduled work or
-provide holiday datasets. A rule the vocabulary cannot say, such as Easter or
-sunset, is supplied by the application through
-[custom rule types](../rules/#supply-your-own-rule-type).
+Quando calculates times and intervals. Your application runs scheduled work
+and supplies holiday datasets. Use
+[custom rule types](../rules/#supply-your-own-rule-type) for calculations such
+as Easter or sunset.
 
-Rules count on the ISO calendar unless `inCalendar` names another. Month names
-stay Gregorian there, so `monthsOfYear` and a cycle of months or years are
-refused on another calendar. `monthCodes` names a month on any of them. See
+Rules use the ISO calendar by default. `inCalendar` selects another supported
+calendar. Gregorian month names and cycles of months or years are rejected
+under other calendars. Use `monthCodes` to select their months. See
 [rules](../rules/#set-a-calendar).
 
-Most rules describe a set of times on their own. The ones that read what has
-already happened are [constraints](../constraints/), and they take that history
-on the context. A minimum gap between doses, a cap on requests per minute and a
-rolling total are all constraints.
+[Constraints](../constraints/) use occurrence history supplied in the query
+context. They can enforce a minimum gap between bookings, a maximum number of
+requests per minute, or a rolling occupied-time limit.
 
-How far a rule can be trusted is declared with `knownThrough`, and a query
-whose answer would rest on anything past that day refuses. See
+`knownThrough` declares the last date for which a rule's data is complete.
+Queries throw if missing data beyond that date could change the result. See
 [horizons](../horizon/).
 
-An answer with several possible outcomes is an [estimate](../uncertainty/), and
-a query takes one wherever it takes a count or a duration. The rules themselves
-stay certain. A layer that applies only in some weathers has no way to say so
-yet.
+Working-time arithmetic accepts [estimates](../uncertainty/) of durations and
+day counts and returns the corresponding possible results. Estimates apply to
+those inputs. They cannot represent a rule or layer that applies with a given
+probability.
 
 <!-- card
 ```ts

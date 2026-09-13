@@ -1,10 +1,15 @@
+---
+description: "Find inactive or shadowed rules and gaps in assigned time with Quando validation."
+---
+
 # Validate rules and schedules
 
-Semantic validation finds inactive rules, inactive layers, shadowed layers, and
-unassigned time inside a finite window.
+Validation evaluates a definition within a finite window. It finds rules that
+never match, layers hidden by higher-priority layers, and gaps in assigned
+values.
 
-Builders and parsers already reject malformed data. This validation evaluates
-valid definitions and finds problems in what they mean over time.
+Use builders and parsers to reject malformed input. Use validation to check
+how an otherwise valid definition behaves over time.
 
 ## Validate a schedule
 
@@ -28,16 +33,16 @@ first layer still supplies 09:00 to 10:00 and 16:00 to 17:00, so both layers
 remain active. A later layer covering the whole weekday would make the first
 one `shadowed-layer`.
 
-A schedule expects closed time. Schedule validation checks its layers. Closed
-intervals are valid schedule output.
+Schedule validation checks layer activity and precedence. It permits closed
+periods.
 
-Tallies use the same validation behaviour. Their unassigned time already reads
-as zero. Tally validation checks layers without requiring full coverage.
+Tally validation also checks layers without requiring full coverage. Unassigned
+time has a count of zero.
 
 ## Find gaps in a rota
 
-A rota expects somebody to be assigned throughout its validation window. Its
-`validate` method reports every unassigned interval:
+By default, rota validation requires an assignment throughout the window. It
+reports each unassigned interval:
 
 ```ts
 import { rota, weekdays } from "@kensio/quando";
@@ -113,12 +118,13 @@ hide lower layers according to their order. Overlapping layers in `sum`, `max`,
 Cascade order gives every layer a distinct priority.
 
 Each diagnostic includes `severity` and the evaluated `window` as string
-timestamps. Inactive rules and layers are `info`; a shadowed layer is a
-`warning`; uncovered time requested by `requireFullCoverage` is an `error`.
-An annual exception can be inactive in a one-week check and still be useful.
-Choose which severities fail your own checks. Rota methods and standalone
-`validate(rota, window)` both request full coverage by default; pass
-`{ requireFullCoverage: false }` to override that choice.
+timestamps. Inactive rules and layers have severity `info`. A shadowed layer
+has severity `warning`. Uncovered time reported by `requireFullCoverage` has
+severity `error`. Choose which severities should fail your application's checks.
+
+Both a rota's `validate` method and standalone `validate(rota, window)`
+require full coverage by default. Pass `{ requireFullCoverage: false }` to
+check layer activity while allowing unassigned periods.
 
 <!-- card
 ```ts

@@ -1,6 +1,11 @@
+---
+description: "Create your first Quando schedule with weekday opening hours and exceptions."
+---
+
 # Getting started
 
-Build weekday opening hours, add exceptions, then find a booking slot or deadline.
+This guide builds a weekday schedule, adds holiday exceptions, and uses it to
+find a meeting slot and a working-time deadline.
 
 ## Install
 
@@ -8,7 +13,8 @@ Build weekday opening hours, add exceptions, then find a booking slot or deadlin
 npm install @kensio/quando
 ```
 
-Quando uses a global `Temporal`. If your runtime does not provide it:
+Quando uses the global `Temporal` API. If your runtime does not provide it,
+install the polyfill:
 
 ```bash
 npm install temporal-polyfill
@@ -19,9 +25,15 @@ import "temporal-polyfill/global";
 import { schedule, weekdays } from "@kensio/quando";
 ```
 
-Importing Quando itself is safe before Temporal is installed. Install the global before
-calling its date and time functions. For calendars beyond ISO and Gregorian,
-use `temporal-polyfill/full/global`. Your application provides the Temporal implementation. TypeScript projects should include `ESNext` in `compilerOptions.lib`.
+Load the polyfill before calling Quando's date and time functions. Importing
+Quando before loading it is safe, but evaluating dates requires `Temporal`.
+TypeScript projects should include `ESNext` in `compilerOptions.lib`.
+
+### Calendars need the full polyfill build
+
+For calendars beyond ISO and Gregorian, load `temporal-polyfill/full/global`
+in place of `temporal-polyfill/global`. Your application supplies the Temporal
+implementation used by Quando.
 
 ## Build and query opening hours
 
@@ -50,13 +62,19 @@ console.log(dispatch?.toString());
 // 2026-03-16T11:55:00+00:00[Europe/London]
 ```
 
-Later calls take precedence where their scopes overlap. `setHours` replaces the
-selected day's hours completely, so Christmas Eve closes at 15:00. Closing
-instants are excluded: 09:00–17:00 includes 09:00 and excludes 17:00.
+Later calls override earlier calls for the same period. `setHours` replaces
+all opening hours on the selected date. In this example, Christmas Eve closes
+at 15:00.
 
-Five minutes of the deadline count on Friday. The remaining two hours and
-fifty-five minutes finish on Monday. Duration arguments accept objects such as
-`{ hours: 3 }`, ISO strings such as `"PT3H"`, and `Temporal.Duration` values.
+Opening times are included and closing times are excluded. The range
+09:00–17:00 includes 09:00 and excludes 17:00.
+
+At 16:55 on Friday, only five open minutes remain. The 30-minute meeting must
+wait until Monday. The three-hour deadline uses those five Friday minutes and
+the remaining two hours and fifty-five minutes on Monday.
+
+Duration arguments accept objects such as `{ hours: 3 }`, ISO strings such as
+`"PT3H"`, and `Temporal.Duration` values.
 
 Every query instant is a `Temporal.ZonedDateTime`. The schedule's `zone` fixes
 its local clock even when the query instant is displayed in another zone.
@@ -70,14 +88,18 @@ const nightShift = schedule({ zone: "Europe/London" }).open(
 );
 ```
 
-This covers Friday evening through Saturday morning. The starting Friday owns
-the shift. `setHours` on that Friday also replaces its Saturday spillover.
+This covers Friday at 22:00 through Saturday at 06:00. The shift is associated
+with its starting date. Calling `setHours` for that Friday replaces the whole
+shift, including its Saturday hours.
 
-## No answer and unknown answers
+<a id="no-answer-and-unknown-answers"></a>
 
-An explicit `within` search returns `undefined` when no answer fits. Without a
-limit, searches stop after 100 years and throw `SearchLimitExceededError`.
-A slot that exists has both `start` and `end`.
+## Search limits and incomplete data
+
+With an explicit `within` limit, a search returns `undefined` if no result
+fits. Without an explicit limit, it searches up to 100 years and throws
+`SearchLimitExceededError` if it still has no result. A returned slot always
+has both `start` and `end`.
 
 If a definition declares a knowledge horizon, a query throws
 `BeyondHorizonError` when missing knowledge could change its answer. That is
@@ -94,9 +116,12 @@ console.log(restored.isOpen(friday));
 // true
 ```
 
-Parsers accept decoded data and restore fluent methods. Invalid documents throw
-`ParseError` with a readable message, a `path`, and a `code`. Custom callbacks
-stay outside JSON. Reattach them with `withCustomRules(registry)` after parsing.
+Pass the result of `JSON.parse` to a Quando parser to restore the object's
+methods. Invalid documents throw `ParseError` with a message, field `path`,
+and error `code`.
+
+JSON excludes custom rule callbacks. If the schedule uses them, reattach the
+registry with `withCustomRules(registry)` after parsing.
 
 ## Choose the next guide
 

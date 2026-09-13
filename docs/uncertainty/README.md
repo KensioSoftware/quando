@@ -1,8 +1,13 @@
+---
+description: "Calculate possible dates and their probabilities through Quando's time rules."
+---
+
 # Uncertainty
 
-A calculated time is usually an estimate. "One to three working days" is what a
-courier says, and turning that into dates takes the weekends, the bank holidays
-and the courier's own hours. Quando is where those already live.
+Quando can calculate several possible results from an estimated count or
+duration. For example, a delivery estimate of one to three working days
+produces three possible arrival dates, using the courier's opening hours and
+holiday rules.
 
 ```ts
 import {
@@ -38,13 +43,15 @@ addCoveredDays(ordered, possibilities([1, 2, 3]), { during: courier }).values;
 // ]
 ```
 
-The weekend is where it should be. One working day from a Friday is the
-following Monday, and each answer is the hour the courier opens that morning.
+The three results are Monday, Tuesday, and Wednesday at 09:00. The calculation
+skips the weekend and returns the courier's opening time on each date.
 
-## Two shapes, because they answer different questions
+<a id="two-shapes-because-they-answer-different-questions"></a>
 
-`possibilities` carries the outcomes and says nothing about their weights. `chances`
-carries a probability against each one.
+## Possible outcomes and probabilities
+
+`possibilities` lists possible outcomes without assigning probabilities.
+`chances` assigns a probability to each outcome:
 
 ```ts
 const basic = possibilities([1, 2, 3]);
@@ -56,20 +63,21 @@ const advanced = chances([
 ]);
 ```
 
-Both go into a query the same way. What comes back matches what went in, so a
-possibilities give possibilities and a distribution gives a distribution. A caller who
-passes a plain count still gets a plain answer, and never meets any of this.
+Queries preserve the kind of estimate supplied. A `Possibilities` input
+produces possible results without probabilities. A `Distribution` input
+produces results with probabilities. A plain count produces a single result.
 
-The probabilities have to total one. A list that totals anything else is a
-mistake somewhere upstream, and scaling it here would decide on the caller's
-behalf which of the weights was wrong.
+Probabilities must sum to one. `chances` rejects other totals rather than
+rescaling the supplied probabilities.
 
-## Through the calendar
+<a id="through-the-calendar"></a>
 
-The mapping from working days to datetimes bends. One working day from a Friday
-lands on Monday and one from a Monday lands on Tuesday, so shifting a mean and
-a variance would answer wrongly. Quando resolves each outcome through the rules
-and gathers the probability on whatever it lands on.
+## Calculate dates through a schedule
+
+The same working-day count can span different amounts of elapsed time. One
+working day from Friday ends on Monday, while one from Monday ends on Tuesday.
+Quando calculates each outcome through the rules and assigns its probability
+to the resulting date.
 
 ```ts
 const arrival = addCoveredDays(ordered, advanced, { during: courier });
@@ -82,9 +90,9 @@ arrival.outcomes;
 // ]
 ```
 
-Two outcomes that land in the same place are added together. A wait of one
-calendar day and a wait of two from a Friday morning both come out at Monday,
-and the answer says so once:
+When several inputs produce the same result, their probabilities are added.
+In this example, waiting one or two calendar days from Friday reaches the
+same next opening on Monday:
 
 ```ts
 const from = at("2026-03-13T07:00");
@@ -110,13 +118,12 @@ opening.outcomes;
 // ]
 ```
 
-`mapOutcomes` takes any function at all, so every query in the library works on
-an estimate whether or not it was written for one. [`addCoveredTime`](../queries/)
-and `addCoveredDays` take one directly, because those are the two that
-most often have a range behind them.
+Use `mapOutcomes` to apply a function to each outcome in an estimate. This also
+works with queries that accept only single values. [`addCoveredTime`](../queries/)
+and `addCoveredDays` accept estimates directly.
 
-`addCoveredTime` measures elapsed time that only counts while the rules hold, and an
-estimate over durations goes through it the same way:
+`addCoveredTime` counts elapsed time only while the rule applies. Pass an
+estimate of durations to calculate several possible completion times:
 
 ```ts
 const packing = possibilities([
@@ -131,13 +138,14 @@ addCoveredTime(at("2026-03-13T16:00"), packing, { during: courier }).values;
 // ]
 ```
 
-Half an hour finishes before the courier closes on the Friday. Two hours runs
-an hour into Monday, because the hour after five o'clock never counted.
+The half-hour outcome finishes at 16:30 on Friday. The two-hour outcome uses
+Friday's remaining hour and finishes at 10:00 on Monday.
 
-## Reading one
+<a id="reading-one"></a>
 
-One computation, several descriptions. That is the reason for keeping the
-distribution rather than a range.
+## Inspect an estimate
+
+Use these functions to list possible results or summarise their probabilities:
 
 ```ts
 possibleValues(arrival).map((one) => one.toPlainDate().toString());
@@ -150,18 +158,19 @@ quantile(arrival, 0.95); // 2026-03-18T09:00:00+00:00[Europe/London]
 chanceBefore(arrival, at("2026-03-18T00:00")); // 0.75
 ```
 
-`possibleValues` returns the distinct possible outcomes. `quantile` at 0.95 is the date
-to put in a contract. `chanceBefore` answers "what is the chance it arrives
-before Christmas?" A lot of retail wants to answer that one in a sentence.
+`possibleValues` returns distinct outcomes. `quantile(arrival, 0.95)` returns
+the earliest outcome by which cumulative probability reaches 95%.
+`chanceBefore` returns the probability of an outcome before the given instant.
 
-**There is no mean.** The mean of a distribution over datetimes lands on the
-instant axis. For a courier that has never delivered at three on a Saturday
-morning, that is where it puts the answer. A median, a mode and a
-quantile all land on outcomes that can happen.
+Quando provides a median, mode, and quantiles, all of which select possible
+outcomes. It has no mean function. Averaging datetimes could produce a time
+outside the schedule, such as Saturday morning for a weekday-only courier.
 
-## The weights are yours to supply
+<a id="the-weights-are-yours-to-supply"></a>
 
-Possibilities have no weights, and every view that needs them refuses it:
+## Supply or assume probabilities
+
+Functions that require probabilities reject a `Possibilities` input:
 
 ```ts
 median(possibilities([1, 2, 3]));
@@ -170,9 +179,9 @@ median(possibilities([1, 2, 3]));
 // chances().
 ```
 
-Reading "one to three working days" as uniform manufactures confident numbers
-from an assumption the courier never made. Say it out loud and Quando will
-oblige:
+Use `assumeUniform` when you explicitly want to give each possible outcome
+equal probability. This is an assumption about the input, not a probability
+inferred from the range:
 
 ```ts
 const assumed = assumeUniform(possibilities([1, 2, 3]));
@@ -183,17 +192,17 @@ assumed.outcomes.map((one) => one.probability);
 assumed.assumed; // true
 ```
 
-`assumed` survives every mapping, and every combination of two distributions
-where either side carries it. A combination involving possibilities comes back as
-possibilities, which carries no weights to have assumed anything about. A quantile read
-off an assumed distribution is a claim about the assumption, and `assumed` is
-how a reader tells the two apart.
+The resulting distribution has `assumed: true`. Mapping preserves this flag.
+Combining two distributions preserves it if either input is assumed.
+
+Combining an input without probabilities produces `Possibilities`. That result
+has no probabilities and no `assumed` flag.
 
 ## Combining two estimates
 
-Ranges compose badly. Add two one-to-three ranges and the support is two to
-six. That is true and it misleads. The middle carries most of the probability
-and the ends carry very little:
+Use `combineIndependentOutcomes` to combine two independent estimates. Adding
+two estimates with values from one to three can produce values from two to six.
+The probabilities depend on the input distributions:
 
 ```ts
 const both = combineIndependentOutcomes(
@@ -208,17 +217,15 @@ both.outcomes.map((one) => [one.value, one.probability]);
 // [[2, 0.0625], [3, 0.25], [4, 0.375], [5, 0.25], [6, 0.0625]]
 ```
 
-Six is possible and it happens one time in sixteen. Chain three or four such
-steps and the range covers so much ground that it stops informing anybody,
-while the distribution stays sharp.
+In this example, six has a probability of 1/16. Keeping the full distribution
+preserves this information when further estimates are combined.
 
-**Combining assumes the two estimates are independent.** Two parcels leaving
-the same warehouse on the same morning share a cause, and a convolution
-understates how often both are late. That is the tail anyone planning actually
-cares about. Where a shared cause matters, model the cause as one estimate and
-map that.
+`combineIndependentOutcomes` assumes independent inputs. If two delivery times
+share a source of delay, combining them as independent estimates can give
+incorrect probabilities. Model the shared cause as one estimate and map its
+outcomes to the result.
 
-Weights survive only where both sides have them:
+The result has probabilities only when both inputs have probabilities:
 
 ```ts
 combineIndependentOutcomes(
@@ -229,12 +236,15 @@ combineIndependentOutcomes(
 // { kind: "spread", values: [1, 2, 3, 4] }
 ```
 
-There is no honest weight to put on a pair drawn from something unweighted, so
-the answer comes back as a range.
+When either input is `Possibilities`, the result contains possible values
+without probabilities.
 
-## What it refuses
+<a id="what-it-refuses"></a>
 
-An outcome the search never reaches is refused rather than dropped:
+## Handle unresolved outcomes
+
+A query throws `UnresolvedOutcomeError` if its search limit prevents it from
+resolving any outcome:
 
 ```ts
 addCoveredDays(ordered, possibilities([1, 20]), {
@@ -246,14 +256,15 @@ addCoveredDays(ordered, possibilities([1, 20]), {
 // without saying so. Widen `within`.
 ```
 
-A distribution missing part of its mass still reads as a distribution, and
-every quantile drawn from it would be wrong by however much went missing.
+The query fails as a whole. Silently omitting an unresolved outcome would
+change the distribution and make its probabilities incorrect.
 
 ## Ordering
 
-A median, a quantile and a CDF all need the outcomes in order. Counts,
-durations, instants and the rest of what `Temporal` answers with are ordered as
-they already are. Anything else takes an `order` of its own:
+Functions such as `median`, `quantile`, and cumulative probability queries
+need ordered outcomes. Quando supplies ordering for numbers and Temporal
+values, including durations and instants. Supply an `order` comparator for
+other value types:
 
 ```ts
 possibleValues(
@@ -265,18 +276,17 @@ possibleValues(
 
 ## Limits
 
-**The rules themselves are certain.** A layer that only applies in some
-weathers makes the answer a distribution over interval sets. That is a larger
-change than this one. [Horizons](../horizon/) cover the related case of rules that are
-known only so far ahead.
+Estimates describe input values, such as durations and day counts. They do not
+assign probabilities to whether a rule or layer applies. Use
+[horizons](../horizon/) for rules whose data is complete only through a known
+date.
 
-**Nothing fits a distribution from history.** Turning delivery records into
-weights means converting calendar times back into rule-relative durations,
-which Quando is well placed to do and does not do yet.
+Your application must supply the outcomes and probabilities. Quando does not
+fit distributions from historical records.
 
-**A discrete estimate is the whole model.** Continuous inputs are discretised
-by whoever supplies them, at a resolution they choose. Quando imposes no
-sampling rate of its own.
+Estimates contain discrete outcomes. Convert continuous inputs to discrete
+values before passing them to Quando, using a sampling resolution appropriate
+for your application.
 
 Schedule arithmetic accepts the same estimates as the standalone functions.
 An `Estimate<T>` variable works without narrowing it first. A search that

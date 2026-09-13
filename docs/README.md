@@ -61,9 +61,10 @@ Read the pages in this order if Quando is new to you:
 The website at [quandojs.dev](https://quandojs.dev) is built from this
 directory. Edit these files and let the site build copy them.
 
-Each website page lives at `docs/<path>/README.md` and must contain one H1 plus
-a trailing `<!-- card -->` block. The site uses the H1 as its title and the
-first paragraph as its default description. Use relative links between pages.
+Each website page lives at `docs/<path>/README.md` and must contain one H1,
+a factual `description` in YAML frontmatter (1 to 160 characters), and a trailing
+`<!-- card -->` block. The site uses the H1 as its title and the description for
+social sharing. Use relative links between pages.
 
 Run the documentation check after editing:
 

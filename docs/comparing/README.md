@@ -1,8 +1,12 @@
+---
+description: "Compare Quando definitions by canonical form and compute stable fingerprints."
+---
+
 # Comparing definitions
 
-Use `sameDefinition` when two rule or cascade documents may have different shapes but
-the same canonical form. Use `fingerprint` when you need that form as a stable
-string.
+Use `sameDefinition` to compare rule or cascade documents after normalising
+their structure. Use `fingerprint` to obtain the normalised document as a
+stable JSON string.
 
 These operations compare document structure. They do not evaluate definitions
 over time.
@@ -61,11 +65,8 @@ The result is the canonical JSON string. Equal canonical values have equal
 fingerprints. Cascade values must also have stable JSON representations if you
 store the fingerprint as a persistent key.
 
-The same rule fingerprints the same way on every machine. Where the canonical
-form has to order things, it orders them by UTF-16 code unit rather than by the
-host's collation, because collation differs by language. Swedish sorts `"ö"`
-after `"z"` and English sorts it before, so a rule holding either could
-otherwise key to one cache entry in one place and another entry elsewhere.
+Canonical sorting uses UTF-16 code units. It is independent of the machine's
+language settings, giving the same rule the same fingerprint across machines.
 
 ## Structural limits
 
@@ -95,9 +96,9 @@ false
 `canonical`, `sameDefinition`, and `fingerprint` expect valid Quando data. Parse
 [stored data](../serialisation/) before comparing it.
 
-Use `coverageChanges` when you need semantic differences inside a time window.
-It evaluates both definitions and reports the intervals added to and removed
-from their coverage. See the [queries guide](../queries/#compare-covered-time).
+Use `coverageChanges` to compare the time covered by two definitions within
+a window. It evaluates both definitions and reports added and removed
+intervals. See the [queries guide](../queries/#compare-covered-time).
 
 <!-- card
 ```ts

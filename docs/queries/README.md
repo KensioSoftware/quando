@@ -1,7 +1,12 @@
+---
+description: "Find available time and calculate working-time deadlines with Quando queries."
+---
+
 # Queries
 
-Quando provides nine common queries for rules, schedules, and selected cascade
-values.
+Use these queries to check availability, find booking slots, measure covered
+time, and calculate working-time deadlines. They accept rules, schedules, and
+selected cascade values.
 
 | Function              | Question                                           |
 | --------------------- | -------------------------------------------------- |
@@ -28,10 +33,13 @@ The standalone functions accept any of these inputs:
 - A schedule or another boolean cascade
 - One value selected from a cascade with `assigned`
 
-Every instant is a `Temporal.ZonedDateTime`. Finite queries take a `QueryWindow` with required `from` and `to` values.
-Lazy core streams take `Context`, whose `to` is optional. Query options also
-accept `occurrences`, `rules`, and `disambiguation`. Duration inputs accept
-Temporal durations, ISO duration strings, or objects such as `{ minutes: 30 }`.
+Represent each instant with `Temporal.ZonedDateTime`. A `QueryWindow` has
+required `from` and `to` values. Low-level interval streams accept a `Context`,
+whose `to` is optional.
+
+Evaluation options include `occurrences`, `rules`, and `disambiguation`.
+Duration inputs accept `Temporal.Duration`, ISO duration strings, or objects
+such as `{ minutes: 30 }`.
 
 ## Check an instant
 
@@ -72,14 +80,17 @@ console.log(opening?.start?.toString());
 2026-03-16T09:00:00+00:00[Europe/London]
 ```
 
-If `context.from` is already covered, the result begins at that instant. The
-query answers what is covered from now onward.
+If `context.from` is already covered, the returned interval starts at
+`context.from`. It excludes any earlier part of the opening.
 
-A finite search can clip the end of the returned interval. Pass
-`{ intervalEnd: "complete", endWithin: { days: 7 } }` to continue far enough to return the interval's complete
-end. The end search is bounded too: `endWithin` defaults to 100 years and is
-measured from the returned interval start. Failure to find its end throws
-`SearchLimitExceededError`, including when an explicit end limit was supplied.
+A finite search can clip the interval's end to the search window. Pass
+`{ intervalEnd: "complete", endWithin: { days: 7 } }` to search for the
+opening's actual end.
+
+`endWithin` limits this additional search from the returned interval's start.
+It defaults to 100 years. If the end cannot be found within that limit, the
+query throws `SearchLimitExceededError`, even when `endWithin` was supplied
+explicitly.
 
 ## Find an available gap
 
@@ -111,8 +122,8 @@ console.log(gap?.end?.toPlainTime().toString());
 A found slot has required `start` and `end` fields. Only the slot itself can
 be `undefined`.
 
-The gap begins at the start of the first covered interval long enough to hold
-it. An interval ending exactly when the gap ends is an exact fit.
+The slot starts at the beginning of the first covered interval long enough to
+hold it. The slot may end exactly at the covered interval's end.
 
 Use `openingHours.firstOpenSlot(from, lasting, search?)` when querying a
 schedule.
@@ -239,21 +250,19 @@ console.log(openDays);
 5
 ```
 
-A date counts when any of it is covered. A day open from 09:00 to 13:00 is one
-open day, the same as a day open from 09:00 to 17:00. "Three working days"
-means three days on which business happens, and any threshold below a whole day
-would be arbitrary.
+A date counts if it contains any covered time. A day open from 09:00 to 13:00
+and a day open from 09:00 to 17:00 each count as one open day.
 
 Dates are local to the zone of `context.from`. The window is half open. A date
 whose covered time begins exactly at `to` falls outside it.
 
-This is a different question from `coveredDuration`, and the two cannot be
-derived from each other. A week of half-days is five open days and 20 open
-hours.
+Day counts and elapsed durations measure different things. A week of
+four-hour days contains five open days and 20 open hours. Use
+`coveredDuration` when you need the elapsed total.
 
 ## Add whole covered days
 
-`addCoveredDays` answers "three working days from now".
+`addCoveredDays` advances by a whole number of covered calendar dates.
 
 ```ts
 import { addCoveredDays, schedule, weekdays } from "@kensio/quando";
@@ -273,23 +282,23 @@ console.log(delivery?.toString());
 2026-03-18T09:00:00+00:00[Europe/London]
 ```
 
-The answer is the first instant at or after `from` that the input covers on the
-date the count lands. For opening hours that is when the doors open that
-morning. Call `.toPlainDate()` for the date on its own.
+The result is the first covered instant on the target date, at or after
+`from`. For a future opening-hours date, this is the first opening that day.
+Call `.toPlainDate()` if you only need the date.
 
 The count is a whole number of days and cannot be negative. A zero count
 returns the starting instant. Part of a day is an elapsed duration, and
 `addCoveredTime` is the query that takes one.
 
-Stepping through `nextCoveredInterval` gives a different answer, and a wrong
-one. Consecutive covered days coalesce into a single interval, so a schedule
-open for whole weekdays yields one interval per week and each step advances
-seven days.
+Use day arithmetic to advance by dates. Counting results from
+`nextCoveredInterval` counts intervals, which can span several days. For
+example, a rule covering whole weekdays produces one continuous interval
+from Monday through Friday.
 
 ### Which day the count starts on
 
-The starting date does not count by default. Three working days from Friday
-afternoon is the following Wednesday, and Friday is the day of the act.
+By default, counting starts after the date of `from`. Three working days
+from Friday afternoon therefore ends on Wednesday.
 
 Pass `startingDay: "included"` to count the starting date first, when covered
 time remains on it:
@@ -301,16 +310,15 @@ const sameDay = addCoveredDays(ordered, 1, {
 });
 ```
 
-Counting runs forward from the instant supplied, and an answer never falls
-before it. Asked at six on a Friday evening, `"included"` moves to Monday
-because Friday has no open time left. Asked during open time, a count of one
-answers with the starting instant itself, because that is the first covered
-moment left on the starting date.
+With `startingDay: "included"`, the starting date counts only if covered
+time remains at or after `from`. At 18:00 on Friday, counting starts on Monday
+because the office has closed. During Friday's opening hours, a count of one
+returns `from` itself.
 
-Clear days compose from the default. "Three clear days' notice" is three
-covered days with the starting date excluded, and the event falls no earlier
-than the day after the third. Jurisdictions differ on what happens next.
-Quando counts the days and leaves that rule to the caller.
+To leave three whole covered days between a starting date and an event, count
+three days with the default starting-day setting, then place the event after
+the third day. If you are implementing a notice-period policy, apply its
+remaining date-selection rules in your application.
 
 ## Compare covered time
 
@@ -363,15 +371,15 @@ const opening = nextCoveredInterval(office, fridayEvening, {
 });
 ```
 
-This search returns `undefined` after two hours. It does not throw because the
-caller supplied the limit.
+This search returns `undefined` if it finds no opening within the two-hour
+search window.
 
 An existing `context.to` also provides an explicit limit. When both are
 present, `within` can shorten the context window and cannot extend it.
 
 The low-level `intervals` and `resolve` functions do not add a safety limit.
 They return lazy streams. `availableSlots` is also lazy but requires a finite
-window. These iterators are consumed once; call the query again to restart.
+window. These iterators are consumed once. Call the query again to restart.
 
 ## Query a cascade value
 

@@ -1,3 +1,7 @@
+---
+description: "Store Quando definitions as JSON and restore them with document parsers."
+---
+
 # Serialisation
 
 Quando definitions are JSON-compatible documents. You can store them with
@@ -43,9 +47,8 @@ TypeError: rule.rules[0].days[0]: "mondey" is not a day of the week. Expected on
 
 ### A custom rule stores its name
 
-A `customRule` rule names a rule type the application implements. The document
-holds the name and its options, and the code that runs it arrives on
-`context.rules` at query time.
+A custom rule document stores its type name and JSON-compatible options.
+Supply the implementation through `context.rules` when evaluating the rule:
 
 ```ts
 import { customRule, parseRule } from "@kensio/quando";
@@ -60,12 +63,14 @@ console.log(stored);
 {"type":"custom","name":"easter","options":{"offset":1}}
 ```
 
-Parsing checks the shape and stops there. A document naming a rule type this
-process has never heard of still parses, which is what lets a service store and
-forward a schedule it cannot evaluate. `UnknownCustomRuleError` is raised at
-evaluation instead. Options must survive a JSON round trip, and `parseRule`
-refuses anything that would not. See [rules](../rules/#supply-your-own-rule-type)
-for writing a rule type.
+Parsing validates the document without requiring the custom rule's
+implementation. You can store or forward a schedule before loading its
+registry. Evaluating a custom rule missing from the registry throws
+`UnknownCustomRuleError`.
+
+Options must survive a JSON round trip. `parseRule` rejects unsupported
+values. See [rules](../rules/#supply-your-own-rule-type) for custom rule
+implementations.
 
 ## Schedules
 
@@ -85,8 +90,8 @@ const stored = JSON.stringify(office);
 const restored = parseSchedule(JSON.parse(stored));
 ```
 
-The parsed schedule retains its zone, methods, labels, and comments. An
-explanation after the round trip uses the same caller-written context.
+The parsed schedule retains its zone, methods, labels, and comments.
+Explanations continue to include the stored labels and comments.
 
 ## Rotas
 
@@ -167,8 +172,9 @@ cascade's merge strategy.
 
 ## Values that can be stored
 
-`JsonValue` describes the values supported by JSON. `JsonCompatible<T>`
-checks an application type without requiring an index signature.
+`JsonValue` is the union of supported JSON value types. `JsonCompatible<T>`
+checks whether your application type can be stored, including object types
+without an index signature.
 
 Valid values include strings, finite numbers, booleans, `null`, arrays, and
 plain objects. Constructors reject values that JSON would lose or change:
@@ -188,9 +194,11 @@ plain objects. Constructors reject values that JSON would lose or change:
 Parsers reject unknown fields. Deploy code that can read a new field before
 deploying code that writes it.
 
-Parsers throw `ParseError`, a `TypeError` with `path` and `code` fields.
-`code` is `"invalid-value"` or `"unknown-field"`. All parsers take decoded
-data: use `parseSchedule(JSON.parse(text))` for JSON text.
+Parsers throw `ParseError`, a subclass of `TypeError` with `path` and `code`
+fields. The code is `"invalid-value"` or `"unknown-field"`.
+
+All parsers take decoded data. Use `parseSchedule(JSON.parse(text))` when the
+input is JSON text.
 
 After parsing a custom rule document, reattach its executable registry with
 `restored.withCustomRules(registry)` before querying it.

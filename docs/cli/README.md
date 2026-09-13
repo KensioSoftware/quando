@@ -1,7 +1,11 @@
+---
+description: "Query stored Quando definitions from the command line."
+---
+
 # Command-line interface
 
-The `quando` command reads stored definitions and runs timelines,
-explanations, and validation.
+Use the `quando` command to inspect stored definitions from a terminal. It can
+show timelines, explain results, and validate a definition over a time window.
 
 ## Run the command
 
@@ -12,8 +16,8 @@ npm install @kensio/quando
 npx quando --help
 ```
 
-Every query reads one JSON file. The file contains a definition produced by
-`JSON.stringify` or written in Quando's documented JSON format.
+Each command reads a definition from one JSON file. Create it with
+`JSON.stringify` or write it using the [documented JSON format](../serialisation/).
 
 This example creates `opening-hours.json`:
 
@@ -84,8 +88,8 @@ Mon 2026-03-09 |..................################..............| 09:00-17:00
 # covered  + partly covered  . uncovered
 ```
 
-`timeline` accepts a schedule or a rule. Rotas and tallies carry values. A
-coverage timeline would need to say which value to select.
+`timeline` accepts a schedule or a rule. It does not accept rotas or tallies,
+which require a value selection before their coverage can be displayed.
 
 ## Explain an instant
 
@@ -123,8 +127,8 @@ The command exits with status 0 for an empty result or informational findings.
 Warnings and errors exit with status 1. Pass `--format text` to print
 one readable diagnostic per line.
 
-Schedule validation permits closed time. Rota validation reports periods when
-nobody is assigned. Tally validation checks the reachability of its layers.
+Schedule validation permits closed time. Rota validation reports unassigned
+periods. Tally validation checks whether layers can contribute to the result.
 Rule validation reports a rule that covers no time in the requested window.
 
 ## Dates and output

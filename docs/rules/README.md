@@ -1,7 +1,11 @@
+---
+description: "Define recurring periods and combine them with Quando's boolean rule operations."
+---
+
 # Rules
 
-A rule describes the times when something applies. Rules are boolean and carry
-no application value.
+A rule defines the times when a condition holds. Use rules to describe
+recurring periods, select dates, and combine or exclude covered time.
 
 Use a [schedule](../schedules/) for opening hours or a
 [cascade](../cascades/) when you need values such as names and prices.
@@ -85,9 +89,9 @@ A negative day is resolved against whichever month it falls in. `daysOfMonth(-1)
 covers 28 February in an ordinary year, 29 February in a leap year, and 31
 March.
 
-A positive day that a month never reaches covers no time in that month.
-`daysOfMonth(31)` covers seven months of the year, and February in none of them.
-Use `daysOfMonth(-1)` for the end of every month.
+A positive day matches only months that contain that date. For example,
+`daysOfMonth(31)` matches the 31st in seven months of the year and never
+matches in February. Use `daysOfMonth(-1)` for the last day of every month.
 
 Days are whole calendar days, so consecutive selections join. `daysOfMonth(1, -1)`
 covers the last day of one month and the first of the next as one interval.
@@ -97,8 +101,8 @@ written. Calling `daysOfMonth()` with no arguments covers no time.
 
 ## Select the nth day of the week in a month
 
-`nthDayOfWeekInMonth` counts occurrences of a weekday within the month. This is the
-shape of every recurring monthly meeting there is:
+`nthDayOfWeekInMonth` selects a weekday by its position in the month. Use it
+for a meeting on the first Monday or the last Friday:
 
 ```ts
 import { nthDayOfWeekInMonth } from "@kensio/quando";
@@ -108,12 +112,11 @@ const patchTuesday = nthDayOfWeekInMonth(2, "tuesday");
 const payrollCutoff = nthDayOfWeekInMonth(-1, "friday");
 ```
 
-The count runs from the start of the month at `1` and back from the end at
-`-1`. The last Friday is the last one whether the month holds four or five.
+Positive counts start at the beginning of the month. Negative counts start
+at the end. A count of `-1` selects the last occurrence of the weekday.
 
-A month without a fifth of that weekday covers no time. `nthDayOfWeekInMonth(5, "monday")`
-matches in some months and not others, which is why `-1` is the way to write
-"the last".
+`nthDayOfWeekInMonth(5, "monday")` covers no time in a month with only four
+Mondays. Use `-1` when the rule should always select the last Monday.
 
 More than one weekday takes the same position in the month:
 
@@ -121,11 +124,12 @@ More than one weekday takes the same position in the month:
 const firstWeekend = nthDayOfWeekInMonth(1, "saturday", "sunday");
 ```
 
-The count is per weekday. This is the first Saturday and the first Sunday, and
-in a month where the two fall next to each other they join into one interval.
+The count applies to each weekday separately. This rule selects the first
+Saturday and the first Sunday. When those dates are consecutive, their
+intervals are joined.
 
-Counts run from 1 to 5 and from -1 to -5. No month holds six of any weekday, so
-anything further is rejected where the rule is written.
+Counts must be from 1 to 5 or from -1 to -5. Other values are rejected when
+the rule is created.
 
 ## Select months
 
@@ -138,8 +142,8 @@ const summerBreak = monthsOfYear("july", "august");
 const financialYearEnd = monthsOfYear("march");
 ```
 
-Names avoid the ambiguity that month numbers carry (`Temporal` counts from 1
-and the older `Date` counts from 0). The `MONTHS` export lists all twelve.
+Use month names for this builder. `MONTHS` lists all twelve accepted names.
+For comparison, numeric months start at 1 in `Temporal` and at 0 in `Date`.
 
 Consecutive months form one interval, and the year wraps.
 `monthsOfYear("december", "january")` covers one stretch across the new year.
@@ -159,8 +163,7 @@ The names are Gregorian. To name a month on another calendar, see
 
 ## Repeat every nth period
 
-`everyNthPeriod` steps through the calendar a period at a time. The anchor fixes which
-cycle counts as the first:
+`everyNthPeriod` selects every nth calendar period relative to an anchor date:
 
 ```ts
 import { daysOfWeek, everyNthPeriod, onOrAfter } from "@kensio/quando";
@@ -173,10 +176,10 @@ const fortnightly = everyNthPeriod(2, "weeks", { anchor: "2026-03-09" }).and(
 Periods are `"days"`, `"weeks"`, `"months"` and `"years"`. The `PERIODS` export
 lists them.
 
-The whole of each selected period is covered. On its own,
-`everyNthPeriod(2, "weeks", { anchor: "2026-03-09" })` covers seven days out of every
-fourteen. Intersect it with something narrower for the day within them, as
-above.
+The rule covers each selected period in full. For example,
+`everyNthPeriod(2, "weeks", { anchor: "2026-03-09" })` covers seven days out
+of every fourteen. Combine it with a weekday rule to select a day within each
+selected week.
 
 Weeks are seven-day blocks measured from the anchor. A cycle anchored on a
 Wednesday has weeks running Wednesday to Wednesday. Months and years are counted
@@ -184,9 +187,8 @@ on the calendar, so a quarterly cycle covers whole months whatever their length.
 
 ### The anchor sets the phase
 
-Periods are counted in both directions. A cycle anchored in April also covers
-the right weeks in March, so bound it with a date when the recurrence has a
-start:
+The recurrence extends both before and after the anchor. Add a date bound
+when it should start on a particular date:
 
 ```ts
 const meetings = everyNthPeriod(2, "weeks", { anchor: "2026-03-09" })
@@ -194,8 +196,8 @@ const meetings = everyNthPeriod(2, "weeks", { anchor: "2026-03-09" })
   .and(onOrAfter("2026-03-23"));
 ```
 
-Keeping the two apart means one rule says what the rhythm is and the other says
-when it runs. See [bound a stretch of the calendar](#bound-a-stretch-of-the-calendar).
+The anchor determines which periods match. The date bound determines when
+coverage starts. See [bound a stretch of the calendar](#bound-a-stretch-of-the-calendar).
 
 An interval of `1` selects every period, which covers all of time.
 
@@ -243,8 +245,8 @@ Calling `dates()` with no arguments covers no time.
 
 ## Bound a stretch of the calendar
 
-Every rule above recurs forever. `onOrAfter`, `onOrBefore` and `datesBetween` bound
-one. A schedule can then start on a date, stop on a date, or run for a season:
+Use `onOrAfter`, `onOrBefore`, and `datesBetween` to limit a rule to a range of
+dates. This is useful for schedules that start or end on a known date:
 
 ```ts
 import { datesBetween, onOrAfter, weekdays, weekends } from "@kensio/quando";
@@ -255,20 +257,18 @@ const summerWeekends = weekends().and(datesBetween("2026-06-01", "2026-08-31"));
 
 `newHours` covers no weekday before 1 April and every weekday from then on.
 
-Both ends are included. A date names a whole day here, the way it does in
-`dates`, so `datesBetween("2026-04-01", "2026-04-30")` covers the whole of 30 April
-and `datesBetween(d, d)` covers that one day.
+Both endpoint dates are included in full. For example,
+`datesBetween("2026-04-01", "2026-04-30")` includes all of 30 April.
+`datesBetween(d, d)` covers the single date `d`.
 
-An unbounded end stays unbounded. Read `onOrAfter("2026-04-01")` over a context
-with no end and one interval comes back, open at the far end.
+With no `to` in the query context, `onOrAfter("2026-04-01")` returns one
+interval whose `end` is `undefined`.
 
-A range that ends before it starts is rejected where it is written. It covers
-no time, and it almost always means the two arguments were swapped.
+A range whose end precedes its start is rejected when the rule is created.
 
-A range needs at least one end. The rule type is two shapes rather than one
-with two optional fields, so `{ type: "dateRange" }` will not compile, and
-`parseRule` refuses the same document arriving as stored JSON. Use `always()`
-for all of time.
+A date range requires at least one endpoint. TypeScript rejects
+`{ type: "dateRange" }`, and `parseRule` rejects the same incomplete document
+at runtime. Use `always()` to cover all time.
 
 ## Combine rules
 
@@ -325,9 +325,9 @@ can choose a different zone for one child rule.
 
 ## Set a calendar
 
-Rules count on the ISO calendar by default. `inCalendar` reads one subtree on
-any calendar `Temporal` implements, so "the first day of the month" can mean
-Rosh Chodesh rather than the first of January.
+Rules use the ISO calendar by default. Wrap a rule in `inCalendar` to evaluate
+its calendar fields using another calendar supported by `Temporal`. This
+example selects the first day of each Hebrew month:
 
 ```ts
 import { daysOfMonth, inCalendar } from "@kensio/quando";
@@ -351,21 +351,19 @@ console.log(
 2026-01-19 2026-02-18 2026-03-19 2026-04-18 2026-05-17
 ```
 
-The instants do not move. What changes is the year, month and day a rule reads
-off a date, so `daysOfMonth`, `nthDayOfWeekInMonth` and a cycle of days or
-weeks all answer on the calendar named. Weekdays are the same seven-day cycle
-on these calendars and need no wrapper.
+`inCalendar` changes the calendar used to interpret each instant.
+`daysOfMonth`, `nthDayOfWeekInMonth`, and cycles of days or weeks use that
+calendar. The weekday cycle is the same across these calendars.
 
-Which calendars exist is the runtime's business. A runtime with full ICU data,
-such as Node 26, carries them all. `temporal-polyfill` carries only `iso8601`
-and `gregory` unless its `full` build is the one assigned to the global. See
-[getting started](../getting-started/#calendars-need-the-full-polyfill-build).
-`inCalendar` refuses a calendar the runtime does not implement, and says which
-of the two reasons applies.
+Available calendars depend on the runtime. Node 26 with full ICU data supports
+Temporal's calendars. The default `temporal-polyfill` build supports only
+`iso8601` and `gregory`. Load its `full` build for other calendars, as described
+in [getting started](../getting-started/#calendars-need-the-full-polyfill-build).
+`inCalendar` rejects unsupported calendars with an error explaining the missing
+runtime support.
 
-Answers come back on the calendar the query was asked in, the same way they
-come back in the query's zone. Which calendar a rule counted on is how it was
-written rather than part of the answer.
+Results retain the calendar and time zone of the query context. The calendar
+used to evaluate the rule affects which intervals match, not their display.
 
 Calendars nest and combine with zones. The innermost `inCalendar` wins, and a
 rule outside the wrapper keeps counting on the ISO calendar:
@@ -376,11 +374,10 @@ const workingRoshChodesh = inCalendar("hebrew", daysOfMonth(1)).and(weekdays());
 
 ### Month names stay Gregorian
 
-`monthsOfYear` names the twelve Gregorian months, and `everyNthPeriod(n, "months")` and
-`everyNthPeriod(n, "years")` count them. Another calendar names its months differently
-and a Hebrew leap year holds thirteen of them, which moves the index a
-Gregorian name would map to. Both are refused under `inCalendar` rather than
-answered wrongly:
+`monthsOfYear` and month or year cycles use Gregorian month positions. These
+positions do not apply to every calendar. For example, a Hebrew leap year has
+thirteen months. Quando rejects these builders when evaluated under a
+non-Gregorian `inCalendar` wrapper:
 
 ```ts
 inCalendar("hebrew", monthsOfYear("january"));
@@ -390,8 +387,8 @@ inCalendar("hebrew", monthsOfYear("january"));
 RangeError: monthsOfYear() names Gregorian months, so it cannot be read on the hebrew calendar. Another calendar names its months differently, and may hold thirteen of them.
 ```
 
-Name the month with `monthCodes` below, select its days with `daysOfMonth`, or
-name the dates with `dates`.
+For other calendars, select months with `monthCodes` and days with
+`daysOfMonth`. Use `dates` when the ISO dates are already known.
 
 `dates` and `datesBetween` name ISO dates whatever calendar surrounds them. Note
 that a calendar annotation on a date string does not name a date on that
@@ -403,9 +400,9 @@ notations count Gregorian months and years.
 
 ## Name a month on any calendar
 
-`monthCodes` names a month the way `Temporal` names one. Every calendar names
-it that way, so one code means one month wherever the rule is read. A code is
-`"M"` and two digits, and a leap month carries a trailing `"L"`:
+`monthCodes` selects months using Temporal month codes. A code starts with
+`"M"` followed by two digits. A leap-month code also ends with `"L"`. The
+calendar determines which month each code identifies:
 
 ```ts
 import { inCalendar, monthCodes } from "@kensio/quando";
@@ -430,21 +427,18 @@ for (const month of intervals(adarI, window)) {
 2024-02-10 to 2024-03-11
 ```
 
-Two Hebrew years went past and one leap month came back. 5784 is a leap year
-and 5785 is not.
+The window includes Hebrew years 5784 and 5785. Only 5784 is a leap year, so
+the result contains one leap-month interval.
 
-A leap month is a month of its own rather than a second helping of the one
-before it. In a Hebrew leap year Adar I is `"M05L"` and Adar II is `"M06"`. A
-rule wanting both says both.
+Leap months have distinct codes. In a Hebrew leap year, Adar I is `"M05L"`
+and Adar II is `"M06"`. Select both codes if both months should match.
 
-A month _name_ goes wrong in the same place. The month `Temporal` numbers 6 is
-Adar I in a leap year and Adar in a common one, so the index a name would map
-to moves.
+Month numbers can refer to different named months in different years. Hebrew
+month 6 is Adar I in a leap year and Adar in a common year.
 
-On the ISO calendar the codes are the Gregorian months in order, so
-`monthCodes("M03")` and `monthsOfYear("march")` cover the same days.
-`monthsOfYear` reads better and is the one to write where the months are
-Gregorian. `monthCodes` is the one that survives an `inCalendar` wrapper.
+On the ISO calendar, `monthCodes("M03")` and `monthsOfYear("march")` cover
+the same days. Use month names for Gregorian rules and month codes for rules
+that need to work under other calendars.
 
 A code the calendar in force never reaches covers no time, the way
 `daysOfMonth(31)` covers no February:
@@ -454,14 +448,13 @@ A code the calendar in force never reaches covers no time, the way
 monthCodes("M05L");
 ```
 
-Which codes a calendar has is the calendar's business, and for a leap month the
-year's as well. A rule is written long before either is known. `"M13"` is a
-Coptic month, and refusing it there on the grounds that the ISO calendar has no
-thirteenth would be the same mistake.
+A code may match in one calendar or year and cover no time in another.
+For example, `"M13"` identifies a Coptic month but covers no time in the ISO
+calendar.
 
-The codes run `"M01"` to `"M13"`, and the same again with `"L"`. `MONTH_CODES`
-lists them and the `MonthCode` type is their union. An editor completes them,
-and a typo will not compile.
+Accepted codes run from `"M01"` to `"M13"`, with optional trailing `"L"`.
+`MONTH_CODES` lists them, and the `MonthCode` union provides TypeScript
+validation and editor completion.
 
 `toCron` and `toRRule` refuse `monthCodes`, on any calendar. Cron's month field
 and `BYMONTH` are Gregorian positions, and a code means whichever month the
@@ -528,10 +521,9 @@ searching an unbounded future.
 
 ## Supply your own rule type
 
-Some rules are functions rather than patterns. Easter is computed from a year,
-sunset from a date and a pair of coordinates, and the start of a lunar month
-has historically been observed. `customRule` names a rule type the application
-supplies, and `context.rules` holds the code that runs it.
+Use a custom rule for dates or times supplied by your application, such as
+Easter, sunset, or observed lunar dates. `customRule` stores the rule's name
+and options. A registry in `context.rules` supplies its implementation.
 
 ```ts
 import { isActiveAt, customRule, schedule, weekdays } from "@kensio/quando";
@@ -580,15 +572,17 @@ console.log(office.isOpen(easterMonday));
 false
 ```
 
-A registry is a plain object keyed by name, so combining two sources of rule
-types is a spread. There is no global to register into and nothing to reset
-between tests.
+A registry is a plain object keyed by rule name. Combine registries with
+object spread and pass the result to the queries that need it. Registries are
+local to the query or domain object.
 
-### Attaching one to a schedule, rota or tally
+<a id="attaching-one-to-a-schedule-rota-or-tally"></a>
 
-`withCustomRules` gives a schedule, a rota or a tally the registry its scopes need,
-and returns a new one. Every method then reads it. So does the account each one
-gives of itself:
+### Attach a registry to a schedule, rota, or tally
+
+`withCustomRules` returns a new schedule, rota, or tally with an attached
+registry. Its queries, explanations, validation, and timelines use that
+registry:
 
 ```ts
 const bankHolidays = {
@@ -619,24 +613,27 @@ false
 2026-12-28T09:00:00+00:00[Europe/London]
 ```
 
-The search skipped the holiday and the weekend after it. `explain`, `validate`,
-`timeline` and the other queries read the registry the same way, and a rule type's
-own `describe` is what puts "It is a bank holiday." into the explanation.
+The search skips the holiday and the following weekend. The custom rule's
+`describe` callback supplies the text "It is a bank holiday." in the
+explanation.
 
-A registry holds functions, so it never enters the stored document. `toJSON`
-returns what it always returned, and `withCustomRules` called twice replaces the
-registry rather than merging the two. Attach it before or after the layers that
-need it, since each builder method carries it into the object it returns.
+The registry contains functions and is excluded from `toJSON()`. Calling
+`withCustomRules` again replaces the attached registry. To combine registries,
+merge their objects before attaching them.
 
-The core queries take the same registry on the context instead. That is what
-`isActiveAt(openingHours, christmas, { rules: { bankHolidays } })` does, and it
-is the route to use where the rule set is not a schedule, a rota or a tally.
+Builder methods preserve the attached registry. You can attach it before or
+after adding layers.
 
-### The document holds a name, not a function
+Standalone queries accept the registry in their evaluation options. For
+example, `isActiveAt(openingHours, christmas, { rules: { bankHolidays } })`
+supplies it for one query. Use this form when querying a rule directly.
 
-A `customRule` rule stores and travels like every other rule. Only evaluating one
-needs the registry. A service can hold, forward and canonicalise a schedule
-whose rules it cannot itself run.
+<a id="the-document-holds-a-name-not-a-function"></a>
+
+### Store a custom rule
+
+Custom rules can be stored, forwarded, and canonicalised without their
+implementations. The registry is required only when evaluating them.
 
 ```ts
 console.log(JSON.stringify(customRule("easter", { offset: 1 })));
@@ -646,33 +643,32 @@ console.log(JSON.stringify(customRule("easter", { offset: 1 })));
 {"type":"custom","name":"easter","options":{"offset":1}}
 ```
 
-Options are stored and must survive a JSON round trip. `parseRule` refuses
-anything that would not. Evaluating a rule whose name the registry does not
-hold throws `UnknownCustomRuleError`, which names what was asked for, what the
-registry does hold, and the two ways of supplying one.
+Custom rule options must be JSON-compatible. `parseRule` rejects unsupported
+values. Evaluating a rule missing from the registry throws
+`UnknownCustomRuleError`. The error identifies the missing rule, lists
+available rules, and explains how to supply a registry.
 
 ### What a rule type must return
 
-`intervals(context, options)` returns the times the rule covers. The result
-must arrive in ascending order of start and must not overlap, which is the
-contract every interval stream keeps. Touching intervals are merged for you.
-Out-of-order or overlapping intervals throw `CustomRuleStreamError`, because
-repairing those means holding the whole stream in memory.
+`intervals(context, options)` must return non-overlapping intervals in
+ascending order of start. Quando merges touching intervals. Out-of-order or
+overlapping output throws `CustomRuleStreamError`.
 
-Quando clips the result to the query window, and a rule type may yield forever.
-The example above still terminates on an unbounded context because the
-interpreter stops pulling.
+Quando clips output to the query window and reads intervals lazily. A custom
+rule can produce an endless stream. Consumers such as `take` stop after
+reading the results they need.
 
-A `zone` argument reads the rule the way `inZone` does. The same instants
-arrive displayed in that zone. A rule type reads `context.from.timeZoneId` and
-never handles the field itself.
+A custom rule's `zone` argument works like `inZone`. Quando passes the context
+instants to the callback in that zone. Read `context.from.timeZoneId` to get
+the effective zone.
 
-### What a custom rule cannot do
+<a id="what-a-custom-rule-cannot-do"></a>
 
-`toCron` and `toRRule` refuse a rule holding a custom type, and say why. A
-notation carries what the document says, and this document says a name. The
-command line cannot evaluate custom rules either, for the same reason. It reads
-stored documents and has nowhere to take code from.
+### Export and command-line limits
+
+`toCron` and `toRRule` return `ok: false` for custom rules because those
+formats cannot represent an application-defined implementation. The CLI
+cannot evaluate custom rules because it has no way to load a registry.
 
 ## Store a rule
 

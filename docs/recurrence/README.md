@@ -1,7 +1,11 @@
+---
+description: "Parse RFC 5545 recurrence rules into Quando rules for schedule queries."
+---
+
 # Recurrence rules
 
-`parseRRule` reads an RFC 5545 recurrence rule as a Quando rule. Every query,
-combination and explanation then works on it the way it works on any other rule.
+`parseRRule` converts a supported RFC 5545 recurrence rule to a Quando rule.
+You can query it, combine it with other rules, and explain its results.
 
 ## Read a recurrence
 
@@ -13,8 +17,7 @@ const standup = parseRRule("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", {
 });
 ```
 
-An RRULE leans on `DTSTART` for three separate things, so `start` is required
-here and does all three:
+The required `start` option supplies the recurrence's `DTSTART`. It determines:
 
 - The time of day the recurrence runs at.
 - The day the pattern repeats on when no `BYDAY` or `BYMONTHDAY` names one.
@@ -35,12 +38,10 @@ and Thursday of that week, then the Tuesday after Easter.
 
 ## What an occurrence covers
 
-A recurrence fires at an instant and a Quando rule covers time, so an occurrence
-becomes the minute it starts in. This is the same reading
-[cron expressions](../cron/) get.
+By default, an occurrence with a time of day covers one minute from its start.
+This matches the interpretation of [cron expressions](../cron/).
 
-A start written as a plain date carries no clock time, and the recurrence covers
-whole days instead. That is an all-day event.
+A date-only `start` creates all-day occurrences:
 
 ```ts
 parseRRule("FREQ=DAILY", { start: "2026-03-11T09:30" });
@@ -68,15 +69,14 @@ parseRRule("FREQ=DAILY", { start: "2026-03-11" });
 the month and `BYDAY=-1FR` is the last Friday. Counted and bare entries mix, so
 `BYDAY=1MO,FR` is the first Monday and every Friday.
 
-A count also works under `FREQ=YEARLY` when `BYMONTH` gives it a month to count
-within, which is how most yearly recurrences are written:
+For `FREQ=YEARLY`, an ordinal weekday requires `BYMONTH` to specify the month:
 
 ```ts
 parseRRule("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH", { start: "2026-01-01" });
 ```
 
-That is the fourth Thursday of November. Without `BYMONTH` the count would run
-over the whole year, which has no rule to map onto, and is refused.
+This selects the fourth Thursday of November. An ordinal weekday without
+`BYMONTH` would count within the whole year, which Quando does not support.
 
 ```ts
 parseRRule("FREQ=MONTHLY;BYDAY=-1FR;UNTIL=20260630", { start: "2026-01-01" });
@@ -84,9 +84,10 @@ parseRRule("FREQ=MONTHLY;BYDAY=-1FR;UNTIL=20260630", { start: "2026-01-01" });
 
 That runs on the last Friday of each month and stops after June.
 
-Quando's expansions are checked against the worked examples RFC 5545 prints in
-section 3.8.5.3, including the ones that cross a daylight saving change. The
-parts below are checked there too, as refusals.
+The test suite checks recurrence expansion against worked examples from
+RFC 5545 section 3.8.5.3, including daylight saving transitions. In those
+tests, timestamp `UNTIL` bounds are replaced with equivalent final local dates
+for the example start times. Unsupported forms are tested separately.
 
 Pass the entire successful export to `parseRRule(written)` to preserve its
 `start`, `duration`, and `zone`. Passing just `written.rrule` loses the duration.
@@ -95,13 +96,12 @@ A full-day duration must start at midnight. Starts must have whole-minute precis
 
 ## Limits
 
-Timestamp `UNTIL` values throw `ParseError`; Quando cannot yet preserve their
-occurrence bounds. Date-only `UNTIL` remains supported. Exporting a timed rule
-with an upper date bound returns `ok: false`, so it cannot produce a record that
-would lose precision on import.
+Timestamp `UNTIL` values throw `ParseError`. Quando supports date-only
+`UNTIL` bounds. Exporting a timed rule with an upper date bound returns
+`ok: false` because the timestamp bound required for a faithful round trip is
+unsupported.
 
-Five parts exist and have no rule to map onto. Each is refused by name rather
-than ignored, because dropping one changes what a recurrence means.
+The following parts are unsupported. The parser rejects them by name:
 
 | Part        | Why                                                                                                                                       |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -111,13 +111,12 @@ than ignored, because dropping one changes what a recurrence means.
 | `BYYEARDAY` | Days of the year have no rule to map onto                                                                                                 |
 | `BYSECOND`  | Quando reads recurrences down to the minute                                                                                               |
 
-`FREQ=SECONDLY`, `MINUTELY` and `HOURLY` recur faster than a day, and Quando's
-recurrence steps through calendar periods. They are refused by name too.
+The parser also rejects `FREQ=SECONDLY`, `MINUTELY`, and `HOURLY`. Supported
+frequencies step through calendar periods of a day or longer.
 
 ## Write a rule out
 
-`toRRule` goes the other way. A recurrence is one part of a calendar entry, so
-three values come back together.
+`toRRule` exports a supported rule as an RRULE with a start and duration:
 
 ```ts
 import { timeOfDayRange, toRRule, weekdays } from "@kensio/quando";
@@ -132,30 +131,28 @@ if (written.ok) {
 }
 ```
 
-`start` is DTSTART, in the form `parseRRule` takes it back in. `duration` is
-how long one occurrence runs, and it belongs in the `DTEND` or `DURATION`
-property beside the recurrence. An RRULE says when something happens and never
-how long it lasts.
+`start` supplies `DTSTART` in the form accepted by `parseRRule`. `duration`
+specifies the length of each occurrence. In a calendar entry, represent that
+length with `DTEND` or `DURATION`, separately from the RRULE.
 
 A rule naming a zone carries it on the result as `zone`, for the `TZID`
 parameter on `DTSTART`.
 
-### Where it begins
+<a id="where-it-begins"></a>
 
-Every recurrence begins at DTSTART. A rule need not begin anywhere (a rule
-about Mondays is about every Monday there has ever been). The start comes from
-one of two places:
+### Choose the recurrence start
+
+An exported recurrence requires `DTSTART`, even when the Quando rule has no
+start date. The exporter uses:
 
 - The rule's own lower bound, from `onOrAfter` or `datesBetween`.
 - The `start` option, for a rule that has no bound of its own.
 
-A rule with neither comes back with `ok: false`. Choosing a date quietly would
-drop every occurrence before it.
+If neither is supplied, the exporter returns `ok: false`.
 
-That start is where the search begins, and DTSTART is the first day from there
-that the rule covers. RFC 5545 leaves a recurrence set undefined when DTSTART
-falls outside it. Bound the Mondays from a Tuesday and the recurrence begins on
-the Monday after:
+The exporter searches from that date and sets `DTSTART` to the first covered
+date. RFC 5545 requires the recurrence pattern to agree with `DTSTART`. In
+this example, a Monday rule bounded from Tuesday starts on the next Monday:
 
 ```ts
 const fromTuesday = toRRule(onOrAfter("2026-03-03").and(daysOfWeek("monday")));
@@ -166,13 +163,15 @@ if (fromTuesday.ok) {
 }
 ```
 
-A rule covering nothing from that day onwards has no first occurrence, and
-comes back with `ok: false`.
+If the rule has no occurrence from the search start onward, the exporter
+returns `ok: false`.
 
-### Whole periods written out
+<a id="whole-periods-written-out"></a>
 
-`everyNthPeriod` covers whole periods, and a recurrence names the occurrences within
-one. So a cycle with no day named has its days written out.
+### Export whole calendar periods
+
+`everyNthPeriod` covers each selected period in full. The exporter lists all
+covered days when the rule has no narrower day selection:
 
 ```ts
 const fortnight = everyNthPeriod(2, "weeks", { anchor: "2026-03-02" });
@@ -191,10 +190,12 @@ if (whole.ok && mondays.ok) {
 `WKST` is written when a cycle of weeks turns over on a day other than Monday,
 which is the day RFC 5545 assumes.
 
-### What has no recurrence
+<a id="what-has-no-recurrence"></a>
 
-`ok` is `false` when a rule says something no recurrence can. `reason` names
-what stopped it.
+### Unsupported conversions
+
+The exporter returns `ok: false` with a `reason` when the rule cannot be
+represented as a recurrence:
 
 | The rule                              | Why a recurrence has no form for it               |
 | ------------------------------------- | ------------------------------------------------- |
@@ -206,8 +207,8 @@ what stopped it.
 
 ## Time zones
 
-A recurrence runs on one clock. Name it, and the whole rule is read on that
-clock whatever zone the query uses:
+Pass `zone` to evaluate the recurrence in a fixed time zone, regardless of
+the query context's zone:
 
 ```ts
 const tokyoStandup = parseRRule("FREQ=WEEKLY;BYDAY=MO", {
@@ -218,29 +219,23 @@ const tokyoStandup = parseRRule("FREQ=WEEKLY;BYDAY=MO", {
 
 Without a zone the rule follows the query context, the same as any other rule.
 
-`UNTIL` bounds by whole days, and RFC 5545 writes it three ways.
-
-| Written            | Read as                                                               |
-| ------------------ | --------------------------------------------------------------------- |
-| `20261231`         | That calendar date                                                    |
-| `20261231T235959`  | That calendar date. No `Z` means local time                           |
-| `20261231T235959Z` | An instant, converted to the day it falls on in the recurrence's zone |
-
-So a bound of `20260314T230000Z` is the 15th in Tokyo, and `20260314T230000`
-is the 14th wherever it is read.
+Use date-only `UNTIL` values such as `20261231`. The final date is included
+in the recurrence's effective time zone. Timestamp forms such as
+`20261231T235959` and `20261231T235959Z` are rejected.
 
 ## Errors
 
-A malformed recurrence throws a `TypeError` naming the part at fault:
+A malformed recurrence throws `ParseError`, a subclass of `TypeError`, naming
+the part at fault:
 
 ```ts
 parseRRule("FREQ=HOURLY", { start: "2026-03-09" });
-// TypeError: FREQ: HOURLY recurs faster than a day, and a rule steps through
+// ParseError: FREQ: HOURLY recurs faster than a day, and a rule steps through
 // calendar periods
 
 parseRRule("FREQ=WEEKLY;BYDAY=1MO", { start: "2026-03-09" });
-// TypeError: BYDAY: an ordinal countIntervals a weekday within a month, so it needs
-// FREQ=MONTHLY
+// ParseError: BYDAY: an ordinal counts a weekday within a month, so it needs
+// FREQ=MONTHLY or FREQ=YEARLY with BYMONTH
 ```
 
 <!-- card

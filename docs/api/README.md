@@ -1,8 +1,13 @@
+---
+description: "Reference for Quando's public functions and TypeScript types."
+---
+
 # API reference
 
-Import ordinary application APIs from `@kensio/quando`. Advanced cascade and
-interval operations live in `@kensio/quando/core`, which also exports the root
-API. `@kensio/quando/parsing` provides document and value parsers.
+Import schedules, rotas, tallies, and common rule operations from
+`@kensio/quando`. Use `@kensio/quando/core` for lower-level cascade and
+interval operations (it also exports the root API). Document and value parsers
+are available from `@kensio/quando/parsing`.
 
 ## Shared types and options
 
@@ -24,12 +29,13 @@ All instants are `Temporal.ZonedDateTime`. Windows include their start and
 exclude their end. Public type names are exported beside the functions that
 use them. Concrete rule-node types and calendar-name unions are also exported.
 
-`Search` has `within?: DurationInput`, `intervalEnd?: "clipped" | "complete"`,
-and `endWithin?: DurationInput`. The latter two control interval queries.
-An explicit start-search limit returns `undefined` when no answer fits. An
-unspecified limit uses `DEFAULT_SEARCH_LIMIT` (100 years) and throws
-`SearchLimitExceededError` if exhausted. A complete-end search always throws
-if it cannot establish the end within its limit.
+`Search.within` limits the search for a result. If an explicit limit expires,
+the query returns `undefined`. Without one, `DEFAULT_SEARCH_LIMIT` allows
+100 years before throwing `SearchLimitExceededError`.
+
+For interval queries, `intervalEnd` selects `"clipped"` or `"complete"`.
+`endWithin` limits the additional search for a complete interval end. Failure
+to find that end always throws `SearchLimitExceededError`.
 
 ## Schedules
 
@@ -145,7 +151,7 @@ outcome or throw `UnresolvedOutcomeError` with the outcome and search limit. See
 ## Constraints
 
 `atMostOccurrences(count, { per, zone? })` limits calendar-bucket counts.
-Use `{ within, zone? }` for a rolling window. `per` uses singular names: `"day"`,
+Use `{ within, zone? }` for a rolling window. `per` accepts `"day"`,
 `"week"`, `"month"`, or `"year"`. `atMostOccupiedTime(amount, options)` limits
 occupied elapsed time. `minimumGap(duration)` measures end-to-start spacing.
 
@@ -159,7 +165,8 @@ and `explanation`, or `undefined`. Missing history throws
 `explainRule(rule, at, options?)` returns a `RuleExplanation` with `status`,
 `description`, and child `conditions`. Status is `"matched"`, `"unmatched"`,
 or `"unknown"`. Domain explanations expose `value`, short `summary`, full
-`details`, `steps`, and `skipped`. Unknown domain values throw.
+`details`, `steps`, and `skipped`. Unknown domain values throw
+`BeyondHorizonError`.
 
 `validate(source, window, { requireFullCoverage? })` returns diagnostics with
 `code`, `message`, `severity`, and the evaluated `window`. Layer findings also
@@ -205,8 +212,9 @@ it can establish the requested window's result. A finite callback is valid too.
 | `isDistribution`                                   | Narrow an estimate to a distribution              |
 | `naturalOrder`                                     | Comparator for supported naturally ordered values |
 
-`Estimate<V>` is `Possibilities<V> | Distribution<V>`. A possibilities value
-such as `[1, 3]` does not contain 2. See [uncertainty](../uncertainty/).
+`Estimate<V>` is `Possibilities<V> | Distribution<V>`. Each lists discrete
+outcomes. For example, `possibilities([1, 3])` contains only 1 and 3. It does
+not include 2. See [uncertainty](../uncertainty/).
 
 ## Comparison and core operations
 
