@@ -1,7 +1,12 @@
+---
+description: "Combine values from every matching Quando layer with a merge strategy."
+---
+
 # Merging values
 
-A cascade normally uses layer priority. The last matching layer supplies the
-value. A merge strategy combines every matching value instead.
+A merge strategy combines values from all matching layers. Use it to add
+staffing counts, select minimum or maximum values, or combine lists. The
+default `override` strategy uses the last matching layer's value.
 
 Use a [tally](#count-with-a-tally) for counts. Use `merged` when you need direct
 access to the low-level strategies.
@@ -100,17 +105,16 @@ The value on Wednesday is `["alice", "bob"]`.
 
 ## Replacement and merging
 
-A replacement layer owns its whole scope. Values from lower layers do not
-participate in that region. Layers above the replacement still merge with its
-result.
+A replacement layer removes lower layers from its selected period. The
+replacement's result still merges with values from higher layers.
 
 A nested replacement cascade uses its own strategy. This lets an outer
 `sum` cascade contain a replacement that uses `max`, for example.
 
 ## Validation
 
-TypeScript connects each strategy to its value type. `sum`, `max`, and
-`min` accept numbers. `concat` accepts arrays.
+Each strategy requires a compatible value type. TypeScript checks that
+`sum`, `max`, and `min` receive numbers and that `concat` receives arrays.
 
 Runtime validation applies the same rules to raw layers and parsed documents.
 Invalid values fail when the cascade is constructed or parsed:

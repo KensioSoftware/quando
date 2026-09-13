@@ -1,11 +1,16 @@
+---
+description: "Inspect a Quando result and the rules that contributed to it."
+---
+
 # Explain a result
 
-An explanation says what a schedule, rota, tally, or cascade resolved to, why
-its contributing rules applied, and why other rules did not.
+An explanation shows the result at one instant and how the rules produced it.
+It includes contributing layers and layers that were skipped.
 
-`summary` gives one result sentence. `details` contains the full readable trace,
-including labels and skipped layers. `steps` and `skipped` retain the structured
-trace. Domain explanations throw `BeyondHorizonError` when the value is unknown.
+Read `summary` for a single result sentence or `details` for the full text.
+Use `steps` and `skipped` when building your own display from structured data.
+Schedule, rota, and tally explanations throw `BeyondHorizonError` if the value
+is unknown.
 
 ## Read an explanation
 
@@ -34,13 +39,13 @@ Quando produces this text from the rules, their priority, and the instant being
 explained. It describes day-of-week, date, time-of-day, zone, calendar, set
 operations, replacement, and merge behaviour without caller-written text.
 
-A rule under `inZone` or `inCalendar` is explained the way it is evaluated. The
-account of `daysOfMonth(1)` inside `inCalendar("hebrew", ...)` reads the Hebrew
-day of the month, and the wrapper says which calendar that was.
+Explanations use the rule's effective zone and calendar. For example,
+`daysOfMonth(1)` inside `inCalendar("hebrew", ...)` describes the Hebrew day
+of the month and identifies the calendar.
 
-`explanation.value` contains the same result as `isOpen`. A schedule always
-returns `true` or `false`. An unmatched schedule is closed and its details
-describes why each candidate layer did not apply.
+For a schedule, `explanation.value` matches `isOpen` and is `true` or `false`.
+If no layer matches, the schedule is closed. The details explain why each
+candidate layer was skipped.
 
 ## Add business context
 

@@ -1,6 +1,10 @@
+---
+description: "Write Quando rules as text expressions using calendar terms and time ranges."
+---
+
 # Terms
 
-A rule can be written as a line of terms instead of built from functions.
+Use `parseRuleExpression` to create a rule from a short text expression:
 
 ```ts
 import { parseRuleExpression } from "@kensio/quando";
@@ -8,15 +12,16 @@ import { parseRuleExpression } from "@kensio/quando";
 parseRuleExpression("mon-fri 09:00-17:00 @Europe/London");
 ```
 
-The notation is whitespace-separated and additive. Each term says one more
-thing that has to hold, and the order they are written in never matters. Every
-line is a shorthand for the builders, so the object API says everything a line
-says and a good deal besides.
+Separate terms with spaces. Each term adds a condition, and every condition
+must match. Term order has no effect. The parser returns the same rule objects
+as the builders, which also support more complex combinations.
 
-## Terms narrow, commas widen
+<a id="terms-narrow-commas-widen"></a>
 
-This is the whole model, and cron found it first. A term between spaces is
-another condition to meet. A comma inside one term offers alternatives.
+## Combine conditions and alternatives
+
+Spaces combine conditions with AND. Commas within a term combine alternatives
+with OR:
 
 ```ts
 parseRuleExpression("mon-fri 09:00-17:00");
@@ -26,15 +31,16 @@ parseRuleExpression("sat,sun");
 // daysOfWeek("saturday", "sunday")
 ```
 
-So `09:00-12:00,14:00-17:00` is a morning and an afternoon with lunch between
-them. Written as two terms it asks for the times inside both windows, which is
-no time at all.
+`09:00-12:00,14:00-17:00` covers the morning or the afternoon, with a lunch
+break between them. `09:00-12:00 14:00-17:00` requires both ranges to match
+at once and therefore covers no time.
 
-## A line is one conjunction
+<a id="a-line-is-one-conjunction"></a>
 
-"Weekdays nine to five, Saturdays ten to two" is two rules, and a schedule is
-what holds two. The notation has no separator of its own, and the cascade does
-the work:
+## Combine separate expressions in a schedule
+
+Use separate schedule calls for alternatives with different conditions. For
+example, weekday hours and Saturday hours need separate expressions:
 
 ```ts
 const shop = schedule({ zone: "Europe/London" })
@@ -51,13 +57,15 @@ shop.nextOpenInterval(saturdayTea)?.start?.toString();
 // 2026-03-16T09:00:00+00:00[Europe/London]
 ```
 
-Anywhere a schedule, rota or tally takes a rule it takes a line, so `open`,
-`closed` and `setHours` all read one.
+Schedule, rota, and tally methods accept these expressions wherever they
+accept a rule. This includes `open`, `closed`, and `setHours`.
 
-## The terms
+<a id="the-terms"></a>
 
-Some terms are known by their shape. A time holds a colon, a date opens with
-four digits, and a weekday is letters.
+## Supported terms
+
+The parser recognises weekday names, dates, time ranges, and the other forms
+listed below:
 
 | Written                  | Means                                            |
 | ------------------------ | ------------------------------------------------ |
@@ -73,9 +81,8 @@ four digits, and a weekday is letters.
 | `2026-07-01..2026-08-31` | a stretch, open at either end if one is left off |
 | `@Europe/London`         | the clock the whole line is read on              |
 
-A term whose meaning would depend on where it was written takes a qualifier.
-`15` reads as the fifteenth of the month and as three in the afternoon, and the
-qualifier is what settles which.
+Use a prefix when a value could have several meanings. For example, `day:15`
+selects the fifteenth day of the month:
 
 | Written               | Means                                         |
 | --------------------- | --------------------------------------------- |
@@ -87,17 +94,19 @@ qualifier is what settles which.
 | `except:2026-12-25`   | whatever the term after it covers, taken away |
 | `holidays:gb`         | a custom rule, and the options it is given    |
 
-`every` counts in `d`, `w`, `mo` or `y`. It refuses `m`, which reads as minutes
-as often as months.
+The period units for `every` are `d` (days), `w` (weeks), `mo` (months), and
+`y` (years). The ambiguous abbreviation `m` is rejected.
 
-The anchor on `every` is always written out. Every other term means the same
-thing wherever it appears, and a cycle with an implied anchor would name
-different weeks depending on when the line was read.
+`every` requires an explicit anchor date after `@`. The anchor determines
+which periods match, independently of when the expression is parsed.
 
-## A term it cannot read is refused
+<a id="a-term-it-cannot-read-is-refused"></a>
 
-The notation takes a word in whatever case it arrives, in full or abbreviated,
-with or without a leading zero. A term it cannot make sense of stops it.
+## Invalid expressions
+
+Names are case-insensitive and accept their supported full or abbreviated
+forms. Numeric terms accept leading zeros. An unrecognised term causes the
+whole expression to fail:
 
 ```ts
 parseRuleExpression("weekdays excpet:2026-12-25");
@@ -108,19 +117,18 @@ parseRuleExpression("weekdys 09:00-17:00");
 // RangeError: Term 1: cannot read "weekdys". Did you mean "weekdays"?
 ```
 
-Dropping a term would give a rule that runs, covers the wrong time, and says
-nothing about it. A shop open on Christmas is the failure to avoid here, and
-nobody finds out until somebody turns up.
+The error identifies the term and may suggest a correction. The parser never
+silently discards an invalid condition.
 
 ## Limits
 
-A line is a conjunction of terms, and the rule language is larger than that. A
-line has no nesting, so `any(all(a, b), all(c, d))` goes in layers on a
-schedule. `except:` takes away a single term, never a group.
+Expressions support one flat set of conditions. Use the builders or separate
+schedule layers for nested combinations such as `any(all(a, b), all(c, d))`.
+`except:` excludes a single term.
 
-There is no writer yet. [`toCron`](../cron/) and [`toRRule`](../recurrence/)
-both write back the notation they read, and a line does not. For storage reach
-for [JSON](../serialisation/), which holds every rule there is.
+Quando cannot convert a rule back to this text syntax. Store complete rule
+definitions as [JSON](../serialisation/). [`toCron`](../cron/) and
+[`toRRule`](../recurrence/) export the subsets those formats support.
 
 <!-- card
 ```ts

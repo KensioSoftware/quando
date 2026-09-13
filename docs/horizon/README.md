@@ -1,7 +1,12 @@
+---
+description: "Declare how far Quando rules are known and detect queries beyond that horizon."
+---
+
 # Horizons
 
-Ask most schedule libraries whether you are open on a Tuesday in 2029 and they
-answer yes, because it is a Tuesday. Nobody has loaded 2029's holidays.
+A knowledge horizon marks the last date for which a rule has complete data.
+Use it when a schedule depends on a holiday list or another dataset that only
+covers a limited period.
 
 ```ts
 import {
@@ -21,15 +26,17 @@ const holidays = knownThrough("2026-12-31", dates("2026-12-25"));
 const open = all(weekdays(), not(holidays));
 ```
 
-`knownThrough` says how far a subtree counts as evidence. The named day is
-included, the way it is in [`onOrBefore`](../rules/). Inside the horizon
-everything answers the way it always did.
+`knownThrough` applies a horizon to the rule it wraps. The named date is
+included, as it is in [`onOrBefore`](../rules/). In this example, the holiday
+list is complete through 31 December 2026. Queries within that period evaluate
+normally.
 
 ```ts
 isActiveAt(open, at("2026-03-09T10:00")); // true
 ```
 
-Past the horizon a query refuses.
+A query throws `BeyondHorizonError` if its answer depends on the holiday list
+past that date:
 
 ```ts
 isActiveAt(open, at("2029-04-03T10:00"));
@@ -38,23 +45,30 @@ isActiveAt(open, at("2029-04-03T10:00"));
 // runs out, or widen the horizon the rules declare.
 ```
 
-## The refusal is narrow
+<a id="the-refusal-is-narrow"></a>
 
-A missing holiday cannot open a weekend. A Saturday past the same horizon still
-gets an answer.
+## Answers that remain known
+
+The schedule requires a weekday. A Saturday is therefore closed even when its
+holiday status is unknown:
 
 ```ts
 isActiveAt(open, at("2029-04-07T10:00")); // false
 ```
 
-Quando refuses only where the missing data could have changed what came back.
-Every rule carries two bounds through evaluation, the times it certainly covers
-and the times it might, and unknown is the gap between them. `all` intersects
-both bounds, `any` unions both, and `not` swaps them.
+Quando throws only when missing data could change the answer. During
+evaluation, it tracks the time a rule certainly covers and the time it might
+cover. The difference is unknown coverage. `all` intersects these bounds,
+and `any` unions them. For `not`, certain coverage is everything outside the
+inner rule's possible coverage. Possible coverage is everything outside its
+certain coverage.
 
-## Reading where the answer runs out
+<a id="reading-where-the-answer-runs-out"></a>
 
-`unknownIntervals` returns the stretches that fall between the two bounds.
+## Find periods with unknown coverage
+
+`unknownIntervals` returns the periods where the available data cannot
+determine whether the rule applies:
 
 ```ts
 const week = { from: at("2029-04-02T00:00"), to: at("2029-04-09T00:00") };
@@ -63,15 +77,17 @@ const week = { from: at("2029-04-02T00:00"), to: at("2029-04-09T00:00") };
 // [{ start: 2029-04-02T00:00, end: 2029-04-07T00:00 }]
 ```
 
-That week runs Monday to Monday, and only the five weekdays come back. The
-weekend is settled. For a rule with no horizon anywhere in it, `unknownIntervals` is
-always empty.
+The query window runs from Monday to Monday. Only the five weekdays have
+unknown coverage because the weekend is known to be closed. A rule with no
+horizons has no unknown intervals.
 
-## A table declares its own horizon
+<a id="a-table-declares-its-own-horizon"></a>
 
-The realistic case lives in the registry. A stored schedule names a holiday
-table without knowing how far that table was loaded, and the code holding it
-knows exactly.
+## Declare a horizon on a custom rule
+
+A custom rule can declare the horizon of the dataset it reads. The stored
+schedule then refers to the rule by name, while the registry supplies both the
+data and its horizon:
 
 ```ts
 const holidayTable: CustomRuleType = {
@@ -87,16 +103,22 @@ isActiveAt(schedule, at("2029-04-03T10:00"), {
 // BeyondHorizonError
 ```
 
-`knownThrough` is optional. A rule type without one vouches for all of time, which is
-what every rule type did before horizons existed.
+The `knownThrough` callback is optional. Without it, Quando treats the custom
+rule's answers as known for all dates.
 
-## A horizon is not a scope
+<a id="a-horizon-is-not-a-scope"></a>
 
-`onOrBefore("2026-12-31")` makes a subtree cover no time past that date. That
-is a confident answer of "no". A horizon says there is no answer at all. The
-two are different, and the difference is the whole reason the rule type exists.
+## Date bounds and knowledge horizons
 
-## Explanations carry the third state
+`onOrBefore("2026-12-31")` excludes all time after that date. Use it when a
+schedule ends on a known date.
+
+`knownThrough("2026-12-31", rule)` leaves later coverage unknown. Use it when
+the rule's data ends on that date but the schedule may continue.
+
+<a id="explanations-carry-the-third-state"></a>
+
+## Read unknown status in explanations
 
 ```ts
 const account = explainRule(open, at("2029-04-03T10:00"));
@@ -112,8 +134,8 @@ Read it before presenting an answer.
 
 ## Storage
 
-A horizon is ordinary data. It stores, travels and canonicalises with the rest
-of the rule.
+A horizon is part of the rule's JSON data. It is preserved during storage,
+parsing, and canonicalisation:
 
 ```json
 {
@@ -123,15 +145,14 @@ of the rule.
 }
 ```
 
-[`toCron`](../cron/) and [`toRRule`](../recurrence/) both refuse a rule
-carrying one, and say why. Each notation states a recurrence as though it held
-forever, and writing the rule out would drop the horizon.
+[`toCron`](../cron/) and [`toRRule`](../recurrence/) return `ok: false` for a
+rule with a knowledge horizon. Neither format can preserve unknown coverage.
 
 ## Cascades
 
-A cascade assigns values, and unknown inside one means not knowing _which_
-value holds. `unknownValueIntervals` returns the stretches it cannot settle, and
-`resolve` leaves them out rather than picking one of the answers.
+A cascade has an unknown result when missing data could change its assigned
+value. `unknownValueIntervals` returns those periods. `resolve` omits them
+from its output.
 
 ```ts
 const schedule = {
@@ -149,15 +170,15 @@ valueAt(schedule, at("2029-04-03T10:00"));
 // BeyondHorizonError: valueAt() cannot answer for 2029-04-03T10:00:00 …
 ```
 
-The whole week is unsettled here, weekend included, and that is the right
-answer rather than a coarse one. The holiday layer sits on top, so past its
-horizon it might assign `"closed"` to a Saturday that no other layer claims at
-all.
+The whole week has unknown values, including the weekend. The holiday layer
+has the highest priority. Beyond its horizon, it might assign `"closed"` on
+any date, including a Saturday that would otherwise have no assigned value.
 
-### A layer that could not have changed the answer
+<a id="a-layer-that-could-not-have-changed-the-answer"></a>
 
-Turn the same two layers the other way up and the fog goes away where a settled
-layer covers it.
+### Higher-priority layers can determine the answer
+
+Reverse the layer order to give the known weekday layer higher priority:
 
 ```ts
 const schedule = {
@@ -177,19 +198,16 @@ const schedule = {
 valueAt(schedule, at("2029-04-03T10:00")); // "open"
 ```
 
-The weekdays are settled, because the layer above the fogged one certainly
-claims them and displaces whatever it might have said. Only the weekend is left
-in doubt, which is the only part the fogged layer could still have reached.
+Weekday values are now known because the later weekday layer overrides any
+value from the holiday layer. Weekend values remain unknown because only the
+holiday layer could assign them.
 
-That precision costs nothing to arrange. The unknown travels through the fold
-as an ordinary value, and `override` keeping the later layer is already the
-right answer both ways round.
+<a id="merges-that-add-contributions-up"></a>
 
-### Merges that add contributions up
+### Unknown contributions in merged cascades
 
-`sum`, `max`, `min` and `concat` have no such luck. Every layer counts towards
-the result, so one contribution nobody can vouch for leaves the whole of it
-unsettled.
+The `sum`, `max`, `min`, and `concat` strategies use contributions from every
+matching layer. An unknown contribution makes the merged result unknown:
 
 ```ts
 const headcount = {

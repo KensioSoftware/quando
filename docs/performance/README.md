@@ -1,16 +1,19 @@
+---
+description: "How Quando evaluates rules lazily and how to measure query performance."
+---
+
 # Performance
 
-Quando evaluates rules lazily. A query takes what it needs from an interval
-stream and stops, so asking when a schedule next opens reads a few days rather
-than the year around them.
+Quando evaluates intervals as a query requests them. A search for the next
+opening stops when it finds one. A duration query evaluates the whole requested
+window.
 
-This page says what that means in practice, what the common questions cost, and
-how to measure them yourself.
+<a id="laziness-is-the-design"></a>
 
-## Laziness is the design
+## How lazy evaluation works
 
-`intervals(rule, context)` returns a stream. Nothing is computed until
-something reads it, and the query functions read as little as they can.
+`intervals(rule, context)` returns a lazy stream. Evaluation starts when the
+stream is consumed, and query functions stop reading once they have an answer.
 
 ```ts
 import { schedule, weekdays } from "@kensio/quando";
@@ -26,19 +29,22 @@ office.nextOpenInterval(
 );
 ```
 
-A context with no `to` describes an endless stream, and a query that wants one
-occurrence pulls one occurrence. Some queries need a whole window by
-definition. `openDuration`, `openDayCount` and `validate` each take a `from`
-and a `to`, and read all of it.
+Without `to`, a recurring rule can produce an endless stream. A query for the
+next occurrence reads only enough to find that occurrence. Queries such as
+`openDuration`, `openDayCount`, and `validate` require both `from` and `to`
+and evaluate the whole window.
 
-A custom rule inherits this. Its `intervals` function is handed the context and
-its result is read the same way, so a generator that yields forever is a
-reasonable thing to write. See the [rules guide](../rules/).
+Custom rules follow the same model. Their `intervals` callback receives a
+context and can return a generator whose results are read lazily. See the
+[rules guide](../rules/).
 
-## What the common questions cost
+<a id="what-the-common-questions-cost"></a>
 
-Mean times from `pnpm bench` on Node 26 with native `Temporal`, on a 2023
-laptop. Read them as orders of magnitude.
+## Example query timings
+
+These mean times were measured with `pnpm bench` on a 2023 laptop running
+Node 26 with native `Temporal`. They illustrate relative costs. Measure your
+own workload before relying on a particular timing.
 
 | Question                                       | Cost   |
 | ---------------------------------------------- | ------ |
@@ -53,25 +59,22 @@ laptop. Read them as orders of magnitude.
 | `openDuration` over a year                     | 2.9 ms |
 | Reading a stored schedule back                 | 43 µs  |
 
-Two things follow from the shape of that table.
+Window queries examine the calendar day by day, and their cost grows with the
+length of the window. Use the smallest window that answers your question.
 
-**Point queries are cheap and window queries are not.** A window query walks the
-calendar a day at a time, and its cost tracks the length of the window. Ask
-about the smallest window that answers the question.
+A `dates` rule stores its dates once. Queries use binary search to find the
+requested window in that list. Point queries therefore have similar costs for
+short and long date lists.
 
-**A long list of dates costs about what a short one costs.** A `dates` rule
-reads its dates once and keeps them, and a query bisects to the window instead
-of walking there from the first date. Twenty years of bank holidays and one
-closure next Tuesday come to much the same.
+<a id="the-polyfill-is-slower"></a>
 
-## The polyfill is slower
+## Native Temporal and the polyfill
 
-Below Node 26 there is no native `Temporal`, and
-[temporal-polyfill](https://github.com/fullcalendar/temporal-polyfill) supplies
-one. On the same benchmarks it runs about ten times slower, and closer to
-fifteen on the window queries. The shape of the table holds and the difference
-is a constant factor. See
-[getting started](../getting-started/) for how to install it.
+The same benchmarks run about ten times slower with
+[temporal-polyfill](https://github.com/fullcalendar/temporal-polyfill), and
+about fifteen times slower for window queries. The relative costs remain
+similar. Use the polyfill when your runtime lacks native `Temporal`. See
+[getting started](../getting-started/) for installation.
 
 ## Measuring it yourself
 
@@ -81,12 +84,12 @@ The repository carries a benchmark suite:
 pnpm bench
 ```
 
-It covers point queries, forward searches, window queries and document
-handling. No CI job reads the numbers, because a shared runner's timings
-describe the runner. CI checks a ratio instead. A test in `src/date-runs.test.ts`
-asserts that a point query against four thousand dates costs about what one
-against a hundred costs. That is a claim about scaling, and a slow machine
-cannot break it.
+The suite covers point queries, forward searches, window queries, and
+document handling. CI does not enforce these absolute timings.
+
+The test in `src/date-runs.test.ts` compares point-query costs for lists of
+4,000 and 100 dates. It checks how the query scales with the list size while
+allowing for differences between machines.
 
 <!-- card
 ```ts

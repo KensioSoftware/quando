@@ -1,7 +1,12 @@
+---
+description: "Limit booking counts and occupied time with Quando constraints."
+---
+
 # Constraints
 
-Constraints describe allowed time using existing occurrences. Use them to limit
-booking counts, occupied time, or the gap between bookings.
+Constraints use existing occurrences, such as bookings, to decide whether a
+proposed time is allowed. They can limit booking counts, total occupied time,
+or the gap between bookings.
 
 ## Choose what to limit
 
@@ -18,10 +23,12 @@ const sixHoursPerDay = atMostOccupiedTime({ hours: 6 }, { per: "day" });
 const oneHourApart = minimumGap({ hours: 1 });
 ```
 
-`per` starts a new calendar bucket each day, week, month, or year. Use the
-singular values `"day"`, `"week"`, `"month"`, and `"year"`. Weeks begin on Monday.
-`within` is a rolling duration. Exactly one of `per` and `within` is required.
-Add `zone` to the same options object to fix calendar boundaries to a clock.
+Use `per` for a limit that resets at calendar boundaries. Accepted values are
+`"day"`, `"week"`, `"month"`, and `"year"`. Weeks begin on Monday. Use
+`within` for a rolling duration. Supply exactly one of these options.
+
+Add `zone` to the same options object to fix the time zone used for calendar
+boundaries.
 
 `minimumGap` measures from one occurrence's end to the next one's start. It
 checks existing occurrences both before and after the proposed time. Exactly
@@ -47,10 +54,10 @@ console.log(firstBreach(limit, plan, { occurrences: [] })?.index);
 // 0
 ```
 
-Use `occurrences: []` when the existing history is empty. Omitting it throws
-`MissingOccurrencesError`. The array can include future bookings when they
-should constrain a proposed booking. Two occurrences at the same instant are
-two occurrences. Keep the history as an array.
+Always supply `occurrences`, using `[]` for empty history. Omitting it throws
+`MissingOccurrencesError`. Include future bookings when they should constrain
+the proposal. Keep entries at the same instant as separate array items if
+they represent separate occurrences.
 
 Domain methods accept the same `occurrences` option as standalone queries.
 For example, `office.isOpen(at, { occurrences: existing })` evaluates any
@@ -83,10 +90,12 @@ Use `explainRule` for a point explanation. Its `status` is `"matched"`,
 
 ## Duration meanings
 
-Occupied-time caps use elapsed time. In those caps, a day is exactly 24 hours.
-years, months, and weeks are rejected as ambiguous lengths. Occurrence
-`lasting` uses calendar addition, so a London day spanning a clock change can
-occupy 23 or 25 elapsed hours. Use hours when both lengths must be exact.
+Occupied-time caps use elapsed time. A day in a cap means exactly 24 hours.
+Years, months, and weeks are rejected because their elapsed lengths vary.
+
+An occurrence's `lasting` duration uses calendar addition. A one-day London
+booking that crosses a clock change can occupy 23 or 25 elapsed hours. Use
+hours in `lasting` when you need an exact elapsed duration.
 
 One query carries one occurrence history. Check independently constrained
 resources separately. Cron and RRULE cannot store occurrence history, so their

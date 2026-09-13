@@ -1,11 +1,16 @@
+---
+description: "Assign values to periods of time with ordered layers in Quando."
+---
+
 # Cascades
 
-A cascade assigns values to periods of time. Use it when you need more control
-than a [schedule, rota, or tally](../concepts/#choose-the-smallest-useful-api)
-provides.
+A cascade is an ordered set of rules that assign values over time. Each layer
+pairs a rule with a value. By default, the last matching layer supplies the
+value.
 
-Each layer contains a rule and a value. Later layers have higher priority by
-default.
+Use [schedules, rotas, or tallies](../concepts/#choose-the-smallest-useful-api)
+for common tasks. Use a cascade directly for custom replacement or merge
+behaviour.
 
 ## Build and resolve a cascade
 
@@ -39,15 +44,16 @@ for (const { start, end, value } of resolve(onCall, week)) {
 2026-03-12T00:00:00 → 2026-03-14T00:00:00: alice
 ```
 
-`resolve` returns a lazy stream of valued intervals. The intervals are
-ordered, non-overlapping, half-open, and reported in the context zone.
+`resolve` returns a lazy stream of intervals, each with its assigned value.
+Intervals are ordered and non-overlapping. They include their start, exclude
+their end, and use the query context's time zone.
 
 Time that has no assigned value is absent from the stream. Add an explicit
 value such as `"nobody"` if your domain needs to represent that state.
 
 The optional third argument to `layer` stores a label, a comment, or both.
-`replace` accepts the same options. Explanations combine this context with an
-automatic account of the rule match and layer effect.
+`replace` accepts the same options. Explanations include this text alongside
+the rule match and the layer's effect on the result.
 
 ## Layer order sets priority
 
@@ -82,9 +88,8 @@ const openingHours = cascade(
 );
 ```
 
-The replacement owns the whole date. It opens the office from 09:00 to 15:00
-and leaves the rest of that date closed. Lower layers do not reappear after
-15:00.
+The replacement overrides lower layers for the whole selected date. The
+office opens from 09:00 to 15:00 and is closed for the rest of that date.
 
 Passing a rule as the replacement creates a boolean cascade. Pass another
 cascade when you need a different value type:
@@ -121,8 +126,8 @@ console.log(valueAt(onCall, now));
 console.log(nextValueInterval(onCall, { from: now }));
 ```
 
-Use `assigned(cascade, value)` to select the times carrying one value. The
-result works with the common [queries](../queries/):
+Use `assigned(cascade, value)` to select periods assigned to one value. Pass
+the selection to the common [queries](../queries/):
 
 ```ts
 import { coveredDuration } from "@kensio/quando";
@@ -161,9 +166,9 @@ const stored = JSON.stringify(onCall);
 Use `parseCascade` to validate stored data and restore its types. The
 [serialisation guide](../serialisation/#cascades) shows the parser.
 
-Constant layers use a `value` field. Replacement layers use a `replace`
-field containing the nested cascade. The distinct fields preserve the
-difference between replacing a region and assigning a JSON value.
+In stored JSON, a constant layer has a `value` field. A replacement layer has
+a `replace` field containing its nested cascade. This identifies which layer
+behaviour to restore when parsing.
 
 ## Bound searches over recurring cascades
 

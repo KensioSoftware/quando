@@ -1,7 +1,11 @@
+---
+description: "Parse cron expressions into Quando rules for schedule queries."
+---
+
 # Cron expressions
 
-`parseCron` reads a cron expression as a Quando rule. Every query, combination
-and explanation then works on it the way it works on any other rule.
+`parseCron` converts a five-field cron expression to a Quando rule. You can
+query it, combine it with other rules, and explain its results.
 
 ## Read an expression
 
@@ -13,9 +17,8 @@ const batch = parseCron("0 6 * * 1-5");
 
 That rule covers 06:00 until 06:01 on Monday through Friday.
 
-Cron fires at an instant and a Quando rule covers time, so a firing time
-becomes the minute that starts there. This is what lets the ordinary queries
-answer questions about a schedule of runs.
+Quando represents each cron firing as a covered minute beginning at the
+scheduled time. Its interval queries can then find and measure those minutes.
 
 ```ts
 import { nextCoveredInterval } from "@kensio/quando";
@@ -36,13 +39,13 @@ const shutdown = dates("2026-04-03", "2026-04-06");
 const running = parseCron("0 6 * * 1-5").except(shutdown);
 ```
 
-Reading the next five runs from 30 March 2026 gives the Monday, Tuesday,
-Wednesday and Thursday of that week, and then the Tuesday after Easter. Good
-Friday and Easter Monday are gone.
+The next five runs from 30 March 2026 are Monday through Thursday of that
+week, followed by Tuesday after Easter. The supplied exceptions exclude Good
+Friday and Easter Monday.
 
 ## The fields
 
-Five fields, separated by spaces.
+An expression contains five fields separated by spaces:
 
 | Position | Field        | Range             |
 | -------- | ------------ | ----------------- |
@@ -60,24 +63,24 @@ any case. Sunday is both `0` and `7`.
 
 ## Both day fields
 
-A day of the month and a day of the week both restricted means a run happens
-when **either** matches.
+When both day fields are restricted, a date matches if either its day of the
+month or its weekday matches:
 
 ```ts
 parseCron("0 0 13 * 5");
 ```
 
-That runs on the 13th of the month and on every Friday. Reading it as Friday
-the 13th is the common mistake. POSIX specifies the union, and every cron in
-wide use follows it.
+This runs on the 13th of each month and on every Friday. It does not mean
+Friday the 13th. Quando combines the two day fields with OR.
 
-A star leaves a field open. A field naming every day restricts it, so
-`0 0 13 * 0-6` runs every day.
+Only `*` makes a field unrestricted. An explicit range still counts as a
+restriction, even if it lists every value. For example, `0 0 13 * 0-6` matches
+every day through its weekday field.
 
 ## Write a rule out
 
-`toCron` goes the other way. Cron says less than a rule can, so the answer is
-an expression or the reason there is none.
+`toCron` converts a supported rule to a cron expression. It returns `ok: true`
+with the expression, or `ok: false` with a reason if conversion is unsupported.
 
 ```ts
 import { timeOfDayRange, toCron, weekdays } from "@kensio/quando";
@@ -88,17 +91,18 @@ if (written.ok) {
 }
 ```
 
-A rule covering more than a minute at a time comes out as every minute of it.
-Office hours become `* 9-16 * * *`. That matches the reading an expression gets
-on the way in, where a run covers the minute it starts in.
+A rule covering several minutes exports a firing for every covered minute.
+For example, 09:00–17:00 becomes `* 9-16 * * *`. Parsing this expression
+restores the same minute-based coverage.
 
-A rule naming a zone carries it on the result as `zone`. Cron has no field for
-one, and the daemon has to be told some other way.
+If the rule specifies a time zone, the result includes `zone`. Configure the
+cron runner with this zone separately because it has no field in the expression.
 
-### What has no expression
+<a id="what-has-no-expression"></a>
 
-`ok` is `false` when cron has no way to say what the rule says. `reason` names
-what stopped it.
+### Unsupported conversions
+
+Inspect `reason` when the result has `ok: false`:
 
 ```ts
 const written = toCron(daysOfMonth(13).and(daysOfWeek("friday")));
@@ -106,8 +110,8 @@ const written = toCron(daysOfMonth(13).and(daysOfWeek("friday")));
 // together, and cron reads two restricted day fields as either one matching
 ```
 
-Friday the 13th is the sharpest case. The expression that looks right,
-`0 0 13 * 5`, is the union, and it fires on about five days a month.
+A rule requiring Friday the 13th cannot be exported. The expression
+`0 0 13 * 5` would also run on other Fridays and other thirteenths:
 
 | The rule                                 | Why cron has no form for it                        |
 | ---------------------------------------- | -------------------------------------------------- |
@@ -133,8 +137,8 @@ Friday the 13th is the sharpest case. The expression that looks right,
 
 ## Time zones
 
-A cron daemon runs on one clock. Name it, and the rule is read on that clock
-whatever zone the query uses:
+Pass `zone` to evaluate the expression in a fixed time zone, regardless of
+the query context's zone:
 
 ```ts
 const tokyoBatch = parseCron("0 9 * * *", { zone: "Asia/Tokyo" });
@@ -158,7 +162,7 @@ parseCron("0 22-6 * * *");
 
 ## Limits
 
-The five-field POSIX dialect only.
+Quando supports the five-field POSIX dialect. It rejects:
 
 - Six and seven field forms. A sixth field is seconds in one dialect and a year
   in another, and there is no way to tell them apart.
@@ -169,8 +173,8 @@ The five-field POSIX dialect only.
 
 For calendar recurrences, see [recurrence rules](../recurrence/).
 
-An expression comes back from `toCron` in values and ranges. Steps such as
-`*/15` are read on the way in and written out as `0,15,30,45`.
+`toCron` writes explicit values and ranges. It expands steps such as `*/15`
+to `0,15,30,45`.
 
 <!-- card
 ```ts

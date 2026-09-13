@@ -2,11 +2,9 @@
 #
 # The contract quandojs.dev's scaffold expects of `docs/`, checked here.
 #
-# That site copies each `docs/<path>/README.md` to a page, lifts the H1 into the
-# title, and reads a trailing `<!-- card -->` comment for the snippet on the
-# page's social image. A page missing either one fails the scaffold — which
-# happens in the *other* repo, at deploy time, long after the change that broke
-# it. This runs on every `pnpm check` so it fails in review instead.
+# The site reads a page title, a frontmatter description, and a trailing
+# `<!-- card -->` snippet from each `docs/<path>/README.md`. This check runs
+# before publication and rejects pages with missing metadata.
 #
 # The docs root README is deliberately exempt: it is an index for people
 # browsing this repo on GitHub, and the site has its own home page, so the
@@ -40,6 +38,17 @@ while IFS= read -r page; do
 
   grep --quiet --extended-regexp '^# .+' "$page" ||
     fail "no H1. The site lifts it into the page title."
+
+  # Social descriptions are declared in each page's frontmatter.
+  perl -0777 -ne '
+    my ($frontmatter) = /\A---\r?\n(.*?)\r?\n---/s;
+    my ($description) = ($frontmatter // "") =~ /^description:[ \t]*(.+)$/m;
+    $description //= "";
+    $description =~ s/^([\x27"])(.*)\1$/$2/;
+    $description =~ s/^\s+|\s+$//g;
+    exit(length($description) > 0 && length($description) <= 160 ? 0 : 1);
+  ' "$page" ||
+    fail "no description of 1 to 160 characters in frontmatter."
 
   # The same pattern scaffold-docs.mts matches with: an HTML comment opening
   # with `card`, wrapping one fenced block.

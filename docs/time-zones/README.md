@@ -1,7 +1,12 @@
+---
+description: "Evaluate Quando rules in named time zones and handle daylight saving transitions."
+---
+
 # Time zones
 
-Quando evaluates local dates and times in a named time zone. The zone comes
-from the query context, a schedule, or an explicit rule.
+Quando evaluates local dates and times in a named time zone. A rule uses the
+query context's zone unless a schedule or an explicit rule wrapper supplies
+one.
 
 ## The context supplies the default zone
 
@@ -34,8 +39,8 @@ console.log([...intervals(officeHours, tokyoDay)][0]?.start?.toString());
 
 Both intervals begin at 09:00 local time. They represent different instants.
 
-A `Context` has no separate zone field. The zone on `from` is the source of
-the default.
+Set the context's default zone through `from`. `Context` has no separate
+zone field.
 
 ## Fix a rule to one zone
 
@@ -58,7 +63,7 @@ nearest explicit zone applies to that subtree.
 
 ## Give a schedule a zone
 
-Schedules provide the same default at the domain level:
+Set `zone` when constructing a schedule to fix its opening hours to that zone:
 
 ```ts
 import { schedule, weekdays } from "@kensio/quando";
@@ -145,8 +150,8 @@ clock-change date.
 
 ## Zone validation
 
-Rule builders, `schedule`, and parsers validate zone names immediately. An
-unknown zone throws at the authoring or parsing boundary.
+Rule builders, `schedule`, and parsers validate zone names when called. An
+unknown zone causes an error when the definition is created or parsed.
 
 <!-- card
 ```ts

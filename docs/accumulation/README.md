@@ -1,7 +1,12 @@
+---
+description: "Calculate totals from numeric values over time with Quando."
+---
+
 # Accumulating values over time
 
-Accumulation totals numeric values such as staffing, rates, or usage over a
-finite time window.
+Accumulation multiplies each numeric value by the time it applies, then adds
+the results within a finite window. Use it to calculate totals such as
+staff-hours or usage charges.
 
 ## Total a tally
 
@@ -25,13 +30,12 @@ const staffHours = staff.totalBetween(monday, nextMonday, "hour");
 The result is `136`. Three people work forty hours and two extra people work
 eight hours on Wednesday.
 
-The last argument names the elapsed-time unit used in the result. Accepted
-units range from `"hour"` down to `"nanosecond"`. The explicit unit keeps a
-plain number meaningful wherever it is stored or displayed.
+The last argument sets the elapsed-time unit. With `"hour"`, the result is
+136 staff-hours. Accepted units range from `"hour"` down to `"nanosecond"`.
 
 ## Accumulate a numeric cascade
 
-Use `accumulate` with a numeric cascade when you work below the tally API:
+Use `accumulate` to total a numeric cascade directly:
 
 ```ts
 import { accumulate, dates, timeOfDayRange, weekdays } from "@kensio/quando";
@@ -65,8 +69,8 @@ Counting whole days is a separate query. `coveredDayCount` and
 a 23-hour day is one of them. See the
 [queries guide](../queries/#count-whole-covered-days).
 
-Every accumulation needs a `to` value. An open-ended recurring value could
-continue forever, so it has no finite total.
+Every accumulation requires a finite end time (`to`). An unbounded recurring
+value may have no finite total.
 
 `tally({ zone: "Europe/London" })` fixes contribution scopes to that clock.
 All tally queries accept evaluation settings, including occurrence history.
