@@ -8,21 +8,22 @@
  * that needed more would not be a sweep.
  */
 
+/** Any value other than `null` or `undefined`. */
+type Present = string | number | bigint | boolean | symbol | object;
+
 /**
  * `T` excludes `null` and `undefined` deliberately: `peek` uses `undefined` to
  * mean exhausted, so a sequence that could yield `undefined` as a value would
  * be indistinguishable from one that had ended.
  */
-export interface Peekable<T extends NonNullable<unknown>> {
+export interface Peekable<T extends Present> {
   /** The next item without consuming it, or `undefined` once exhausted. */
   readonly peek: () => T | undefined;
   /** Consume the item last peeked, so the next `peek` moves on. */
   readonly drop: () => void;
 }
 
-export function peekable<T extends NonNullable<unknown>>(
-  source: Iterable<T>,
-): Peekable<T> {
+export function peekable<T extends Present>(source: Iterable<T>): Peekable<T> {
   const iterator = source[Symbol.iterator]();
   let buffered: T | undefined;
   let buffering = false;
